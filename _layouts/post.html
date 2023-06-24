@@ -26,12 +26,12 @@ layout: default
   <div class="post-content e-content" itemprop="articleBody">
     {{ content }}
 
-    <script src="https://utteranc.es/client.js" repo="https://github.com/ajing/ajing.github.io" issue-term="pathname"
-      theme="github-light" crossorigin="anonymous" async>
-      </script>
-
     {% include navlinks.html %}
   </div>
 
   <a class="u-url" href="{{ page.url | relative_url }}" hidden></a>
 </article>
+
+{% if site.comments_repo %}
+{% include comments.html %}
+{% endif %}
