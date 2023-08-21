@@ -30,9 +30,21 @@ For a LLM task on a GPT architecture, we can reduce the dimensionality of the at
 ![Simplified LLM inference.](/images/2208/precompute.png "image_tooltip")
 
 
-## Tokenizer
+Tokenizer is also a big factor to improve the latency. The HuggingFace tokenizers package uses the Rust implementation of the model tokenizer in combination with smart caching to achieve a speedup of up to 10x for overall latency.
 
-The HuggingFace tokenizers package uses the Rust implementation of the model tokenizer in combination with smart caching to achieve a speedup of up to 10x for overall latency.
+## FastAttention
+
+When the FastAttention paper came out, GPT-3.5-turbo could handle a context length of 16K, while GPT-4 could handle about 33K. FastAttention makes training faster (by 3 times) and lets models handle longer sequences. The token length by using this method is up to 16K. While the original method used memory based on the square of the sequence length, FastAttention uses memory in direct proportion to the sequence length.
+
+The FastAttention paper is inspired by differences in memory types. HBM has about 1,000 times more capacity than SRAM, but SRAM is only about 10 times faster. So, it's more efficient to store data in SRAM, do a lot of processing there, and only move data to DRAM when necessary.
+
+![original](/images/2208/original.png "image_tooltip")
+
+
+![tiling](/images/2208/tiling.png "image_tooltip")
+
+## FastAttention v2
+
 
 # Reference:
 
@@ -47,3 +59,5 @@ The HuggingFace tokenizers package uses the Rust implementation of the model tok
 [5]https://kipp.ly/blog/transformer-inference-arithmetic/#kv-cache
 
 [6]https://github.com/ray-project/llm-numbers#1-mb-gpu-memory-required-for-1-token-of-output-with-a-13b-parameter-model
+
+[7]FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness
