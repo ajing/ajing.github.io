@@ -34,10 +34,16 @@ For a LLM task on a GPT architecture, we can reduce the dimensionality of the at
 
 The HuggingFace tokenizers package uses the Rust implementation of the model tokenizer in combination with smart caching to achieve a speedup of up to 10x for overall latency.
 
-Reference:
+## Reference:
+
 [1]https://huggingface.co/blog/accelerated-inference#getting-to-the-first-10x-speedup
+
 [2]How continuous batching enables 23x throughput in LLM inference while reducing p50 latency
+
 [3]https://vllm.ai/
+
 [4]https://huggingface.co/docs/transformers/perf_infer_gpu_one
+
 [5]https://kipp.ly/blog/transformer-inference-arithmetic/#kv-cache
+
 [6]https://github.com/ray-project/llm-numbers#1-mb-gpu-memory-required-for-1-token-of-output-with-a-13b-parameter-model
