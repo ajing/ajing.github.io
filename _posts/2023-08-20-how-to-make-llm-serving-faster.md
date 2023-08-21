@@ -1,6 +1,6 @@
-# How to make LLM inference faster?
+## How to make LLM inference faster?
 
-## An overview of LLM inference
+# An overview of LLM inference
 
 You begin with a sequence of tokens referred to as the “prefix” or “prompt”.  At this stage, the model doesn’t need to do anything. Then, the LLM generates a sequence of completion tokens, continuing until it reaches a stop token or the maximum sequence length.
 
@@ -19,10 +19,10 @@ To be more specific, on A100 GPU with 40GB RAM, according to [6], 13B parameter 
 With this memory constraint, we have two options to speed up: enhance the speed of a single run or improve the speed of independent runs.
 
 
-## Improve speed of a single run
+# Improve speed of a single run
 
 
-### kv cache
+## kv cache
 
 For a LLM task on a GPT architecture, we can reduce the dimensionality of the attention matrix computation by focusing on the new attention of the last token in each pass. The last token does not influence the intermediate embedding calculation of all preceding tokens due to masked multi-head attention. We don’t need to compute all embeddings for key and value for each new token predicted. Even prior to receiving any user input, it is entirely feasible to precompute all these embeddings. However, this approach does not confer any memory-saving benefits, as the precomputed embeddings persist in occupying memory space.
 
@@ -30,11 +30,11 @@ For a LLM task on a GPT architecture, we can reduce the dimensionality of the at
 ![Simplified LLM inference.](/images/2208/precompute.png "image_tooltip")
 
 
-### Tokenizer
+## Tokenizer
 
 The HuggingFace tokenizers package uses the Rust implementation of the model tokenizer in combination with smart caching to achieve a speedup of up to 10x for overall latency.
 
-## Reference:
+# Reference:
 
 [1]https://huggingface.co/blog/accelerated-inference#getting-to-the-first-10x-speedup
 
