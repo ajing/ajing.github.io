@@ -3,7 +3,9 @@ layout: post
 title: "User Interest Modeling with Transformer Architectures"
 ---
 
-# Position Embedding in Transformer-Based Recommender Systems
+# User Interest Modeling with Transformer Architectures
+
+## Position Embedding in Transformer-Based Recommender Systems
 
 Early versions of the Transformer employ fixed sinusoidal positional encodings, giving each token position a unique identity while ensuring that nearby positions receive similar vectors so the model can infer distance.
 

@@ -6,6 +6,8 @@ categories: [ml, representation-learning]
 tags: [autoencoder, vae, dimensionality-reduction]
 ---
 
+# What worked (and what didn’t) when training AEs and VAEs for embedding compression
+
 ### TL;DR
 - **Medium-dimensional latents** consistently offered the best quality–compression tradeoff. Going much lower hurt retrieval tasks; going much higher yielded diminishing returns.
 - **VAE > plain AE for downstream retrieval.** With the right KL schedule, VAEs produced more robust latents than AEs trained only on reconstruction.
