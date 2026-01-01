@@ -5,7 +5,7 @@ title: "Post-Training Is Not 'One Algorithm': Objective Functions and Implementa
 
 # Post-Training Is Not "One Algorithm": Objective Functions and Implementation Essentials for PPO / DPO / GRPO
 
-> This post is my rewrite of Nathan Lambert's "Reinforcement Learning from Human Feedback (RLHF)" in a more **technical blog** style: reducing "post-training" to an implementable, tunable, observable engineering system (data → reward proxy → optimization → evaluation → guardrails).
+> Reading notes from Nathan Lambert's "Reinforcement Learning from Human Feedback (RLHF)." The book helped me build a clearer mental model of post-training—not as a single algorithm, but as an engineering pipeline: data → reward proxy → optimization → evaluation → guardrails.
 >
 > **Notation**: prompt is $x$, completion is $y$, policy model is $\pi_\theta(y\mid x)$, reference model is $\pi_{\text{ref}}$, reward/scoring function is $r(x,y)$.
 
