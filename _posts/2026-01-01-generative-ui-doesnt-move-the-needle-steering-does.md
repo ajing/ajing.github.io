@@ -74,9 +74,9 @@ The most latency-optimized approach: use LLMs during development to generate and
 
 ---
 
-## The Disappointing Reality
+## What I Learned After Deploying These Systems
 
-Here's what I've observed after deploying these systems: **users don't benefit as much as we expected**.
+Here's what I've observed: **runtime generation often doesn't benefit users as much as we expected**—but the value shows up in different places than anticipated.
 
 ### For Information-Seeking Tasks
 
@@ -94,7 +94,11 @@ To be fair, constraints aren't inherently bad. If you're building a gardening ap
 
 ### For Template-Based UIs
 
-The template approach essentially optimizes the delivery of predetermined interfaces. It's useful engineering, but it's not really "generative" in a meaningful sense. Users experience it as the same predictable UI they always had—just served faster.
+The template approach isn't "generative" at runtime, but that's precisely the point. By front-loading the generation to development time—where you can iterate with LLMs, run aesthetic agents, add human review, and refine until perfect—you get production-quality templates without runtime latency.
+
+This significantly shortens the work for UX researchers and front-end engineers: instead of hand-crafting every variant, they can generate candidates and curate the best ones. At serving time, you simply select the right template for the user's intent. The result can be cached at multiple layers (CDN, edge, client) for the lowest possible latency.
+
+Users experience predictable, polished UI—and that's often exactly what they want. The "wow factor" of runtime generation matters less than speed and reliability.
 
 ---
 
@@ -160,3 +164,4 @@ In the end, this isn't a technology question. It's a question about communicatio
 - Nielsen Norman Group. (2023). "Chatbots: How to Design Conversational UI"
 - OpenAI. (2024). "Introducing Canvas"
 - Vercel. (2024). "AI SDK: Generative UI"
+- Google. (2025). "[Introducing A2UI: An open project for agent-driven interfaces](https://developers.googleblog.com/introducing-a2ui-an-open-project-for-agent-driven-interfaces/)"
