@@ -33,16 +33,31 @@ The most flexible approach: the LLM generates complete web pages or interactive 
 
 ### 2. Constrained Widget Composition
 
-Instead of generating raw code, the LLM selects and composes from a predefined library of widgets. This is the approach used by Vercel's AI SDK for React and similar frameworks. The system maintains two data structures: a user data model (current context and data) and a widget state (tracking user selections across turns).
+Instead of generating raw code, the LLM selects and composes from a predefined catalog of trusted UI components. This is the approach used by Vercel's AI SDK for React, and more recently formalized by Google's [A2UI (Agent-to-UI)](https://a2ui.org) project.
+
+A2UI represents the most mature thinking on this approach. Key design principles:
+
+- **Declarative, not executable** — The agent outputs a JSON description of the component tree, not code. The client application maps these to native widgets (Web Components, Flutter, React, etc.). This is "safe like data, but expressive like code."
+
+- **Flat list with ID references** — The UI is represented as a flat list of components with IDs, making it easy for LLMs to generate incrementally and update specific parts without regenerating everything.
+
+- **Two-layer data model** — The system separates the UI structure from the data that populates it. The agent can update either independently, enabling multi-turn coherence where user selections persist across conversation turns.
+
+- **Client-controlled rendering** — The agent requests components from a catalog; the client owns styling and security. This ensures the generated UI feels native to your app rather than visually disjointed.
+
+This architecture is now being adopted across Google products (Gemini Enterprise, Flutter's GenUI SDK) and has integrations with AG UI/CopilotKit. If you're building constrained widget composition, you'll likely end up with something similar to A2UI's architecture—it solves the right problems.
 
 **Pros:**
 - Faster than full generation
 - Consistent visual language
-- Safer—no arbitrary code execution
+- Security by design—no arbitrary code execution
+- Multi-turn coherence through explicit state management
+- Cross-platform portability (same payload renders on web, mobile, desktop)
 
 **Cons:**
-- Limited to predefined components
+- Limited to predefined components in the catalog
 - Can feel rigid compared to free-form generation
+- Requires upfront investment in component library design
 
 ### 3. Offline Template Generation + Runtime Selection
 
