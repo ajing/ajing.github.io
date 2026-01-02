@@ -21,6 +21,7 @@ comments_repo: ajing/ajing.github.io
 ######### Nothing below needs to be changed (unless you know what you're doing) #########
 #########################################################################################
 theme: "minima"
+future: true
 
 rss: rss
 

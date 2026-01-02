@@ -1,1 +1,5 @@
 ﻿_site
+
+# Ignore local files
+.cursor/
+google_doc/
