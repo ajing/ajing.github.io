@@ -15,19 +15,11 @@ Unlike traditional SEO (optimizing for Google's ranking algorithm), GEO focuses 
 
 ## Why GEO Matters
 
-<div class="mermaid">
-flowchart TB
-    subgraph Traditional["Traditional Search"]
-        U1[User] --> G[Google] --> L[10 Blue Links] --> C[User Clicks]
-    end
-    
-    subgraph AI["AI-Powered Search"]
-        U2[User] --> A[AI Engine] --> S[Synthesized Answer] --> CI[Sources Cited]
-    end
-    
-    C -.->|"Many winners"| W1[Multiple Sites Win]
-    CI -.->|"Few winners"| W2[Only Cited Sites Win]
-</div>
+| Traditional Search | AI-Powered Search |
+|:------------------:|:-----------------:|
+| User → Google → 10 Blue Links → Click | User → AI Engine → Synthesized Answer |
+| **Many winners per query** | **Few winners per query** |
+| Multiple sites get traffic | Only cited sites win |
 
 **The stakes are higher**: If your product isn't in the AI's synthesized answer, users may never see it at all. There's no "page 2" to scroll to—either you're cited or you're invisible.
 
