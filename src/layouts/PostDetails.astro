@@ -9,6 +9,7 @@ import EditPost from "@/components/EditPost.astro";
 import ShareLinks from "@/components/ShareLinks.astro";
 import BackButton from "@/components/BackButton.astro";
 import BackToTopButton from "@/components/BackToTopButton.astro";
+import Comments from "@/components/Comments.astro";
 import { getPath } from "@/utils/getPath";
 import { slugifyStr } from "@/utils/slugify";
 import { getReadingTime } from "@/utils/getReadingTime";
@@ -130,6 +131,8 @@ const nextPost =
     <BackToTopButton />
 
     <ShareLinks />
+
+    <Comments />
 
     <hr class="my-6 border-dashed" />
 
