@@ -1,0 +1,23 @@
+export const SITE = {
+  website: "https://ajing.github.io/",
+  author: "Jing Lu",
+  profile: "https://ajing.github.io/",
+  desc: "Explore the Practical Side of ML & AI: Real-World Applications and Impact.",
+  title: "ML & AI in Action",
+  ogImage: "astropaper-og.jpg",
+  lightAndDarkMode: true,
+  postPerIndex: 6,
+  postPerPage: 6,
+  scheduledPostMargin: 15 * 60 * 1000,
+  showArchives: true,
+  showBackButton: true,
+  editPost: {
+    enabled: false,
+    text: "Edit page",
+    url: "https://github.com/ajing/ajing.github.io/edit/main/",
+  },
+  dynamicOgImage: true,
+  dir: "ltr",
+  lang: "en",
+  timezone: "America/Los_Angeles",
+} as const;

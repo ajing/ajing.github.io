@@ -1,1 +1,0 @@
-Thoughts about Machine Learning algorithm and system related topics.
