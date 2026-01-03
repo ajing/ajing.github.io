@@ -99,7 +99,7 @@ Good: "Product X solves [specific problem] by [specific mechanism].
 
 AI systems are better at parsing structured information than prose. Use schema.org markup (JSON-LD in a `<script type="application/ld+json">` tag):
 
-{% highlight json %}
+{% highlight javascript %}
 {
   "@context": "https://schema.org",
   "@type": "Product",
