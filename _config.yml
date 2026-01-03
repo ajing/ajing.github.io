@@ -25,9 +25,11 @@ future: true
 
 rss: rss
 
-kramdown:
-  syntax_highlighter: rouge
+markdown: kramdown
 highlighter: rouge
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
     
 plugins:
   - jekyll-feed
