@@ -5,12 +5,11 @@ title: "Post-Training Is Not 'One Algorithm': Objective Functions and Implementa
 featured: true
 draft: false
 tags:
+  - AI
   - RLHF
-  - PPO
-  - DPO
-  - GRPO
-  - ML
-description: "Reading notes from Nathan Lambert's RLHF book—understanding post-training as an engineering pipeline: data → reward proxy → optimization → evaluation → guardrails."
+  - ML Engineering
+  - LLM
+description: "Reading notes on RLHF covering PPO, DPO, and GRPO—understanding post-training as an engineering pipeline rather than a single algorithm."
 ---
 
 > Reading notes from Nathan Lambert's "Reinforcement Learning from Human Feedback (RLHF)." The book helped me build a clearer mental model of post-training—not as a single algorithm, but as an engineering pipeline: data → reward proxy → optimization → evaluation → guardrails.
@@ -92,9 +91,11 @@ $$
 D_{\mathrm{KL}}(P\Vert Q)=\mathbb{E}_{x\sim P}[\log P(x)-\log Q(x)]
 $$
 
+This also explains why many systems can compute KL by just calculating logprobs twice (no explicit summation needed).
+
 ### Forward KL vs Reverse KL Intuition
 
-| | Forward KL | Reverse KL |
+| | Forward KL $D_{KL}(P_{ref} \| P_\theta)$ | Reverse KL $D_{KL}(P_\theta \| P_{ref})$ |
 |---|---|---|
 | **Penalizes** | $P_\theta$ assigning low prob where $P_{ref}$ is high | $P_\theta$ assigning high prob where $P_{ref}$ is low |
 | **Behavioral tendency** | Mode-covering (tries to cover all modes) | Mode-seeking (tends to converge to single mode) |
@@ -104,9 +105,9 @@ RLHF commonly uses **Reverse KL** because we want to avoid the model "making thi
 
 ---
 
-## 4) DPO: Folding "RLHF + KL" into an Offline Contrastive Loss
+## 4) DPO: Folding "RLHF + KL" into an Offline Contrastive Loss (Engineering-Friendly)
 
-DPO's position in the book is clear: it **doesn't do online rollouts, doesn't separately train an RM**, directly doing gradient descent on preference pairs.
+DPO's position in the book is clear: it **doesn't do online rollouts, doesn't separately train an RM**, directly doing gradient descent on preference pairs; meanwhile it corresponds to a closed-form optimal solution of the "KL-constrained RLHF objective" (given data and $\beta$).
 
 **DPO (Bradley–Terry form) core loss:**
 
@@ -120,6 +121,8 @@ L_{\text{DPO}}(\pi_\theta;\pi_{\text{ref}})=
 \beta \log\frac{\pi_\theta(y_r|x)}{\pi_{\text{ref}}(y_r|x)}
 \right)\right]
 $$
+
+It can also be interpreted as learning an "implicit reward" (log-ratio structure).
 
 ### Minimal Working DPO Pseudocode
 
@@ -135,15 +138,27 @@ loss = -log(sigmoid(delta)).mean()
 loss.backward(); opt.step()
 ```
 
-> The book especially emphasizes: DPO appears to be "directly training policy," but essentially it's still learning reward structure (hence the **"Your LM is secretly a reward model"** statement).
+> The book especially emphasizes a common misconception: DPO appears to be "directly training policy," but essentially it's still learning reward structure (hence the **"Your LM is secretly a reward model"** statement).
+
+### DPO's Implicit Reward Interpretation
+
+From DPO's derivation, we can extract the implicit reward:
+
+$$
+r(x, y) = \beta \log \frac{\pi_\theta(y|x)}{\pi_{\text{ref}}(y|x)} + \beta \log Z(x)
+$$
+
+where $Z(x)$ is the partition function. This means:
+- A DPO-trained model **is itself a reward model**
+- You can use a trained DPO model to score new completions
 
 ---
 
 ## 5) GRPO: Like PPO, But Using Group Comparison to Bypass Value Function
 
-GRPO (used in DeepSeekMath) can be viewed as a PPO-style surrogate loss, but it **avoids training a value function**: by sampling multiple completions per prompt and doing within-group normalization to estimate advantage.
+GRPO (used in DeepSeekMath and other work) can be viewed as a PPO-style surrogate loss, but it **avoids training a value function**: by sampling multiple completions per prompt and doing within-group normalization to estimate advantage.
 
-**GRPO objective:**
+**GRPO objective (group-aggregated):**
 
 $$
 J(\theta)=\frac{1}{G}\sum_{i=1}^{G}
@@ -155,6 +170,34 @@ $$
 A_i=\frac{r_i-\text{mean}(r_{1:G})}{\text{std}(r_{1:G})}
 $$
 
+### Minimal Working GRPO Pseudocode
+
+```python
+# For each prompt x, sample G completions
+y_group = [sample(pi_old, x) for _ in range(G)]    # G completions per prompt
+r_group = [reward(x, y) for y in y_group]          # G rewards
+
+# Group-level advantage normalization
+mu = mean(r_group)
+std = std(r_group) + 1e-8
+advantages = [(r - mu) / std for r in r_group]     # z-score within group
+
+# PPO-style loss for each completion
+for y, A in zip(y_group, advantages):
+    logp_new = logprob(pi_theta, x, y)
+    logp_old = logprob(pi_old, x, y)
+    ratio = exp(logp_new - logp_old)
+    
+    pg1 = -A * ratio
+    pg2 = -A * clip(ratio, 1-eps, 1+eps)
+    pg_loss = max(pg1, pg2)                        # element-wise max
+    
+    kl = logp_new - logprob(pi_ref, x, y)
+    loss = pg_loss + beta * kl
+```
+
+The book also mentions implementation details: GRPO commonly adds KL **directly to the loss** (rather than modifying reward first), which differs from traditional PPO.
+
 ### GRPO vs PPO: Why Use Group Comparison?
 
 | Aspect | PPO | GRPO |
@@ -162,11 +205,131 @@ $$
 | **Baseline** | Value function $V(s)$ | Within-group mean $\bar{r}$ |
 | **Extra model** | Needs Critic training | Not needed |
 | **Memory overhead** | High (storing value head) | Low |
+| **Variance** | GAE can control | Depends on group size G |
 | **Use case** | Complex multi-step decisions | Bandit-style (single generation) |
 
 ---
 
-## 6) Algorithm Selection Guide
+## 6) Preference Data: The Most Powerful Fuel, Also the Most Hidden Bias Amplifier
+
+The book dedicates a section to "bias in data collection," calling out **prefix bias, sycophancy, verbosity, formatting**, etc.—these often aren't written in labeling guidelines but get learned very firmly by models.
+
+### Common Data Bias Types
+
+| Bias Type | Manifestation | Consequence |
+|-----------|---------------|-------------|
+| **Length bias** | Longer answers more likely chosen as preferred | Model becomes verbose, information density drops |
+| **Format bias** | Markdown/lists more likely to win | Over-formatting, bullet points even for simple questions |
+| **Sycophancy** | Agreeing with user more likely chosen | Model becomes "pleasing," afraid to correct errors |
+| **Position bias** | First/last option more likely chosen | Evaluation results unstable |
+| **Verbosity ≠ Quality** | Detailed ≠ correct | Reward hacking |
+
+**My engineering conclusion:**
+For preference pair data, the difference often isn't in quantity but in whether these biases are systematically addressed (e.g., UI display, labeling workflow, length control, penalties for "flattery/fluff").
+
+> **Real case**: In an internal judge, discovered "longer, more template-like answers win more easily," causing DPO-trained model output information density to drop; had to add length-control / information density constraints to recover.
+
+---
+
+## 7) Evaluation: Why "All Scores Are Rising" But You Still Don't Dare Ship
+
+The book's attitude toward evaluation is realistic: evaluation evolves with training objectives, and **prompt/format** can take the same model's performance from "okay" to "near zero" (extremely sensitive).
+
+### The Triple Dilemma of Evaluation
+
+1. **Prompt sensitivity**: Same model, different prompt template, scores can differ 20%+
+2. **Metric gaming**: Optimizing benchmark scores ≠ real capability improvement
+3. **Distribution shift**: Training distribution vs evaluation distribution vs real user distribution—all three inconsistent
+
+### Internal vs External Evaluation
+
+| | Internal Evaluation | External Evaluation |
+|---|---|---|
+| **Purpose** | Hillclimbing, guide iteration | Comparison, release decisions |
+| **Characteristics** | Controllable variables, reproducible | Opaque configuration, high error |
+| **Risk** | Overfitting internal benchmark | Not reproducible, high noise |
+
+### LLM-as-a-Judge Engineering Tips
+
+Although commonly used (including for generating preference data), note:
+
+```python
+# Common tricks to reduce variance
+judge_config = {
+    "temperature": 0,           # Deterministic output
+    "max_tokens": 1,            # Only want score, not explanation
+    "logprobs": True,           # Use logprob rather than argmax
+}
+
+# Position debiasing
+score_AB = judge(response_A, response_B)
+score_BA = judge(response_B, response_A)
+final_score = (score_AB - score_BA) / 2  # Cancel position bias
+```
+
+---
+
+## 8) Over-Optimization: Not an Occasional Bug, But a Default Risk
+
+The book gives a definition I really like:
+
+> **When you optimize hard on a proxy as if it were the target, the "true objective" first improves then degrades** (classic Goodhart's Law).
+
+### Typical Over-Optimization Symptoms
+
+| Symptom | Cause | Mitigation |
+|---------|-------|------------|
+| **Fixed phrases** | Certain phrases overvalued by RM | Diversity regularization, entropy bonus |
+| **Repetition/Hedging** | Safe outputs score high | Penalize repeated n-grams |
+| **Sycophancy** | Agreeing with user scores high | Dedicated sycophancy detector |
+| **Excessive refusal** | Refusing is safer than being wrong | Balance helpfulness vs harmlessness |
+| **Length gaming** | Long answers score high | Length penalty term |
+
+### Guardrails Aren't Decoration—They're Survival Necessities
+
+```python
+total_loss = (
+    rl_loss                              # Main objective
+    + beta * kl_penalty                  # Don't deviate too far from reference
+    + sft_coef * sft_loss                # Maintain language capability
+    + length_coef * length_penalty       # Control length
+    + entropy_coef * entropy_bonus       # Maintain diversity
+    + format_coef * format_penalty       # Format constraints
+)
+```
+
+---
+
+## 9) One-Page Engineering Checklist: What to Monitor When Running PPO/DPO/GRPO
+
+### Training Side (Observable)
+
+| Metric | Focus | Alert Threshold |
+|--------|-------|-----------------|
+| `mean_reward` | Is it continuously rising | Sudden drop or saturation |
+| `reward_std` | Is distribution healthy | Too small (collapse) or too large (unstable) |
+| `kl_divergence` | Deviation from reference | > 10-15 usually problematic |
+| `clip_fraction` | PPO clip trigger rate | > 30% may mean learning rate too high |
+| `entropy` | Output diversity | Continuous decline = collapse |
+| `grad_norm` | Gradient health | Sudden spike = instability |
+
+### Evaluation Side (Reproducible)
+
+- [ ] Fixed prompting template & sampling parameters (temperature, top-p, token budget)
+- [ ] Private "regression set" (subset of real product traffic)
+- [ ] Human eval / A-B test (don't trust a single score)
+- [ ] Variance estimation across multiple seeds
+
+### Data Side (Bias Governance)
+
+- [ ] Length/format bias countermeasures (e.g., length-controlled evaluation, format perturbation robustness)
+- [ ] Dedicated sycophancy data/rules/discriminator
+- [ ] Does labeling UI introduce position bias
+- [ ] Regular audit of labeling quality
+
+---
+
+## 10) Algorithm Selection Guide
 
 ```
                     Have online environment?
@@ -186,16 +349,19 @@ $$
        (full RL)    (group comparison)
 ```
 
+### When to Choose Which?
+
 | Scenario | Recommended Algorithm | Reasoning |
 |----------|----------------------|-----------|
 | Lots of preference pairs, want fast iteration | DPO | Simple implementation, no rollout needed |
 | Have verifier/env feedback, sufficient resources | PPO | Most flexible, can do multi-step optimization |
 | Have verifier, but memory-constrained | GRPO | No value head needed |
 | Math/code with correct answers | GRPO | Verifier easy to define |
+| Open-ended generation, subjective preferences | DPO | Leverages human preference data |
 
 ---
 
-## Final 3 Takeaways
+## Final 3 Takeaways (Easy to Remember)
 
 1. **PPO's value is stable updates**: ratio + clipping prevents "aggressive optimizer" from blowing up the model.
 
@@ -205,10 +371,25 @@ $$
 
 ---
 
+## Appendix: Objective Function to Implementation Reference Table
+
+| | PPO | GRPO | DPO |
+|---|---|---|---|
+| **Objective** | $\mathbb{E}[\min(r A, \text{clip}(r) A)]$ | $\mathbb{E}[\min(r A, \text{clip}(r) A)] - \beta \text{KL}$ | $-\mathbb{E}[\log\sigma(\beta \Delta)]$ |
+| **Advantage** | $A = G - V(s)$ (GAE) | $A = (r - \mu) / \sigma$ (within-group) | Implicit (log-ratio) |
+| **KL handling** | Fold into reward or loss | Add directly to loss | Implicit in loss structure |
+| **Needs rollout** | ✓ | ✓ | ✗ |
+| **Needs value head** | ✓ | ✗ | ✗ |
+| **Needs reference** | ✓ | ✓ | ✓ |
+| **Data source** | Online sampling | Online sampling (G per prompt) | Offline preference pairs |
+| **Key hyperparams** | $\epsilon$, $\gamma$, `vf_coef` | $\epsilon$, $G$, $\beta$ | $\beta$ |
+
+---
+
 ## References
 
 1. Lambert, N. "Reinforcement Learning from Human Feedback." (2024)
 2. Schulman, J., et al. "Proximal Policy Optimization Algorithms." arXiv:1707.06347 (2017)
 3. Rafailov, R., et al. "Direct Preference Optimization: Your Language Model is Secretly a Reward Model." NeurIPS 2023
 4. Shao, Z., et al. "DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models." arXiv:2402.03300 (2024)
-
+5. Ouyang, L., et al. "Training language models to follow instructions with human feedback." NeurIPS 2022
