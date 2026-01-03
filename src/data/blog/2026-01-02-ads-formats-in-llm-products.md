@@ -1,6 +1,6 @@
 ---
 author: Jing Lu
-pubDatetime: 2025-01-02T00:00:00Z
+pubDatetime: 2026-01-02T00:00:00Z
 title: "Ad Formats in LLM Products: What's Live vs. What's Research"
 featured: false
 draft: false

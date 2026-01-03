@@ -1,6 +1,6 @@
 ---
 author: Jing Lu
-pubDatetime: 2025-01-03T00:00:00Z
+pubDatetime: 2026-01-03T00:00:00Z
 title: "Generative Engine Optimization (GEO): How to Get Your Product Cited by AI"
 featured: true
 draft: false

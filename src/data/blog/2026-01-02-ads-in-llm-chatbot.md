@@ -1,6 +1,6 @@
 ---
 author: Jing Lu
-pubDatetime: 2025-01-02T00:00:00Z
+pubDatetime: 2026-01-02T00:00:00Z
 title: "Adding Ads in LLM/Chatbot: Character Training for Monetization"
 featured: false
 draft: false
