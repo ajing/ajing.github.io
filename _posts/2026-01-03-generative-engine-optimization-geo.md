@@ -17,11 +17,11 @@ Unlike traditional SEO (optimizing for Google's ranking algorithm), GEO focuses 
 
 <div class="mermaid">
 flowchart TB
-    subgraph Traditional["🔍 Traditional Search"]
+    subgraph Traditional["Traditional Search"]
         U1[User] --> G[Google] --> L[10 Blue Links] --> C[User Clicks]
     end
     
-    subgraph AI["🤖 AI-Powered Search"]
+    subgraph AI["AI-Powered Search"]
         U2[User] --> A[AI Engine] --> S[Synthesized Answer] --> CI[Sources Cited]
     end
     
@@ -105,11 +105,9 @@ Good: "Product X solves [specific problem] by [specific mechanism].
 
 ### 3. Structured Data & Schema Markup
 
-AI systems are better at parsing structured information than prose. Use schema.org markup:
+AI systems are better at parsing structured information than prose. Use schema.org markup (JSON-LD in a `<script type="application/ld+json">` tag):
 
-```html
-<!-- Product Schema -->
-<script type="application/ld+json">
+```json
 {
   "@context": "https://schema.org",
   "@type": "Product",
@@ -128,7 +126,6 @@ AI systems are better at parsing structured information than prose. Use schema.o
     "reviewCount": "2847"
   }
 }
-</script>
 ```
 
 **Key schemas for GEO**:
@@ -184,26 +181,23 @@ AI systems prefer current, accurate information:
 
 <div class="mermaid">
 flowchart LR
-    subgraph Good["✅ Good Freshness Signals"]
+    subgraph Good["Good Freshness Signals"]
         G1["Last updated: January 2026"]
         G2["As of Q4 2025, the latest..."]
         G3["Regular content updates"]
-        G4["Real-time inventory/pricing"]
     end
     
-    subgraph Bad["❌ Bad Signals"]
+    subgraph Bad["Bad Signals"]
         B1["Best products of 2023"]
         B2["Stale pricing"]
         B3["Discontinued features"]
     end
     
-    Good --> H[High AI Visibility]
-    Bad --> L[Low AI Visibility]
+    Good --> H[High Visibility]
+    Bad --> L[Low Visibility]
     
     style Good fill:#c8e6c9
     style Bad fill:#ffcdd2
-    style H fill:#4caf50,color:#fff
-    style L fill:#f44336,color:#fff
 </div>
 
 ---
@@ -277,21 +271,21 @@ LLMs learn during training on massive web corpora. To be "baked into" an LLM:
 
 <div class="mermaid">
 flowchart LR
-    subgraph Crawl["1️⃣ Crawl"]
-        CC[CommonCrawl<br/>Billions of Pages]
+    subgraph Crawl["1. Crawl"]
+        CC[CommonCrawl]
     end
     
-    subgraph Filter["2️⃣ Filter"]
-        F[Perplexity • Dedup<br/>Length • Language • Safety]
+    subgraph Filter["2. Filter"]
+        F[Quality Filters]
     end
     
-    subgraph Weight["3️⃣ Domain Weight"]
-        W1["🏆 HIGH: Wikipedia"]
-        W2["📊 MED: News, Reddit"]
-        W3["📉 LOW: Marketing"]
+    subgraph Weight["3. Domain Weight"]
+        W1["HIGH: Wikipedia"]
+        W2["MED: News, Reddit"]
+        W3["LOW: Marketing"]
     end
     
-    subgraph Train["4️⃣ Train"]
+    subgraph Train["4. Train"]
         T[Model Learns]
     end
     
@@ -532,25 +526,6 @@ As AI search becomes dominant, expect:
 3. **Citation Advertising**: Paid placement in AI responses (already emerging)
 4. **Brand Voice Training**: Ensuring AI represents your brand accurately
 5. **Regulatory Framework**: Disclosure requirements for AI-based marketing
-
----
-
-## Action Items
-
-### Quick Wins (This Week)
-- [ ] Add schema markup to key product pages
-- [ ] Rewrite top product descriptions to answer implicit questions
-- [ ] Audit your brand's representation in ChatGPT/Perplexity
-
-### Medium-Term (This Month)
-- [ ] Create FAQ content for your product category
-- [ ] Ensure entity consistency across platforms
-- [ ] Build presence on review aggregators
-
-### Long-Term (This Quarter)
-- [ ] Develop comprehensive comparison content
-- [ ] Establish thought leadership in industry publications
-- [ ] Implement ongoing GEO monitoring
 
 ---
 
