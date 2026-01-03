@@ -41,18 +41,25 @@
   <!-- end MathJax support -->
 
   <!-- Mermaid diagram support -->
+  <style>
+    .mermaid {
+      max-width: 100%;
+      overflow-x: auto;
+    }
+    .mermaid svg {
+      max-height: 400px;
+    }
+  </style>
   <script type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
     mermaid.initialize({ 
       startOnLoad: true,
-      theme: 'base',
-      themeVariables: {
-        primaryColor: '#4a90d9',
-        primaryTextColor: '#fff',
-        primaryBorderColor: '#2d5986',
-        lineColor: '#5c5c5c',
-        secondaryColor: '#f0f4f8',
-        tertiaryColor: '#e8f4e8'
+      theme: 'default',
+      flowchart: {
+        nodeSpacing: 15,
+        rankSpacing: 25,
+        curve: 'basis',
+        padding: 10
       }
     });
   </script>

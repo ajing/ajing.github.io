@@ -16,23 +16,17 @@ Unlike traditional SEO (optimizing for Google's ranking algorithm), GEO focuses 
 ## Why GEO Matters
 
 <div class="mermaid">
-flowchart LR
+flowchart TB
     subgraph Traditional["🔍 Traditional Search"]
-        direction TB
-        U1[User] --> G[Google]
-        G --> L[10 Blue Links]
-        L --> C[User Clicks Through]
+        U1[User] --> G[Google] --> L[10 Blue Links] --> C[User Clicks]
     end
     
     subgraph AI["🤖 AI-Powered Search"]
-        direction TB
-        U2[User] --> A[AI Engine]
-        A --> S[Synthesized Answer]
-        S --> CI[Sources Cited Inline]
+        U2[User] --> A[AI Engine] --> S[Synthesized Answer] --> CI[Sources Cited]
     end
     
-    Traditional -.->|"Many winners per query"| W1[Multiple Sites Win]
-    AI -.->|"Few winners per query"| W2[Only Cited Sites Win]
+    C -.->|"Many winners"| W1[Multiple Sites Win]
+    CI -.->|"Few winners"| W2[Only Cited Sites Win]
 </div>
 
 **The stakes are higher**: If your product isn't in the AI's synthesized answer, users may never see it at all. There's no "page 2" to scroll to—either you're cited or you're invisible.
@@ -44,21 +38,8 @@ flowchart LR
 ### How AI Systems Select Content
 
 <div class="mermaid">
-flowchart TD
-    Q[🔎 User Query] --> U[1. Query Understanding]
-    U -->|"What does user want?"| R[2. Retrieval - RAG]
-    R -->|"Semantically relevant docs"| K[3. Ranking]
-    K -->|"Most authoritative sources"| S[4. Synthesis]
-    S -->|"Weave into coherent answer"| C[5. Citation]
-    C -->|"Attribute sources"| A[📝 AI Response]
-    
-    style Q fill:#e1f5fe
-    style A fill:#c8e6c9
-    style U fill:#fff3e0
-    style R fill:#fff3e0
-    style K fill:#fff3e0
-    style S fill:#fff3e0
-    style C fill:#fff3e0
+flowchart LR
+    Q[🔎 Query] --> U[Understand] --> R[Retrieve] --> K[Rank] --> S[Synthesize] --> C[Cite] --> A[📝 Response]
 </div>
 
 **Your goal**: Optimize for every stage of this pipeline.
@@ -295,32 +276,26 @@ To optimize for AI visibility, it helps to understand how LLMs actually acquire 
 LLMs learn during training on massive web corpora. To be "baked into" an LLM:
 
 <div class="mermaid">
-flowchart TD
-    subgraph Step1["1️⃣ Web Crawl"]
-        CC[CommonCrawl] --> B[Billions of Pages]
+flowchart LR
+    subgraph Crawl["1️⃣ Crawl"]
+        CC[CommonCrawl<br/>Billions of Pages]
     end
     
-    subgraph Step2["2️⃣ Quality Filtering"]
-        F1[Perplexity Filter]
-        F2[Deduplication]
-        F3[Length Filter]
-        F4[Language Detection]
-        F5[Safety Filter]
+    subgraph Filter["2️⃣ Filter"]
+        F[Perplexity • Dedup<br/>Length • Language • Safety]
     end
     
-    subgraph Step3["3️⃣ Domain Weighting"]
-        W1["🏆 HIGH: Wikipedia, Academic"]
-        W2["📊 MEDIUM: News, Reddit"]
-        W3["📉 LOW: Marketing Pages"]
+    subgraph Weight["3️⃣ Domain Weight"]
+        W1["🏆 HIGH: Wikipedia"]
+        W2["📊 MED: News, Reddit"]
+        W3["📉 LOW: Marketing"]
     end
     
-    subgraph Step4["4️⃣ Training"]
-        T[Model Learns Patterns]
+    subgraph Train["4️⃣ Train"]
+        T[Model Learns]
     end
     
-    Step1 --> Step2
-    Step2 --> Step3
-    Step3 --> Step4
+    Crawl --> Filter --> Weight --> Train
     
     style W1 fill:#c8e6c9
     style W2 fill:#fff9c4
