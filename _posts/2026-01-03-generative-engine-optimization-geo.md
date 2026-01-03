@@ -99,7 +99,7 @@ Good: "Product X solves [specific problem] by [specific mechanism].
 
 AI systems are better at parsing structured information than prose. Use schema.org markup (JSON-LD in a `<script type="application/ld+json">` tag):
 
-{% highlight javascript %}
+```json
 {
   "@context": "https://schema.org",
   "@type": "Product",
@@ -118,7 +118,7 @@ AI systems are better at parsing structured information than prose. Use schema.o
     "reviewCount": "2847"
   }
 }
-{% endhighlight %}
+```
 
 **Key schemas for GEO**:
 - `Product` - Product details
