@@ -1,6 +1,6 @@
 ---
 author: Jing Lu
-pubDatetime: 2026-01-01T00:00:00Z
+pubDatetime: 2025-01-01T00:00:00Z
 title: "Generative UI Doesn't Move the Needle—Steering Does"
 featured: true
 draft: false
