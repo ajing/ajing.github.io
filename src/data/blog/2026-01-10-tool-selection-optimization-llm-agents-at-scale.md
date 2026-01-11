@@ -27,7 +27,7 @@ This post covers the technical approaches to tool selection optimization—from 
 | 100-200 | 60-80% | Retrieval necessary |
 | 500+ | 40-60% | Multi-stage selection |
 
-**Why it matters:** Tool definitions cost 200-500 tokens each. At 500 tools, that's 200K+ tokens per request—**3-5 seconds** of inference time and **$45K/month** at scale. Optimized selection (10 tools) drops this to 400ms and $900/month.
+**Why it matters:** Tool definitions cost 200-500 tokens each. At 500 tools, that's 200K+ tokens per request—**3-5 seconds** of inference time and **~45K USD/month** at scale. Optimized selection (10 tools) drops this to 400ms and ~900 USD/month.
 
 **Bloomberg's finding:** Optimizing tool selection reduced unnecessary tool calls by **70%** while maintaining task success rates.
 
