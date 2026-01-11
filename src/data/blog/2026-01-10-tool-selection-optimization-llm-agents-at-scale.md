@@ -58,31 +58,28 @@ class HybridToolRetriever:
         return [self.get_tool(name) for name, _ in sorted_tools[:k]]
 ```
 
-### 2.2 Context-Aware Retrieval (ToolScope)
+### 2.2 Conversation-Aware Retrieval
 
-ToolScope ([arXiv:2510.20036](https://arxiv.org/abs/2510.20036)) blends query embedding with conversation history:
+A query like "now delete it" only makes sense with conversation history. Two established approaches:
 
+**1. Query Rewriting (TREC CAsT standard)**
 ```python
-class ContextAwareRetriever:
-    def retrieve(self, query: str, conversation_history: List[str], k: int = 10):
-        query_emb = self.embedding_model.encode(query)
-        
-        if conversation_history:
-            # Exponential decay for older turns
-            history_embs = []
-            for i, turn in enumerate(reversed(conversation_history[-5:])):
-                decay = 0.8 ** i
-                history_embs.append(self.embedding_model.encode(turn) * decay)
-            
-            context_emb = np.mean(history_embs, axis=0)
-            combined_emb = 0.7 * query_emb + 0.3 * context_emb
-        else:
-            combined_emb = query_emb
-        
-        return self.retrieve_by_embedding(combined_emb, k)
+def rewrite_query(query: str, history: List[Turn]) -> str:
+    """LLM rewrites ambiguous query to be self-contained"""
+    prompt = f"Given conversation:\n{format_history(history)}\n\nRewrite '{query}' to be self-contained."
+    return llm.generate(prompt)  # "delete it" → "delete user John Smith"
 ```
 
-A query like "now delete it" only makes sense with context from previous turns.
+**2. History Concatenation (ConvDR approach)**
+```python
+def retrieve_with_history(query: str, history: List[Turn], k: int = 10):
+    """Concatenate recent history with query before encoding"""
+    context = "\n".join([t.content for t in history[-3:]])  # Last 3 turns
+    combined_text = f"{context}\n\nCurrent: {query}"
+    return semantic_search(combined_text, k)
+```
+
+> **References:** TREC CAsT benchmark, ConvDR (arXiv:2104.13650). Query rewriting is more accurate but adds latency; concatenation is simpler.
 
 ### 2.3 Embedding Model Selection
 
@@ -238,21 +235,26 @@ Model tool co-occurrence as a graph:
 - Nodes = Tools
 - Edges = `P(tool_j | tool_i)` from historical trajectories
 
+**How it combines with hybrid retrieval:**
+
+| Turn | Method | Why |
+|------|--------|-----|
+| **First turn** | Hybrid (BM25 + embedding) | No history, need query understanding |
+| **Subsequent turns** | Graph transitions | Co-occurrence patterns dominate |
+
 ```python
-class ToolSelectionGraph:
-    def select_next(self, current_tools: List[str], query: str, k: int = 5):
-        if not current_tools:
-            # Use priors for first selection
-            candidates = sorted(self.priors.items(), key=lambda x: -x[1])[:k]
-        else:
-            # Use transitions from last tool
-            last_tool = current_tools[-1]
-            candidates = sorted(self.adjacency[last_tool].items(), key=lambda x: -x[1])[:k]
+class HybridGraphSelector:
+    def select(self, query: str, tool_history: List[str], k: int = 5):
+        if not tool_history:
+            # First turn: pure retrieval
+            return self.hybrid_retriever.retrieve(query, k)
         
-        return self._rerank_by_query(candidates, query)
+        # Subsequent: graph candidates, reranked by query relevance
+        graph_candidates = self.graph.get_likely_next(tool_history[-1], k * 2)
+        return self.rerank_by_query(graph_candidates, query, k)
 ```
 
-**Key insight:** Tool selection has **inertia**—certain combinations appear together. Learning these patterns reduces inference cost.
+**Key insight:** Tool selection has **inertia**—certain combinations appear together. Graph handles "what usually comes next," retrieval handles "what does the query need."
 
 ### 5.3 Constrained Decoding (Manus Approach)
 
@@ -379,8 +381,12 @@ The best tool selection system is one where **you rarely think about it because 
 6. **"Retrieval Models Aren't Tool-Savvy"** - ACL 2025 Findings - Shows <35% completeness@10
 7. **HYRR: Hybrid Retrieval** - arXiv:2212.10528 - Combining BM25 with neural retrieval
 
+### Conversational Retrieval
+8. **TREC CAsT** - [Conversational Assistance Track](https://www.treccast.ai/) - Benchmark for conversational search
+9. **ConvDR** - arXiv:2104.13650 - Few-shot conversational dense retrieval with history encoding
+
 ### Constrained Decoding
-8. **Manus** - [Context Engineering for AI Agents](https://medium.com/@peakji/context-engineering-for-ai-agents-lessons-from-building-manus-71883f0a67f2)
-9. **Outlines** - github.com/outlines-dev/outlines - Grammar-constrained generation
+10. **Manus** - [Context Engineering for AI Agents](https://medium.com/@peakji/context-engineering-for-ai-agents-lessons-from-building-manus-71883f0a67f2)
+11. **Outlines** - github.com/outlines-dev/outlines - Grammar-constrained generation
 
 *Code examples are synthesized implementations illustrating practical patterns.*
