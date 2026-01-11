@@ -319,6 +319,19 @@ Trigger LLM stage only if top scores are ambiguous (gap < 0.1).
 
 ## 7. Error Recovery
 
+### 7.1 Research Approaches
+
+| Framework | Method | Result |
+|-----------|--------|--------|
+| **PALADIN** (arXiv:2509.25238) | Train on 50K recovery-annotated trajectories | 95.2% recovery on unseen APIs |
+| **Structured Reflection** (arXiv:2509.18847) | Diagnose failure → propose corrective action | Improved multi-turn success |
+| **STAR** (arXiv:2503.06060) | Foundation model + knowledge graph | 78% recovery success rate |
+| **Toolken+** (arXiv:2410.12004) | Add "Reject" option—model can decline to use tools | Reduces false tool calls |
+
+**Key insight from PALADIN:** Expose agents to tool failures during training (timeouts, API exceptions, inconsistent outputs) with expert recovery demonstrations.
+
+### 7.2 Production Patterns
+
 **Fallback chain:** Learned selection → Retrieval → Category defaults → Universal tools (search, calculator, code_executor).
 
 **Retry with exclusion:** On tool failure, exclude from next selection. Pre-map alternatives by capability:
@@ -329,12 +342,55 @@ CAPABILITY_TOOLS = {
     "weather": ["openweathermap", "weatherapi", "accuweather"],
     "code_execution": ["e2b_sandbox", "modal_sandbox", "local_docker"],
 }
+
+def select_with_recovery(query: str, failed_tools: Set[str] = None):
+    candidates = retrieve_tools(query)
+    if failed_tools:
+        candidates = [t for t in candidates if t.name not in failed_tools]
+    
+    if not candidates:
+        # Fallback to capability-based alternatives
+        capability = infer_capability(query)
+        candidates = [Tool(name=t) for t in CAPABILITY_TOOLS.get(capability, [])]
+    
+    return candidates
+```
+
+**Structured reflection (self-correction):**
+```python
+def reflect_on_failure(query: str, tool: str, error: str, history: List[Turn]):
+    """LLM diagnoses failure and proposes recovery action"""
+    prompt = f"""
+    Query: {query}
+    Tool called: {tool}
+    Error: {error}
+    Previous steps: {format_history(history)}
+    
+    Diagnose what went wrong and propose the next action:
+    1. Was this the wrong tool? → Suggest alternative
+    2. Wrong parameters? → Suggest correction
+    3. API unavailable? → Suggest fallback
+    """
+    return llm.generate(prompt)
 ```
 
 **Retrieval failure (vocabulary mismatch):** 
 - Detect via low scores (top score < 0.5)
 - Reformulate with synonyms: "cancel" → "refund", "terminate"
 - Build alias index: user terms → tool terms
+
+### 7.3 The "Reject" Option (Toolken+)
+
+Allow model to **not** select any tool:
+
+```python
+tools_with_reject = tools + [Tool(
+    name="NO_TOOL",
+    description="Use when the query can be answered directly without tools, or no tool is appropriate"
+)]
+```
+
+This reduces false tool calls when the LLM is uncertain.
 
 ---
 
@@ -494,5 +550,11 @@ The best tool selection system is one where **you rarely think about it because 
 ### Constrained Decoding
 10. **Manus** - [Context Engineering for AI Agents](https://medium.com/@peakji/context-engineering-for-ai-agents-lessons-from-building-manus-71883f0a67f2)
 11. **Outlines** - github.com/outlines-dev/outlines - Grammar-constrained generation
+
+### Error Recovery
+12. **PALADIN** - arXiv:2509.25238 - Self-correcting agents with 95.2% recovery on unseen APIs
+13. **Structured Reflection** - arXiv:2509.18847 - Diagnose failures, propose corrective actions
+14. **STAR** - arXiv:2503.06060 - Foundation model + knowledge graph for recovery (78% success)
+15. **Toolken+** - arXiv:2410.12004 - "Reject" option to reduce false tool calls
 
 *Code examples are synthesized implementations illustrating practical patterns.*
