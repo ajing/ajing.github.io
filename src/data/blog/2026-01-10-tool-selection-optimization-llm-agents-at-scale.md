@@ -338,7 +338,113 @@ CAPABILITY_TOOLS = {
 
 ---
 
-## 8. Production Recommendations
+## 8. Infrastructure Optimizations
+
+### 8.1 KV Cache Stability
+
+**The problem:** Dynamic retrieval changes which tools are in context each turn → invalidates KV cache → recomputes all previous tokens.
+
+**Solutions:**
+
+| Approach | How | Savings |
+|----------|-----|---------|
+| **Static tool set** | Keep all tools in context, use masking | 100% cache hit |
+| **Ordered insertion** | Always insert tools in same order | Partial cache hit |
+| **Tool prefix caching** | Separate tool definitions from conversation | ~50% savings |
+
+**Manus insight:** This is why they keep all tools in context and use logit masking—KV cache stability matters more than context length at their scale.
+
+### 8.2 Prompt/Prefix Caching
+
+Both Anthropic and OpenAI offer **prompt caching**—tool definitions in system prompt are cached across requests.
+
+```python
+# OpenAI: Tools are automatically cached as part of system prompt
+# Anthropic: Use cache_control for tool definitions
+
+tools_with_cache = {
+    "tools": [...],  # Same tool list = cache hit
+    "cache_control": {"type": "ephemeral"}  # Anthropic
+}
+```
+
+**Impact:** 
+- First request: Full input token cost
+- Subsequent: ~90% reduction for cached prefix
+- **Requires tool list stability**—changing tools invalidates cache
+
+### 8.3 Embedding Precomputation
+
+**Don't compute tool embeddings at query time:**
+
+```python
+class CachedToolRetriever:
+    def __init__(self, tools, embedding_model):
+        # Precompute and store
+        self.tool_embeddings = np.array([
+            embedding_model.encode(t.description) for t in tools
+        ])
+        # Optional: quantize for faster search
+        self.tool_embeddings_int8 = quantize_to_int8(self.tool_embeddings)
+    
+    def retrieve(self, query: str, k: int = 10):
+        query_emb = self.embedding_model.encode(query)  # Only this at runtime
+        scores = cosine_similarity(query_emb, self.tool_embeddings)
+        return top_k(scores, k)
+```
+
+**Storage:** ~3KB per tool (768-dim float32) → 3MB for 1000 tools. Negligible.
+
+### 8.4 Query Result Caching
+
+For high-traffic systems, cache (query_hash → selected_tools):
+
+```python
+class CachedToolSelector:
+    def __init__(self, selector, cache_ttl=3600):
+        self.selector = selector
+        self.cache = LRUCache(maxsize=10000)
+        self.ttl = cache_ttl
+    
+    def select(self, query: str, context_hash: str = None):
+        cache_key = hash(query + str(context_hash))
+        
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+        
+        result = self.selector.select(query)
+        self.cache[cache_key] = result
+        return result
+```
+
+**Hit rates:** 20-40% for chatbots (users ask similar things), <5% for agents (unique tasks).
+
+### 8.5 Index Sharding (1000+ tools)
+
+For very large tool sets, shard the embedding index by category:
+
+```
+Query → Category Classifier → Shard[category].search(query)
+                                    ↑
+                              Only loads relevant shard
+```
+
+**Benefit:** Memory footprint scales with active categories, not total tools.
+
+### 8.6 Hardware Considerations
+
+| Component | CPU | GPU | When to Use GPU |
+|-----------|-----|-----|-----------------|
+| BM25 | ✓ Fast | N/A | Never (string ops) |
+| Embedding encode | Slow | ✓ Fast | >100 queries/sec |
+| Similarity search | ✓ OK | ✓ Faster | >10K tools |
+| Cross-encoder rerank | Slow | ✓ Fast | Always if available |
+
+**Rule of thumb:** GPU for neural components, CPU for keyword search.
+
+---
+
+## 9. Production Recommendations
 
 | Tool Count | Approach | Key Investment |
 |------------|----------|----------------|
@@ -349,7 +455,7 @@ CAPABILITY_TOOLS = {
 
 ---
 
-## 9. Summary
+## 10. Summary
 
 **The 80/20 of tool selection:**
 
