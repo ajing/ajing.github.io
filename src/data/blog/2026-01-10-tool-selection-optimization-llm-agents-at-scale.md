@@ -139,6 +139,79 @@ Note: Each call costs ~200ms. Batch multiple intents into one call.
 - `when_not_to_use` — prevents over-selection  
 - `example_queries` — improves retrieval matching
 
+### 3.3 Tool Use Examples (Anthropic)
+
+JSON Schema defines structure but can't express **usage patterns**: date formats, ID conventions, or parameter correlations.
+
+**Anthropic's solution:** Provide `input_examples` directly in tool definitions:
+
+```json
+{
+  "name": "create_ticket",
+  "input_schema": { /* ... */ },
+  "input_examples": [
+    {
+      "title": "Login page returns 500 error",
+      "priority": "critical",
+      "labels": ["bug", "authentication", "production"],
+      "reporter": {"id": "USR-12345", "name": "Jane Smith"},
+      "due_date": "2024-11-06"
+    },
+    {
+      "title": "Add dark mode support",
+      "labels": ["feature-request", "ui"]
+    },
+    {
+      "title": "Update API documentation"
+    }
+  ]
+}
+```
+
+From three examples, Claude learns: date format (YYYY-MM-DD), ID conventions (USR-XXXXX), and when to include optional parameters.
+
+**Result:** Parameter accuracy improved from **72% to 90%** on complex parameter handling.
+
+**Best practices:**
+- Use realistic data (real city names, plausible prices)
+- Show variety: minimal, partial, and full specification patterns
+- Keep it concise: 1-5 examples per tool
+- Focus on ambiguity—only add examples where correct usage isn't obvious from schema
+
+### 3.4 On-Demand Tool Discovery (Anthropic Tool Search Tool)
+
+Instead of loading all tool definitions upfront, discover tools on-demand:
+
+| Approach | Token Cost | Tools Available |
+|----------|------------|----------------|
+| **Traditional** | ~72K tokens (50+ MCP tools) | All loaded |
+| **Tool Search Tool** | ~8.7K tokens | Full library, on-demand |
+
+**Implementation:** Mark tools with `defer_loading: true`:
+
+```json
+{
+  "tools": [
+    {"type": "tool_search_tool_regex_20251119", "name": "tool_search_tool"},
+    {
+      "name": "github.createPullRequest",
+      "description": "Create a pull request",
+      "input_schema": {...},
+      "defer_loading": true
+    }
+  ]
+}
+```
+
+When Claude needs GitHub capabilities, it searches and only loads `github.createPullRequest`—not all 50+ tools from Slack, Jira, and Google Drive.
+
+**Results (internal testing):**
+- **85% token reduction** (72K → 8.7K)
+- Opus 4: 49% → **74%** accuracy
+- Opus 4.5: 79.5% → **88.1%** accuracy
+
+**When to use:** >10 tools, >10K tokens in definitions, MCP-powered systems with multiple servers.
+
 ---
 
 ## 4. Tool Set Management
@@ -394,9 +467,129 @@ This reduces false tool calls when the LLM is uncertain.
 
 ---
 
-## 8. Infrastructure Optimizations
+## 8. Programmatic Tool Calling (Anthropic)
 
-### 8.1 KV Cache Stability
+Instead of sequential tool calls with each result entering context, Claude writes **code that orchestrates tools**.
+
+### 8.1 The Problem with Sequential Calls
+
+**Example:** "Which team members exceeded their Q3 travel budget?"
+
+| Traditional | Programmatic |
+|-------------|-------------|
+| 20+ API round-trips | 1 code block |
+| 2,000+ expense items in context | Only final result in context |
+| ~200KB context consumed | ~1KB context consumed |
+
+### 8.2 How It Works
+
+Claude writes Python that calls tools; intermediate results stay in sandbox:
+
+```python
+team = await get_team_members("engineering")
+expenses = await asyncio.gather(*[
+    get_expenses(m["id"], "Q3") for m in team
+])
+
+exceeded = []
+for member, exp in zip(team, expenses):
+    total = sum(e["amount"] for e in exp)
+    if total > budget[member["level"]]["travel_limit"]:
+        exceeded.append({"name": member["name"], "spent": total})
+
+print(json.dumps(exceeded))  # Only this enters Claude's context
+```
+
+**Implementation:** Mark tools with `allowed_callers`:
+
+```json
+{
+  "tools": [
+    {"type": "code_execution_20250825", "name": "code_execution"},
+    {
+      "name": "get_expenses",
+      "allowed_callers": ["code_execution_20250825"]
+    }
+  ]
+}
+```
+
+**Results:**
+- **37% token reduction** on complex research tasks
+- Latency: Eliminate 19+ inference passes for 20-tool workflows
+- Accuracy: GIA benchmark improved 46.5% → **51.2%**
+
+**When to use:** Processing large datasets, 3+ dependent tool calls, filtering/transforming results before Claude sees them.
+
+### 8.3 Filesystem-Based Tool Discovery (MCP "Code Mode")
+
+An even more aggressive approach: present MCP tools as a **filesystem of code APIs**:
+
+```
+servers/
+├── google-drive/
+│   ├── getDocument.ts
+│   └── index.ts
+├── salesforce/
+│   ├── updateRecord.ts
+│   └── index.ts
+└── slack/
+    ├── sendMessage.ts
+    └── index.ts
+```
+
+The agent navigates the filesystem, reading only the `.ts` files it needs:
+
+```typescript
+// ./servers/google-drive/getDocument.ts
+export async function getDocument(input: {documentId: string}): Promise<{content: string}> {
+  return callMCPTool('google_drive__get_document', input);
+}
+```
+
+**Result:** Token usage dropped from **150,000 → 2,000 tokens** (98.7% reduction).
+
+**Progressive disclosure:** Add a `search_tools` function with detail levels:
+- Name only
+- Name + description  
+- Full definition with schemas
+
+### 8.4 Privacy-Preserving Operations
+
+Intermediate data stays in the sandbox. For sensitive workloads, **tokenize PII** before it reaches the model:
+
+```javascript
+// What the agent sees (if it logs the data):
+[
+  { email: '[EMAIL_1]', phone: '[PHONE_1]', name: '[NAME_1]' },
+  { email: '[EMAIL_2]', phone: '[PHONE_2]', name: '[NAME_2]' }
+]
+// Real data flows between tools, never through the model
+```
+
+### 8.5 Skills Accumulation
+
+Agents can persist reusable functions:
+
+```typescript
+// ./skills/save-sheet-as-csv.ts
+export async function saveSheetAsCsv(sheetId: string) {
+  const data = await gdrive.getSheet({ sheetId });
+  const csv = data.map(row => row.join(',')).join('\n');
+  await fs.writeFile(`./workspace/sheet-${sheetId}.csv`, csv);
+  return `./workspace/sheet-${sheetId}.csv`;
+}
+```
+
+Over time, agents build a **growing toolbox** of higher-level capabilities. Add a `SKILL.md` file to create structured skills that models can reference.
+
+> **Reference:** [Cloudflare "Code Mode"](https://blog.cloudflare.com/code-mode/) published similar findings.
+
+---
+
+## 9. Infrastructure Optimizations
+
+### 9.1 KV Cache Stability
 
 **The problem:** Dynamic retrieval changes which tools are in context each turn → invalidates KV cache → recomputes all previous tokens.
 
@@ -407,10 +600,13 @@ This reduces false tool calls when the LLM is uncertain.
 | **Static tool set** | Keep all tools in context, use masking | 100% cache hit |
 | **Ordered insertion** | Always insert tools in same order | Partial cache hit |
 | **Tool prefix caching** | Separate tool definitions from conversation | ~50% savings |
+| **Deferred loading** | Anthropic's `defer_loading: true` | 85% reduction + cache preserved |
 
 **Manus insight:** This is why they keep all tools in context and use logit masking—KV cache stability matters more than context length at their scale.
 
-### 8.2 Prompt/Prefix Caching
+**Anthropic insight:** Tool Search Tool doesn't break prompt caching because deferred tools are excluded from the initial prompt entirely.
+
+### 9.2 Prompt/Prefix Caching
 
 Both Anthropic and OpenAI offer **prompt caching**—tool definitions in system prompt are cached across requests.
 
@@ -451,7 +647,7 @@ class CachedToolRetriever:
 
 **Storage:** ~3KB per tool (768-dim float32) → 3MB for 1000 tools. Negligible.
 
-### 8.4 Query Result Caching
+### 9.4 Query Result Caching
 
 For high-traffic systems, cache (query_hash → selected_tools):
 
@@ -475,7 +671,7 @@ class CachedToolSelector:
 
 **Hit rates:** 20-40% for chatbots (users ask similar things), <5% for agents (unique tasks).
 
-### 8.5 Index Sharding (1000+ tools)
+### 9.5 Index Sharding (1000+ tools)
 
 For very large tool sets, shard the embedding index by category:
 
@@ -487,7 +683,7 @@ Query → Category Classifier → Shard[category].search(query)
 
 **Benefit:** Memory footprint scales with active categories, not total tools.
 
-### 8.6 Hardware Considerations
+### 9.6 Hardware Considerations
 
 | Component | CPU | GPU | When to Use GPU |
 |-----------|-----|-----|-----------------|
@@ -500,7 +696,7 @@ Query → Category Classifier → Shard[category].search(query)
 
 ---
 
-## 9. Production Recommendations
+## 10. Production Recommendations
 
 | Tool Count | Approach | Key Investment |
 |------------|----------|----------------|
@@ -511,7 +707,7 @@ Query → Category Classifier → Shard[category].search(query)
 
 ---
 
-## 10. Summary
+## 11. Summary
 
 **The 80/20 of tool selection:**
 
@@ -556,5 +752,10 @@ The best tool selection system is one where **you rarely think about it because 
 13. **Structured Reflection** - arXiv:2509.18847 - Diagnose failures, propose corrective actions
 14. **STAR** - arXiv:2503.06060 - Foundation model + knowledge graph for recovery (78% success)
 15. **Toolken+** - arXiv:2410.12004 - "Reject" option to reduce false tool calls
+
+### Production Features
+16. **Anthropic Advanced Tool Use** - [anthropic.com/engineering/advanced-tool-use](https://www.anthropic.com/engineering/advanced-tool-use) - Tool Search Tool (85% token reduction, 49%→74% accuracy), Programmatic Tool Calling (37% token reduction), Tool Use Examples (72%→90% parameter accuracy)
+17. **Anthropic Code Execution with MCP** - [anthropic.com/engineering/code-execution-with-mcp](https://www.anthropic.com/engineering/code-execution-with-mcp) - Filesystem-based tool discovery (98.7% token reduction), privacy-preserving operations, skills accumulation
+18. **Cloudflare Code Mode** - [blog.cloudflare.com/code-mode](https://blog.cloudflare.com/code-mode/) - Similar findings on code-based MCP tool orchestration
 
 *Code examples are synthesized implementations illustrating practical patterns.*
