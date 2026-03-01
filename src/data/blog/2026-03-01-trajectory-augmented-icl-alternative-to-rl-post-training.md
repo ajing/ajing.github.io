@@ -151,12 +151,12 @@ Everything above assumes a one-shot setting: a user query arrives, we retrieve t
 
 **Challenge 1: What do we embed on the query side?**
 
-At turn $t$, the user has exchanged $t$ messages with the agent. The naive approach — embed only the latest user message — fails for the same reason it fails in conversational search: "now debug it" is meaningless without context. But concatenating the entire conversation history produces an embedding dominated by earlier turns, diluting the current intent.
+At turn *t*, the user has exchanged *t* messages with the agent. The naive approach — embed only the latest user message — fails for the same reason it fails in conversational search: "now debug it" is meaningless without context. But concatenating the entire conversation history produces an embedding dominated by earlier turns, diluting the current intent.
 
 Four approaches, in order of increasing sophistication:
 
 **Approach A — Sliding Window Concatenation:**
-Concatenate the last $k$ turns (typically $k = 3$–$5$) and embed the result. Simple, no LLM call needed, but the embedding quality degrades as the window includes irrelevant earlier context.
+Concatenate the last *k* turns (typically *k* = 3–5) and embed the result. Simple, no LLM call needed, but the embedding quality degrades as the window includes irrelevant earlier context.
 
 ```python
 def embed_multiturn_query(history: List[Turn], k: int = 3):
@@ -198,7 +198,7 @@ $$
 \mathbf{e}_{\text{query}} = \sum_{i=1}^{t} w_i \cdot \text{embed}(\text{turn}_i), \quad w_i = \frac{e^{\lambda i}}{\sum_j e^{\lambda j}}
 $$
 
-where $\lambda > 0$ controls recency bias. Higher $\lambda$ puts more weight on recent turns. This is computationally cheap (turn embeddings can be cached and incrementally updated) and avoids the information loss of truncation, but the linear combination of embeddings loses compositional semantics — "cancel the order" and "order a cancellation" would produce similar pooled embeddings despite very different intents.
+where λ > 0 controls recency bias. Higher λ puts more weight on recent turns. This is computationally cheap (turn embeddings can be cached and incrementally updated) and avoids the information loss of truncation, but the linear combination of embeddings loses compositional semantics — "cancel the order" and "order a cancellation" would produce similar pooled embeddings despite very different intents.
 
 **Approach D — Turn-Aware Contrastive Encoder:**
 Train a dedicated encoder on (multi-turn conversation, relevant trajectory) pairs. The encoder learns to project a conversation prefix into the same space as complete trajectory representations. This is the highest-quality approach but requires training data that's expensive to collect.
@@ -213,7 +213,7 @@ Stored trajectories are themselves multi-step sequences. The question is what un
 |-------------|-------------------|-------------------|
 | **Whole trajectory** | Full task description + all steps | Matches on overall task similarity; misses partial overlaps |
 | **Per-step** | Each (thought, action, observation) triple | Can match mid-trajectory; high index size |
-| **Sub-trajectory windows** | Overlapping windows of $k$ consecutive steps | Balances granularity and index size |
+| **Sub-trajectory windows** | Overlapping windows of *k* consecutive steps | Balances granularity and index size |
 | **Hierarchical** | Task-level + strategy-level + step-level (our multi-level approach) | Best coverage; highest engineering complexity |
 
 For multi-turn retrieval specifically, **sub-trajectory windowing** is valuable: if the user is at step 5 of a 15-step task, you want to retrieve trajectories that had a similar step 5, not just a similar starting task. This is the partial trajectory matching problem — matching an in-progress trajectory against completed ones.
