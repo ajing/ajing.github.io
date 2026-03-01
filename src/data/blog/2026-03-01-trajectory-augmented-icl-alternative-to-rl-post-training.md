@@ -145,6 +145,117 @@ For a production system, multi-stage retrieval is essential:
 
 The LLM reranking stage is expensive but high-value: given the query and 10 candidate trajectory summaries, the LLM selects the most relevant 2–3. This is where the biggest quality gains come from — the LLM can reason about subtle relevance factors that embedding similarity misses.
 
+### Multi-Turn Trajectories: The Evolving Query Problem
+
+Everything above assumes a one-shot setting: a user query arrives, we retrieve trajectories, done. But most real agent interactions are **multi-turn** — the user's intent evolves, intermediate results change the trajectory, and what's "similar" shifts at each step. This introduces three distinct challenges.
+
+**Challenge 1: What do we embed on the query side?**
+
+At turn $t$, the user has exchanged $t$ messages with the agent. The naive approach — embed only the latest user message — fails for the same reason it fails in conversational search: "now debug it" is meaningless without context. But concatenating the entire conversation history produces an embedding dominated by earlier turns, diluting the current intent.
+
+Four approaches, in order of increasing sophistication:
+
+**Approach A — Sliding Window Concatenation:**
+Concatenate the last $k$ turns (typically $k = 3$–$5$) and embed the result. Simple, no LLM call needed, but the embedding quality degrades as the window includes irrelevant earlier context.
+
+```python
+def embed_multiturn_query(history: List[Turn], k: int = 3):
+    window = history[-k:]
+    text = "\n".join([f"{t.role}: {t.content}" for t in window])
+    return embed(text)
+```
+
+**Approach B — LLM Query Rewriting (TREC CAsT standard):**
+Use an LLM to rewrite the current turn into a self-contained query that incorporates necessary context. This is the approach validated by the conversational search community and is the most robust for retrieval quality.
+
+```python
+def rewrite_for_retrieval(current_turn: str, history: List[Turn]):
+    prompt = f"""Given this conversation:
+{format_history(history)}
+
+Rewrite the latest message to be self-contained: "{current_turn}"
+"""
+    return llm(prompt)
+    # "now debug it" → "debug the sorting function from the previous implementation"
+```
+
+Cost: one LLM call (~100ms). Benefit: dramatically better retrieval precision because the embedding now captures the *resolved* intent, not the ambiguous surface form. ConvDR (Yu et al., 2021) showed this consistently outperforms concatenation approaches.
+
+**Approach C — Hierarchical Pooling:**
+Embed each turn independently, then combine using a weighted pooling scheme. This preserves turn-level structure and allows recency weighting:
+
+$$
+\mathbf{e}_{\text{query}} = \sum_{i=1}^{t} w_i \cdot \text{embed}(\text{turn}_i), \quad w_i = \frac{e^{\lambda i}}{\sum_j e^{\lambda j}}
+$$
+
+where $\lambda > 0$ controls recency bias. Higher $\lambda$ puts more weight on recent turns. This is computationally cheap (turn embeddings can be cached and incrementally updated) and avoids the information loss of truncation, but the linear combination of embeddings loses compositional semantics — "cancel the order" and "order a cancellation" would produce similar pooled embeddings despite very different intents.
+
+**Approach D — Turn-Aware Contrastive Encoder:**
+Train a dedicated encoder on (multi-turn conversation, relevant trajectory) pairs. The encoder learns to project a conversation prefix into the same space as complete trajectory representations. This is the highest-quality approach but requires training data that's expensive to collect.
+
+> **Practical recommendation:** Start with Approach B (LLM rewriting). It's the best cost/quality trade-off and doesn't require training data. Move to Approach D only if retrieval precision is the bottleneck and you have sufficient paired data. Approach C is attractive for latency-sensitive settings where you can't afford the rewriting LLM call.
+
+**Challenge 2: How do we embed multi-turn trajectories on the storage side?**
+
+Stored trajectories are themselves multi-step sequences. The question is what unit to embed and index:
+
+| Granularity | What Gets Embedded | Retrieval Behavior |
+|-------------|-------------------|-------------------|
+| **Whole trajectory** | Full task description + all steps | Matches on overall task similarity; misses partial overlaps |
+| **Per-step** | Each (thought, action, observation) triple | Can match mid-trajectory; high index size |
+| **Sub-trajectory windows** | Overlapping windows of $k$ consecutive steps | Balances granularity and index size |
+| **Hierarchical** | Task-level + strategy-level + step-level (our multi-level approach) | Best coverage; highest engineering complexity |
+
+For multi-turn retrieval specifically, **sub-trajectory windowing** is valuable: if the user is at step 5 of a 15-step task, you want to retrieve trajectories that had a similar step 5, not just a similar starting task. This is the partial trajectory matching problem — matching an in-progress trajectory against completed ones.
+
+```python
+def index_trajectory_windows(trajectory, window_size=3, stride=1):
+    """Index overlapping sub-trajectory windows for step-level matching."""
+    windows = []
+    for i in range(0, len(trajectory.steps) - window_size + 1, stride):
+        window = trajectory.steps[i:i + window_size]
+        window_text = " → ".join([
+            f"[{s.action}] {s.thought}" for s in window
+        ])
+        windows.append({
+            "embedding": embed(window_text),
+            "trajectory_id": trajectory.id,
+            "start_step": i,
+            "context": trajectory.task_description
+        })
+    return windows
+```
+
+**Challenge 3: When to re-retrieve?**
+
+In a single-turn setting, you retrieve once. In multi-turn, the relevance of retrieved trajectories changes as the conversation evolves. Two strategies:
+
+- **Retrieve once, at conversation start.** Simple, but the initial retrieval may become irrelevant by turn 5. Works when the task is well-defined from the start.
+- **Re-retrieve at each turn (or at key decision points).** Expensive, but allows the system to adapt — if the user pivots from "implement a sort" to "now benchmark it against numpy," the system retrieves trajectories relevant to *benchmarking*, not sorting. The re-retrieval can be triggered selectively: re-retrieve when the cosine similarity between the current turn embedding and the original query embedding drops below a threshold, signaling a topic shift.
+
+```python
+async def multiturn_serve(conversation: List[Turn], trajectory_db):
+    # Initial retrieval
+    initial_query = rewrite_for_retrieval(conversation[-1].content, conversation)
+    initial_emb = embed(initial_query)
+    retrieved = trajectory_db.retrieve(initial_query, top_k=3)
+    
+    for new_turn in incoming_turns():
+        conversation.append(new_turn)
+        current_query = rewrite_for_retrieval(new_turn.content, conversation)
+        current_emb = embed(current_query)
+        
+        # Re-retrieve if intent has shifted significantly
+        if cosine_similarity(current_emb, initial_emb) < DRIFT_THRESHOLD:
+            retrieved = trajectory_db.retrieve(current_query, top_k=3)
+            initial_emb = current_emb  # Reset anchor
+        
+        response = model.generate(conversation, retrieved_trajectories=retrieved)
+        yield response
+```
+
+> **The fundamental tension:** More frequent re-retrieval improves relevance but adds latency and can cause jarring context switches (the model was following Trajectory A's strategy, then suddenly gets Trajectory B). A middle ground: re-retrieve but bias toward trajectories consistent with the strategy already in progress.
+
 ---
 
 ## Trajectory Generation and the Accumulation Flywheel
@@ -370,5 +481,9 @@ The critical experiment: **does trajectory ICL match RL post-training when given
 16. **Reinforced ICL** — DeepMind, 2024 — Model-generated rationales as effective substitutes
 17. **Scaling LLM Test-Time Compute** — Snell et al., 2024 — Optimal compute allocation at inference
 18. **Reasoning Step Length** — arXiv 2024 — Longer CoT steps improve reasoning independent of information content
+
+### Multi-Turn Conversational Retrieval
+19. **ConvDR** — Yu et al., 2021 (arXiv:2104.13650) — Few-shot conversational dense retrieval with history encoding
+20. **TREC CAsT** — Conversational Assistance Track — Benchmark for conversational search with query rewriting
 
 *Code examples are synthesized implementations illustrating practical patterns.*
