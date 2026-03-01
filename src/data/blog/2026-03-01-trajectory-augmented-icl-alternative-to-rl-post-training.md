@@ -149,15 +149,15 @@ Beyond multi-level embedding, several complementary approaches exist:
 
 ---
 
-## Trajectory Generation: The Cold Start Problem
+## Building the Trajectory Database
 
-The biggest practical question: where do trajectories come from?
+We've established *how* to retrieve trajectories — but retrieved from what? A trajectory database needs to be populated first, and then it needs to grow. This is really one continuous problem, not two: the same mechanism that seeds the database on Day 1 is the mechanism that scales it to millions of entries.
 
-### Enterprise Cold Start: A 3-Phase Approach
+### Bootstrapping: Getting the First Trajectories
 
-Enterprises have proprietary toolchains, internal SOPs, and domain workflows. Generic benchmarks won't cut it. The guiding principle: **deliver visible value without delay.**
+In an enterprise setting, you can't start from generic benchmarks — you need trajectories that reflect proprietary toolchains, internal SOPs, and domain-specific workflows. The guiding principle: **deliver visible value without delay.**
 
-**Phase 1 — SOP-Driven Synthesis (Day 1–3):**
+**Phase 1 — Mine Existing Knowledge (Day 1–3):**
 1. Analyze Jira / Slack / search logs to find the **Top 10 high-frequency tasks**
 2. Extract workflows from SOPs / Confluence / Runbooks
 3. LLM parses into structured task + step instructions
@@ -165,7 +165,7 @@ Enterprises have proprietary toolchains, internal SOPs, and domain workflows. Ge
 
 > Don't try to cover everything — just nail the Top 10 and deliver value on Day 1.
 
-**Phase 2 — Shadow Mode (Day 3–14):**
+**Phase 2 — Capture Expert Behavior (Day 3–14):**
 Observe enterprise experts' workflows in the background with zero disruption:
 
 | Environment | Capture Method |
@@ -175,20 +175,15 @@ Observe enterprise experts' workflows in the background with zero disruption:
 | Customer Support | Ticket system integration — expert resolution sequences |
 | DevOps | CLI wrapper / shell history — incident troubleshooting |
 
-The key is **zero-effort capture** — experts don't change their workflow.
+The key is **zero-effort capture** — experts don't change their workflow; the system learns by watching.
 
-**Phase 3 — Flywheel + Admin Review (Day 14+):**
-```
-New trajectory → Automated quality check → Admin Dashboard
-    → Tech Lead approval / tagged as "team best practice"
-    → Stored and available to the entire team
-```
+For general (non-enterprise) scenarios, you can bootstrap from existing benchmark trajectories (GSM8K CoT, SWE-bench patches), rejection sampling with a strong model, or AgentTrek-style tutorial synthesis.
 
-### Online Rejection Sampling: The Unified Mechanism
+### From Bootstrapping to Flywheel: Every Inference Is a Data Point
 
-The most elegant part of the design: **every user query is an opportunity to accumulate trajectories.**
+Here's where bootstrapping transitions into something more powerful. Once the system is serving real users, **every query becomes an opportunity to generate new trajectories** — not just answer the user.
 
-On each query, sample N trajectories in parallel. Return the best to the user. Silently store *all* verified successes. The user sees one answer; the system learns from many.
+The mechanism is surprisingly simple: on each query, sample N candidate trajectories in parallel (at varying temperatures). Return the best one to the user. Silently verify and store *all* successful ones in the background. The user sees one answer; the system learns from many.
 
 ```python
 async def serve_and_accumulate(query, context, n_samples=8):
@@ -215,30 +210,30 @@ async def serve_and_accumulate(query, context, n_samples=8):
             trajectory_db.add(traj)
 ```
 
-Why online beats offline:
+This is essentially **online rejection sampling** — the same technique used in offline RL data collection, but applied continuously during serving. The advantages over doing this offline are significant:
 
-| Dimension | Offline Rejection Sampling | Online Rejection Sampling |
-|-----------|---------------------------|--------------------------|
+| Dimension | Offline (batch generation) | Online (during serving) |
+|-----------|---------------------------|------------------------|
 | Data source | Pre-collected benchmarks | Real user queries |
-| Distribution match | ❌ May not align with needs | ✅ Perfectly matches |
+| Distribution match | ❌ May not align with needs | ✅ Perfectly matches usage |
 | Continuity | One-time generation | Continuous growth |
-| Additional cost | Dedicated GPU time | Leverages inference compute |
+| Additional cost | Dedicated GPU time | Piggybacking on inference compute |
 
-**Cost control:** Not every query needs N samples. If the database already has highly similar trajectories, 1 sample suffices. For novel queries, sample more.
+**Cost control:** Not every query needs N samples. If the database already has highly similar trajectories, 1 sample suffices. For novel query types, sample more aggressively.
 
----
-
-## The Flywheel: Continuous Accumulation
-
-The trajectory database isn't static — it grows with every interaction:
+This creates the **flywheel**:
 
 ```
 User Query → Retrieve Existing Trajectories → LLM Reasoning
-    → Verify → ✅ Success → Quality Gate → Trajectory DB → Next Retrieval
+    → Verify → ✅ Success → Quality Gate → Trajectory DB → Better Retrieval Next Time
               → ❌ Failure → Extract Reflection → Negative Example Store
 ```
 
-### Quality Gate: Not Everything Is Worth Keeping
+More usage → more accumulated trajectories → more precise retrieval → better user experience → more usage. Unlike RL training which is done once and frozen, the trajectory database **continuously grows**.
+
+### Quality Gate: Not Every Trajectory Is Worth Keeping
+
+The flywheel only works if the database maintains high quality. A naive "store everything" approach leads to redundancy and noise.
 
 ```python
 def should_store(trajectory, db):
@@ -261,15 +256,19 @@ def should_store(trajectory, db):
     return True
 ```
 
+In enterprise settings, add an admin review layer: tech leads tag trajectories as "team best practice," forming organizational knowledge assets rather than merely individual accumulation.
+
 ### Learning from Failures
 
 Failed trajectories aren't discarded — they're mined for value:
 
-1. **Reflection extraction:** LLM analyzes failure causes → stored as metadata
+1. **Reflection extraction:** LLM analyzes failure causes → stored as searchable metadata
 2. **Counterfactual generation** (ECHO-style): Fix the failed trajectory → if the fixed version passes verification, store it
 3. **Negative examples in context:** "Here's a failed attempt — avoid these mistakes"
 
 ### Verification Signals
+
+What counts as "success" depends on the task:
 
 | Task Type | Verification | Automation |
 |-----------|-------------|------------|
@@ -277,8 +276,6 @@ Failed trajectories aren't discarded — they're mined for value:
 | Code | Unit tests pass | ✅ Fully automated |
 | Agent tasks | Environment state check | ✅ Fully automated |
 | Open QA | Implicit user feedback (👍/👎) | 🟡 Semi-automated |
-
-> **The flywheel core:** More usage → more successful trajectories → better retrieval → better experience → more usage. Unlike RL training which is done once and frozen, the trajectory database **continuously grows**.
 
 ---
 
