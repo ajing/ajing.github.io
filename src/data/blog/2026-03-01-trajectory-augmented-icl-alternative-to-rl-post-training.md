@@ -179,7 +179,17 @@ Rewrite the latest message to be self-contained: "{current_turn}"
     # "now debug it" → "debug the sorting function from the previous implementation"
 ```
 
-Cost: one LLM call (~100ms). Benefit: dramatically better retrieval precision because the embedding now captures the *resolved* intent, not the ambiguous surface form. ConvDR (Yu et al., 2021) showed this consistently outperforms concatenation approaches.
+**Which LLM for rewriting?** Query rewriting is fundamentally a **simple NLU task** — coreference resolution ("it" → "the sorting function") and context incorporation ("debug" → "debug the Python implementation from the previous step"). This is closer to T5-level seq2seq than frontier-model reasoning. TREC CAsT participants typically used fine-tuned T5-base/T5-large, and these consistently outperformed zero-shot large models for this specific task.
+
+| Model Tier | Examples | Latency | When to Use |
+|-----------|----------|---------|-------------|
+| **Fine-tuned small** (2B–8B) | Gemma 2B, Phi-3-mini, T5-large | 10–30ms | Production — best latency, sufficient quality for most cases |
+| **Instruction-tuned medium** | Llama 3.1 8B, Gemini Flash | 30–80ms | When you lack fine-tuning data; zero-shot rewriting |
+| **Frontier** | GPT-4o, Claude Sonnet | 200–500ms | Complex multi-hop intent resolution; or as teacher for distillation |
+
+The **best production pattern** is teacher-student distillation: use a frontier model offline to generate (conversation, rewritten_query) training pairs, then fine-tune a small 2B–8B model that serves at 10–30ms. A few thousand rewriting examples are typically sufficient — the task's low complexity means small models learn it quickly.
+
+ConvDR (Yu et al., 2021) showed that learned rewriting consistently outperforms concatenation approaches across conversational retrieval benchmarks.
 
 **Approach C — Hierarchical Pooling:**
 Embed each turn independently, then combine using a weighted pooling scheme. This preserves turn-level structure and allows recency weighting:
