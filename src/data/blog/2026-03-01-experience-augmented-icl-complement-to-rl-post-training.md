@@ -1,7 +1,7 @@
 ---
 author: Jing Lu
 pubDatetime: 2026-03-01T00:00:00Z
-title: "Trajectory-Augmented In-Context Learning: A Training-Free Alternative to RL Post-Training"
+title: "Experience-Augmented In-Context Learning: A Training-Free Complement to RL Post-Training"
 featured: true
 draft: false
 tags:
@@ -10,18 +10,18 @@ tags:
   - ML Engineering
   - Agents
   - RAG
-description: "What if you could get RL post-training-level performance without updating a single parameter? Trajectory-augmented ICL retrieves high-quality reasoning traces at inference time, offering a faster, cheaper, and continuously improving alternative to GRPO/PPO."
+description: "RL post-training makes models smarter, but it can't cover the infinite long tail of real-world cases. Experience-augmented ICL retrieves successful reasoning traces at inference time, letting agents learn continuously from real usage — no retraining required."
 ---
 
-**RL post-training works.** GRPO and PPO can teach models to reason, use tools, and recover from errors. But it's expensive — significant GPU hours, careful reward engineering, and every policy update requires re-sampling trajectories from scratch. The resulting policy is also **frozen at training time**: it can't incorporate new knowledge or strategies without another round of fine-tuning.
+**RL post-training works.** GRPO and PPO can teach models to reason, use tools, and recover from errors. But it's a one-time investment — significant GPU hours, careful reward engineering, and the resulting policy is **frozen at training time**. You can RL-train for math, coding, and general tool use. You can't RL-train for every enterprise workflow, every niche domain, every edge case your agent will encounter in the wild.
 
-This post proposes a different approach: **store successful reasoning trajectories in an external database, retrieve the most relevant ones at inference time, and guide the model through in-context learning — no parameter updates required.** We call this *Trajectory-Augmented ICL*.
+The real world has an infinite long tail. Agents need a way to keep learning from what actually happens on the ground.
 
-The approach sits at the intersection of several active research areas — retrieval-augmented generation, test-time compute scaling, and agent memory systems — but addresses a gap that none of them fully cover: **how to give a frozen LLM access to an ever-growing library of verified problem-solving strategies.**
+This post proposes **Experience-Augmented ICL**: store successful reasoning trajectories in an external database, retrieve the most relevant ones at inference time, and guide the model through in-context learning — no parameter updates required. It uses the **same trajectory data** that RL trains on, but at inference time through retrieval rather than weight updates. RL bakes patterns into weights; experience retrieval keeps them external and continuously growing.
 
 ---
 
-## Positioning: Where Trajectory ICL Fits
+## Positioning: Where Experience-Augmented ICL Fits
 
 To frame this precisely, consider the landscape of methods for improving LLM reasoning *after* pretraining:
 
@@ -31,11 +31,11 @@ To frame this precisely, consider the landscape of methods for improving LLM rea
 | **Test-Time Training** (TTT) | ✅ Temporary per-query | Medium (per query) | Single-instance adaptation |
 | **Test-Time Compute Scaling** (best-of-N, MCTS) | ❌ None | High inference (per query) | Single-instance search |
 | **Standard RAG** | ❌ None | Retrieval + inference | Knowledge augmentation |
-| **Trajectory ICL** (this work) | ❌ None | Retrieval + inference | Strategy augmentation |
+| **Experience-Augmented ICL** (this work) | ❌ None | Retrieval + inference | Strategy augmentation |
 
-The key distinction from standard RAG: we're not retrieving *knowledge* (facts, documents), we're retrieving *strategies* — structured sequences of reasoning steps that demonstrate how to solve similar problems. And unlike test-time compute scaling (which burns compute searching over solutions to the current problem), trajectory ICL amortizes that search cost across problems: the successful searches from past problems become the demonstrations for future ones.
+The key distinction from standard RAG: we're not retrieving *knowledge* (facts, documents), we're retrieving *strategies* — structured sequences of reasoning steps that demonstrate how to solve similar problems. And unlike test-time compute scaling (which burns compute searching over solutions to the current problem), experience-augmented ICL amortizes that search cost across problems: the successful searches from past problems become the demonstrations for future ones.
 
-> **Connection to test-time compute scaling:** Best-of-N sampling and trajectory ICL are complementary. Best-of-N searches the solution space for the *current* query. Trajectory ICL biases that search using solutions to *past* queries. The combination is especially powerful: use retrieved trajectories to guide sampling, then run best-of-N within that guided distribution. This is effectively **amortized test-time compute** — the expensive search from previous queries reduces the search needed for new ones.
+> **Connection to test-time compute scaling:** Best-of-N sampling and experience-augmented ICL are complementary. Best-of-N searches the solution space for the *current* query. Experience retrieval biases that search using solutions to *past* queries. The combination is especially powerful: use retrieved trajectories to guide sampling, then run best-of-N within that guided distribution. This is effectively **amortized test-time compute** — the expensive search from previous queries reduces the search needed for new ones.
 
 ---
 
@@ -388,21 +388,21 @@ Trajectory format matters more than expected. If the retrieved trajectory uses a
 
 ---
 
-## When Trajectory ICL Fails: Honest Limitations
+## When Experience-Augmented ICL Falls Short
 
 This approach is not universally superior to RL post-training. It's important to be precise about where it breaks down:
 
-**1. Distribution shift in reasoning style.** RL post-training *changes how the model reasons* — it can learn to prefer certain tool-calling patterns, develop new heuristics, or suppress failure modes. Trajectory ICL can only show the model what good reasoning looks like; it can't reshape the model's inherent biases. For tasks where the base model has deeply ingrained bad habits, ICL demonstrations may not override them.
+**1. Distribution shift in reasoning style.** RL post-training *changes how the model reasons* — it can learn to prefer certain tool-calling patterns, develop new heuristics, or suppress failure modes. Experience-augmented ICL can only show the model what good reasoning looks like; it can't reshape the model's inherent biases. For tasks where the base model has deeply ingrained bad habits, ICL demonstrations may not override them.
 
-**2. Context budget constraints.** Trajectory ICL trades parameter storage for context storage. For complex tasks requiring 5+ reference trajectories of 1000+ tokens each, the context budget for actual reasoning shrinks. RL post-training encodes patterns in weights — zero context overhead.
+**2. Context budget constraints.** Experience-augmented ICL trades parameter storage for context storage. For complex tasks requiring 5+ reference trajectories of 1000+ tokens each, the context budget for actual reasoning shrinks. RL post-training encodes patterns in weights — zero context overhead.
 
 **3. Latency sensitivity.** The retrieval pipeline (embedding + ANN search + optional LLM reranking) adds 50–200ms. For latency-critical applications, this overhead may be unacceptable. RL post-training has zero inference overhead.
 
-**4. Novelty gap.** If the trajectory database has no similar entries for a truly novel query, retrieval returns irrelevant trajectories that can *hurt* performance. RL post-training generalizes through learned policy; trajectory ICL requires explicit coverage.
+**4. Novelty gap.** If the trajectory database has no similar entries for a truly novel query, retrieval returns irrelevant trajectories that can *hurt* performance. RL post-training generalizes through learned policy; experience retrieval requires explicit coverage.
 
-**Where trajectory ICL wins:** rapid deployment (hours vs. days), continuous improvement without retraining, domain adaptation without catastrophic forgetting, and the ability to maintain multiple strategy libraries for different user populations.
+**Where experience-augmented ICL wins:** rapid deployment (hours vs. days), continuous improvement without retraining, domain adaptation without catastrophic forgetting, and the ability to maintain multiple strategy libraries for different user populations.
 
-> **The hybrid hypothesis:** The most promising direction may not be either/or. Use Trajectory ICL for rapid bootstrapping and long-tail coverage, then apply RL fine-tuning on the highest-value trajectory patterns. The trajectory database tells you *what* to train on; RL training tells the model to internalize it. This "retrieval-first, training-supplementary" paradigm is the natural next step.
+> **The hybrid hypothesis:** The most promising direction may not be either/or. Use experience-augmented ICL for rapid bootstrapping and long-tail coverage, then apply RL fine-tuning on the highest-value trajectory patterns. The trajectory database tells you *what* to train on; RL training tells the model to internalize it. This "retrieval-first, training-supplementary" paradigm is the natural next step.
 
 ---
 
@@ -410,16 +410,16 @@ This approach is not universally superior to RL post-training. It's important to
 
 ### Controlled Comparison
 
-The critical experiment: **does trajectory ICL match RL post-training when given access to the same trajectories?**
+The critical experiment: **does experience-augmented ICL match RL post-training when given access to the same trajectories?**
 
 | Condition | Description |
 |-----------|-------------|
 | Base LLM | No assistance |
 | Random few-shot ICL | Randomly selected demonstrations |
 | Standard RAG | Retrieved documents (not trajectories) |
-| Trajectory ICL (Level 1) | Task-level retrieval only |
-| Trajectory ICL (Level 1+2) | Task + strategy retrieval |
-| Trajectory ICL (Level 1+2+3) | Full multi-level retrieval |
+| Experience ICL (Level 1) | Task-level retrieval only |
+| Experience ICL (Level 1+2) | Task + strategy retrieval |
+| Experience ICL (Level 1+2+3) | Full multi-level retrieval |
 | RL post-trained (same data) | GRPO/PPO trained on the same trajectory set |
 
 ### Key Ablations
