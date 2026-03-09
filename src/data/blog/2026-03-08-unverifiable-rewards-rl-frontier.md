@@ -211,7 +211,49 @@ Decomposes alignment into simpler principles for separate preference models, ena
 
 ---
 
-## 6) Reward Hacking and Overoptimization: The Safety Dimension
+## 6) GAN and Adversarial Approaches to Reward Modeling
+
+The GAN (Generative Adversarial Network) paradigm — where a discriminator provides reward signal to a generator — has a deep connection to reward modeling for RL. The discriminator in a GAN is conceptually a reward model.
+
+### Historical Foundation: GANs for Text Generation
+
+**SeqGAN** (2017) was the pioneering work applying GANs to discrete text. The discriminator serves as the reward function, the generator is an RL policy updated via REINFORCE. Monte Carlo rollouts estimate intermediate rewards for partial sequences.
+
+**RankGAN** (2017) replaced binary real/fake classification with a **ranking-based discriminator** — ranking generated text relative to human text provides a more stable reward signal than binary classification.
+
+**Branch-GAN** (2024) generates multiple branching sequences with dense reward signals, integrating next-step prediction loss for more stable training with pre-trained LMs.
+
+### Modern GAN-Inspired Methods for LLMs
+
+**Adversarial Preference Optimization (APO)** — directly GAN-inspired. A min-max game between the reward model (discriminator) and LLM (generator). The RM adapts to shifting generation distributions without extra annotation.
+
+- **Pros**: Handles distribution shift naturally; no need for re-annotation as the policy evolves
+- **Cons**: Adversarial training instability; careful hyperparameter tuning required
+
+**Adv-RM** — trains an adversarial policy to generate examples that score high on the reward model but are actually low quality (OOD). These adversarial examples are then used to make the RM more robust.
+
+**APRM (Adversarially Trained Process Reward Models)** — two-player game: a generator perturbs correct reasoning steps to make them subtly wrong, while the PRM learns to detect these errors. Produces more robust step-level reward signals.
+
+**POLAR** (July 2025) — pre-trains **policy discriminators as general reward models**. Shows improved generalization and scaling compared to traditional reward model training.
+
+**NLHF (Nash Learning from Human Feedback)** (2024) — formulates alignment as a game-theoretic Nash equilibrium. The policy aims to consistently generate responses preferred over any competing policy — inspired by adversarial equilibrium dynamics.
+
+### Why Pure GANs Didn't Win for LLM Alignment
+
+Despite the natural fit, GAN-based text generation largely lost to autoregressive LLMs + RLHF/DPO in practice:
+
+| Challenge | Explanation |
+|-----------|-------------|
+| **Training instability** | GAN training for discrete sequences suffers from mode collapse and vanishing gradients |
+| **Scale mismatch** | GANs worked at small scale but didn't scale to modern LLM sizes |
+| **The discriminator = reward model** | A GAN discriminator for text is essentially a learned reward model, so it inherits the same reward hacking issues |
+| **RLHF subsumed the idea** | RLHF's reward model IS conceptually a GAN discriminator, just trained from preference pairs rather than adversarially |
+
+However, the adversarial *principle* lives on in APO, Adv-RM, APRM, and POLAR — using adversarial dynamics to make reward models more robust rather than as the primary training paradigm.
+
+---
+
+## 7) Reward Hacking and Overoptimization: The Safety Dimension
 
 ### The Core Problem: Goodhart's Law in Practice
 
@@ -244,7 +286,7 @@ When coding models learned to exploit reward training, they spontaneously develo
 
 ---
 
-## 7) RLVR's Limitations and Emerging Extensions
+## 8) RLVR's Limitations and Emerging Extensions
 
 ### Where RLVR Falls Short
 
@@ -264,7 +306,7 @@ When coding models learned to exploit reward training, they spontaneously develo
 
 ---
 
-## 8) Scalable Oversight and Weak-to-Strong Generalization
+## 9) Scalable Oversight and Weak-to-Strong Generalization
 
 ### OpenAI's Weak-to-Strong Generalization (2023-2024)
 
@@ -280,7 +322,7 @@ Weaker models (GPT-2 level) can supervise stronger models (GPT-4) and elicit mos
 
 ---
 
-## 9) Complete Reference List
+## 10) Complete Reference List
 
 ### Core Papers on Unverifiable Rewards
 1. "Beyond Verifiable Rewards" — Tang et al. (DeepMind, 2025) — JEPO
@@ -335,9 +377,19 @@ Weaker models (GPT-2 level) can supervise stronger models (GPT-4) and elicit mos
 36. "Let's Verify Step by Step" — Lightman et al. (OpenAI, 2023)
 37. "Verifiable Process Reward Models (VPRMs)" — Intermediate step checking (2026)
 
+### GAN and Adversarial Approaches
+38. "SeqGAN: Sequence Generative Adversarial Nets with Policy Gradient" — Yu et al. (2017)
+39. "RankGAN: Adversarial Ranking for Language Generation" — Lin et al. (2017)
+40. "Adversarial Preference Optimization (APO)" — ACL (2024)
+41. "Adv-RM: Adversarial Training for Robust Reward Models" (2024)
+42. "APRM: Adversarially Trained Process Reward Models" (2024)
+43. "POLAR: Pre-training Policy Discriminators as General Reward Models" (2025)
+44. "Nash Learning from Human Feedback (NLHF)" — ICML (2024)
+45. "Branch-GAN" — Efficient GAN for sequential data (2024)
+
 ---
 
-## 10) Key Takeaways
+## 11) Key Takeaways
 
 1. **The frontier is moving beyond RLVR.** DeepSeek R1 showed verifiable rewards + GRPO can produce emergent reasoning, but the real challenge is extending RL to the vast majority of tasks where rewards cannot be verified.
 
