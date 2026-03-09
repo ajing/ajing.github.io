@@ -92,6 +92,8 @@ Reformulates reward modeling as **next-token prediction** — the LLM generates 
 
 **Core idea**: Replace human feedback with AI-generated feedback, guided by explicit principles or rules.
 
+> **Does the judge need to be a larger/better model?** No — and this is a key advantage. Constitutional AI uses the **same model** to self-critique. RLAIF works with same-sized models. OpenAI's weak-to-strong generalization showed that even **weaker models can supervise stronger ones** effectively. In practice, a stronger judge helps, but it's not required.
+
 ### Constitutional AI (Anthropic, 2022)
 
 Two-phase approach:
