@@ -119,6 +119,15 @@ Uses explicit rules to generate reward signals for safety alignment — no human
 
 **Core idea**: Instead of a perfect reward signal, use imperfect but available real-world feedback (engagement, clicks, ratings).
 
+| Task | Noisy Proxy Signal | Why It's Imperfect |
+|------|-------------------|-------------------|
+| Social media post generation | Likes, shares, replies | Engagement ≠ quality (clickbait scores high) |
+| Chatbot responses | User thumbs-up/down, session length | Users may upvote sycophantic answers |
+| Search/recommendation | Click-through rate, dwell time | Position bias, curiosity clicks |
+| Email drafting | Reply rate, response time | Urgency ≠ quality |
+| Customer support | Resolution rate, satisfaction score | Fast resolution may skip nuance |
+| Content moderation | Appeal overturn rate | Noisy, delayed signal |
+
 ### RLNVR + Walter System (2025)
 
 Trains LLMs using **noisy social media engagement** (Bluesky data) as reward — no human verification. Key techniques:
@@ -128,11 +137,13 @@ Trains LLMs using **noisy social media engagement** (Bluesky data) as reward —
 
 ### Credit Assignment for Long-Horizon Tasks
 
-Two approaches address the sparse reward problem in multi-turn settings:
+Two approaches address the sparse reward problem in multi-turn agentic settings:
 - **iStar** (2025): Implicit step rewards from trajectory preferences for agentic tasks (WebShop, SOTOPIA)
 - **MA-RLHF** (2024): Macro actions reduce temporal gap between actions and rewards
 
-**When to use Strategy 4**: Real-world interaction data is available; perfect verification isn't possible but noisy signal is.
+> **The proxy gap**: The fundamental risk is Goodhart's Law — optimizing for engagement can produce clickbait, optimizing for user approval can produce sycophancy. Combine with Strategy 5 (robust rewards) to mitigate.
+
+**When to use Strategy 4**: You have real-world interaction data with measurable outcomes, but no way to verify "true" quality.
 
 ---
 
