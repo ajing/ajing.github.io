@@ -44,6 +44,8 @@ The gap between verifiable and unverifiable tasks is the key frontier in scaling
 
 **Key Idea**: Treats chain-of-thought as a **latent variable**. Applies Jensen's inequality to derive a tractable lower bound on the evidence (log-likelihood of the answer), enabling RL without explicit reward signals.
 
+> **Important caveat**: JEPO still requires **a known correct answer** $a$ in the training data (e.g., question-answer pairs). What's "unverifiable" is the **reasoning chain** $z$ — you can verify the final answer but cannot check whether the intermediate reasoning steps are correct. For truly unverifiable tasks where even the answer has no ground truth (creative writing, subjective quality), JEPO does not directly apply.
+
 #### How Jensen's Inequality Works Here
 
 Jensen's inequality states that for a concave function $f$ (like $\log$):
@@ -66,9 +68,9 @@ $$
 
 **Why this matters:**
 - You **never need to verify** the chain-of-thought $z$ itself (which is unverifiable)
-- You only check whether each sampled reasoning chain leads to a **likely answer** $p(a \mid z, q)$
+- The term $p(a \mid z, q)$ measures how likely the **known correct answer** $a$ is given the reasoning chain — this is computable because $a$ is provided in the training data
 - The KL term acts as a natural regularizer preventing policy collapse
-- By maximizing this lower bound via RL, the model learns better reasoning chains **without explicit reward signals**
+- By maximizing this lower bound via RL, the model learns better reasoning chains **without explicit reward signals for the reasoning process**
 
 **Results**: Matches RL-with-verifiable-rewards on math; improves semi-verifiable (Numina) and fully unverifiable (Numina-proof) benchmarks.
 
