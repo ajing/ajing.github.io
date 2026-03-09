@@ -194,7 +194,19 @@ RLVR works brilliantly for math and code, but:
 - Primarily improves sampling efficiency of existing reasoning, not creating new abilities
 - Optimizing for verified solutions can narrow the solution space
 
-Emerging extensions: soft/hybrid verification, Knowledge-to-Verification (K2V), Verifiable Process Reward Models (VPRMs), and mixed-reward systems (RLMR) for creative tasks.
+### Emerging Extensions: Bridging Verifiable and Unverifiable
+
+These approaches try to **extend verification** into domains that aren't traditionally verifiable:
+
+**Soft/Hybrid Verification** — Instead of binary correct/incorrect, use continuous scores. A summarization reward might combine ROUGE overlap (0.0–1.0) with an LLM-judged faithfulness score. This turns a fully unverifiable task into a partially verifiable one.
+
+**Knowledge-to-Verification (K2V)** — Decomposes complex reasoning into **verifiable sub-tasks**. A long-form analysis question might be broken into: (1) extract key facts (verifiable via retrieval), (2) check logical consistency (verifiable via symbolic check), (3) assess overall quality (still unverifiable, but now a smaller fraction). By making 70% of the task verifiable, the remaining 30% needs less reward modeling.
+
+**Verifiable Process Reward Models (VPRMs)** — Instead of only checking the final answer, verify **intermediate reasoning steps** against known facts or logical rules. A math proof's individual steps can often be checked even when end-to-end verification is hard. This provides denser, more reliable reward signal.
+
+**RLMR — Mixed Rewards (2025)** — Combines verifiable objective constraints (word count, format, factual accuracy) with unverifiable subjective quality (style, creativity) in a **dynamic weighting scheme**. For creative writing: 40% verifiable (grammar, length, topic adherence) + 60% LLM-judged (quality, originality). The verifiable portion anchors training while the unverifiable portion guides style.
+
+**Explanation Scoring** — A second LLM scores the reasoning process, not just the output. The model must "show its work" and the scorer evaluates whether the reasoning is coherent, even if the final answer can't be verified. Combines naturally with VPRMs.
 
 ### Scalable Oversight: Weak-to-Strong Generalization
 
