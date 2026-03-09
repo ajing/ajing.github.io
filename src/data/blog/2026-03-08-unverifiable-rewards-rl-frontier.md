@@ -49,19 +49,19 @@ The gap between verifiable and unverifiable tasks is the key frontier in scaling
 Jensen's inequality states that for a concave function $f$ (like $\log$):
 
 $$
-f\big(\mathbb{E}[X]\big) \geq \mathbb{E}\big[f(X)\big]
+f(\mathbb{E}[X]) \geq \mathbb{E}[f(X)]
 $$
 
 JEPO wants to maximize the log-likelihood of the correct answer $a$ given question $q$, marginalizing over all possible chains-of-thought $z$:
 
 $$
-\log p(a \mid q) = \log \sum_{z} p(a, z \mid q) = \log \mathbb{E}_{z \sim \pi}\!\left[\frac{p(a, z \mid q)}{\pi(z \mid q)}\right]
+\log p(a \mid q) = \log \sum_{z} p(a, z \mid q) = \log \mathbb{E}_{z \sim \pi}\left[\frac{p(a, z \mid q)}{\pi(z \mid q)}\right]
 $$
 
 This is **intractable** — summing over all reasoning chains. Applying Jensen's inequality ($\log$ is concave) yields a tractable **Evidence Lower Bound (ELBO)**:
 
 $$
-\log p(a \mid q) \geq \mathbb{E}_{z \sim \pi}\!\left[\log \frac{p(a, z \mid q)}{\pi(z \mid q)}\right] = \mathbb{E}_{z \sim \pi}[\log p(a \mid z, q)] - D_{\mathrm{KL}}\!\big(\pi \,\|\, p(z \mid q)\big)
+\log p(a \mid q) \geq \mathbb{E}_{z \sim \pi}\left[\log \frac{p(a, z \mid q)}{\pi(z \mid q)}\right] = \mathbb{E}_{z \sim \pi}[\log p(a \mid z, q)] - D_{\mathrm{KL}}(\pi \Vert p(z \mid q))
 $$
 
 **Why this matters:**
