@@ -249,6 +249,89 @@ Beyond convention-breaking, Nobel-level literature requires:
 
 The discriminator is a powerful tool for **craft**. Craft is the *floor* of great literature, not the ceiling. The ceiling requires something optimization can't provide: a vision worth expressing.
 
+But what if we tried to embed that vision directly?
+
+---
+
+## Can You Embed Vision Into the Model?
+
+If the discriminator handles craft but not vision, the natural follow-up is: can we engineer vision into the pipeline? "Vision" in literature decomposes into several distinct components, each with different tractability:
+
+| Component of Vision | Can It Be Embedded? | How? |
+|---|---|---|
+| **A coherent worldview** | 🟡 Partially | Persona conditioning, constitutional principles |
+| **Thematic intentionality** ("about-ness") | 🟡 Partially | Theme-conditioned reward, planning-based generation |
+| **Lived experience** | ❌ Not genuinely | Retrieval-augmented context can *simulate* it |
+| **Moral/philosophical conviction** | 🟡 Weakly | Encode as principles, but it's mimicry not belief |
+| **Originality of perspective** | ❌ Very hard | Novelty rewards exist but don't produce *meaning* |
+
+### Persona as Simulated Vision
+
+You can condition the model on a deeply specified persona — not just "you are a writer" but a full worldview:
+
+> *"You are a writer who grew up in post-industrial decline, who believes that dignity persists in ordinary people even as institutions fail them, who sees humor as a survival mechanism, and who distrusts both sentimentality and cynicism."*
+
+This encodes a worldview into the system prompt or constitution. The model generates text *consistent with* that worldview. It's not genuine conviction, but it produces thematically coherent output.
+
+The limitation: it reads as well-executed ventriloquism, not authentic voice. The persona is a constraint, not a motivation.
+
+### Theme-Conditioned Reward Models
+
+Instead of rewarding "good prose" alone, add a **thematic coherence reward**:
+
+- Does the entire piece sustain a recognizable theme?
+- Do individual scenes contribute to that theme, or just exist for their own sake?
+- Is there thematic *development* — not just repetition but evolution?
+
+This is technically tractable as an additional dimension in the multi-dimensional reward model. The total reward becomes something like:
+
+```
+R_total = R_craft + R_emotional + R_thematic_coherence + R_originality
+```
+
+This gets you works that are *about something* rather than beautifully aimless. MORLAIF's multi-objective framework handles the balance between dimensions.
+
+### World-Model as Proto-Vision
+
+The most speculative but interesting angle: **LLMs do develop internal world models** during pretraining. They have representations of social dynamics, power structures, moral dilemmas, historical patterns — compressed from millions of human narratives.
+
+Could RL surface this latent knowledge as *literary insight*?
+
+Some evidence says yes:
+- Models produce more interesting writing when prompted to draw on their "understanding" of specific human situations
+- Writing-Zero showed emergent improvement in thematic quality, not just surface prose
+- The world model contains patterns from the entire breadth of human experience in text
+
+The philosophical gap: **pattern recognition over human narratives ≠ having lived one.** The model knows the *shape* of grief from a million texts about grief. It doesn't know grief. Whether that distinction matters for literature is an open question — some argue that great fiction has always been an act of imagination, not just autobiography.
+
+### Multi-Agent Vision Pipeline
+
+Perhaps the most practical approach — separate "what to say" from "how to say it":
+
+```
+"Vision Agent" (defines theme, worldview, what the work is "about")
+        ↓
+"Planning Agent" (structures narrative to serve that vision)
+        ↓
+"Writing Agent" (produces prose, optimized by discriminator)
+        ↓
+"Critic Agent" (evaluates whether the output serves the vision)
+        ↓
+     Iterate
+```
+
+The discriminator handles **craft**. The vision agent provides the **telos** — the purpose that great writing serves. The critic agent closes the loop by checking whether craft is serving vision or just serving itself.
+
+This is architecturally clean: each agent optimizes for what it's good at, and the pipeline produces work that is both well-crafted *and* thematically intentional.
+
+### Functional Vision vs. Genuine Vision
+
+These approaches can embed something that **functions like** vision — a thematic framework, a consistent worldview, a sense of purpose. For many applications (commercial fiction, content creation, educational writing, interactive storytelling), functional vision would be remarkably powerful.
+
+But there remains a gap between **functional vision** (the model writes *as if* it has something to say) and **genuine vision** (the model *actually has* something to say). Readers may not notice the difference in a short story. Over a novel or an author's body of work, the difference becomes apparent: functional vision produces well-crafted thematic consistency; genuine vision produces works that *change how you see the world*.
+
+The optimistic take: maybe the distinction between functional and genuine vision is less binary than we think, and sufficiently rich world models + RL-refined expression gets us closer than we expect. The honest take: we don't yet know where the ceiling is.
+
 ---
 
 ## How to Try This: A Practical Pipeline
@@ -273,9 +356,9 @@ If you want to experiment with this approach, here's a concrete pipeline combini
 
 The literature discriminator idea is **sound and research-validated** — it maps onto a well-studied RL pipeline with proven components. Recent work (Writing-Zero, RLMR, Constitutional AI) demonstrates meaningful quality improvements in creative writing through discriminator-style reward models.
 
-The approach can elevate LLM writing from generic and formulaic to polished and emotionally effective. It can teach craft. What it cannot teach is vision — the element that separates competent writing from literature that matters.
+The approach can elevate LLM writing from generic and formulaic to polished and emotionally effective. It can teach craft. What it cannot easily teach is vision — though persona conditioning, theme-conditioned rewards, and multi-agent pipelines offer paths toward embedding *functional* vision into the generation process.
 
-For practitioners, the most promising avenue is the GenRM with self-principled critique: it's interpretable, resistant to reward hacking, and scales without human annotation. For researchers, the open question remains: can we design reward signals that encourage genuine originality rather than sophisticated mimicry?
+For practitioners, the most promising avenue is the GenRM with self-principled critique: it's interpretable, resistant to reward hacking, and scales without human annotation. For researchers, the open questions are twofold: can we design reward signals that encourage genuine originality rather than sophisticated mimicry? And can sufficiently rich world models, combined with RL-refined expression, close the gap between functional and genuine literary vision?
 
 ---
 
