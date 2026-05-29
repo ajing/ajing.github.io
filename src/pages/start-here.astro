@@ -1,0 +1,108 @@
+---
+import { getCollection } from "astro:content";
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Main from "@/layouts/Main.astro";
+import { SITE } from "@/config";
+import { TOPICS } from "@/data/topics";
+import { getPath } from "@/utils/getPath";
+import getSortedPosts from "@/utils/getSortedPosts";
+import { slugifyStr } from "@/utils/slugify";
+import {
+  breadcrumbStructuredData,
+  websiteStructuredData,
+} from "@/utils/structuredData";
+
+const title = `Start Here | ${SITE.title}`;
+const description =
+  "Curated reading paths through Jing Lu's writing on LLM agents, evaluation, post-training, RLHF, and AI product systems.";
+const pageUrl = new URL("/start-here/", Astro.url.origin).href;
+const posts = getSortedPosts(
+  await getCollection("blog", ({ data }) => !data.draft)
+);
+
+const readingPaths = TOPICS.map(topic => {
+  const topicTags = new Set(topic.tags.map(tag => slugifyStr(tag)));
+  const relatedPosts = posts
+    .filter(post =>
+      post.data.tags.some(tag => topicTags.has(slugifyStr(tag)))
+    )
+    .slice(0, 3);
+
+  return { ...topic, relatedPosts };
+});
+---
+
+<Layout
+  {title}
+  {description}
+  structuredData={[
+    websiteStructuredData(new URL("/", Astro.url.origin).href),
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: "Start Here",
+      description,
+      url: pageUrl,
+    },
+    breadcrumbStructuredData([
+      { name: SITE.title, url: new URL("/", Astro.url.origin).href },
+      { name: "Start Here", url: pageUrl },
+    ]),
+  ]}
+>
+  <Header />
+  <Main
+    pageTitle="Start Here"
+    pageDesc="A short map of the main themes on this site."
+  >
+    <section class="space-y-5">
+      <p>
+        This site is about the practical side of ML and AI systems: how models,
+        agents, training pipelines, evaluations, and product interfaces behave
+        when they leave the paper and enter a real engineering loop.
+      </p>
+      <p>
+        The fastest entry point is to pick a path below, then follow the linked
+        topic hub when you want the full archive.
+      </p>
+    </section>
+
+    <section aria-labelledby="reading-paths" class="mt-10">
+      <h2 id="reading-paths" class="text-xl font-semibold">Reading Paths</h2>
+      <div class="mt-5 space-y-8">
+        {
+          readingPaths.map(path => (
+            <section>
+              <h3 class="text-lg font-semibold">
+                <a
+                  href={`/topics/${path.slug}/`}
+                  class="text-accent decoration-dashed underline-offset-4 hover:underline"
+                >
+                  {path.title}
+                </a>
+              </h3>
+              <p class="mt-1">{path.description}</p>
+              <ul class="mt-3 list-disc space-y-2 ps-6">
+                {path.relatedPosts.map(post => (
+                  <li>
+                    <a
+                      href={`${getPath(post.id, post.filePath)}/`}
+                      class="text-accent decoration-dashed underline-offset-4 hover:underline"
+                    >
+                      {post.data.title}
+                    </a>
+                    <p class="text-sm opacity-85">{post.data.description}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))
+        }
+      </div>
+    </section>
+  </Main>
+  <Footer />
+</Layout>
+

@@ -103,6 +103,18 @@ const socialImageURL = new URL(ogImage, Astro.url);
       title={SITE.title}
       href={new URL("rss.xml", Astro.site)}
     />
+    <link
+      rel="alternate"
+      type="application/feed+json"
+      title={`${SITE.title} JSON Feed`}
+      href={new URL("feed.json", Astro.site)}
+    />
+    <link
+      rel="alternate"
+      type="text/plain"
+      title={`${SITE.title} for LLMs`}
+      href={new URL("llms.txt", Astro.site)}
+    />
 
     <meta name="theme-color" content="" />
 

@@ -65,6 +65,13 @@ const recentPosts = sortedPosts.filter(({ data }) => !data.featured);
           </div>
         )
       }
+      <div class="mt-6 flex flex-wrap gap-3">
+        <LinkButton href="/start-here/">
+          Start Here
+          <IconArrowRight class="inline-block rtl:-rotate-180" />
+        </LinkButton>
+        <LinkButton href="/topics/">Topic Hubs</LinkButton>
+      </div>
     </section>
 
     <Hr />
