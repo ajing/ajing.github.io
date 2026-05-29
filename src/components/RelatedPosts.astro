@@ -1,0 +1,56 @@
+---
+import type { CollectionEntry } from "astro:content";
+import { getPath } from "@/utils/getPath";
+import { slugifyStr } from "@/utils/slugify";
+
+export interface Props {
+  post: CollectionEntry<"blog">;
+  posts: CollectionEntry<"blog">[];
+  limit?: number;
+}
+
+const { post, posts, limit = 4 } = Astro.props;
+const currentTags = new Set(post.data.tags.map(tag => slugifyStr(tag)));
+
+const relatedPosts = posts
+  .filter(candidate => candidate.id !== post.id && !candidate.data.draft)
+  .map(candidate => {
+    const sharedTags = candidate.data.tags.filter(tag =>
+      currentTags.has(slugifyStr(tag))
+    );
+    return { candidate, sharedCount: sharedTags.length };
+  })
+  .filter(({ sharedCount }) => sharedCount > 0)
+  .sort((a, b) => {
+    if (b.sharedCount !== a.sharedCount) return b.sharedCount - a.sharedCount;
+    return (
+      new Date(b.candidate.data.pubDatetime).getTime() -
+      new Date(a.candidate.data.pubDatetime).getTime()
+    );
+  })
+  .slice(0, limit)
+  .map(({ candidate }) => candidate);
+---
+
+{
+  relatedPosts.length > 0 && (
+    <section aria-labelledby="related-posts" class="my-8">
+      <h2 id="related-posts" class="mb-4 text-xl font-semibold">
+        Related Posts
+      </h2>
+      <ul class="space-y-3">
+        {relatedPosts.map(relatedPost => (
+          <li>
+            <a
+              href={getPath(relatedPost.id, relatedPost.filePath)}
+              class="text-accent decoration-dashed underline-offset-4 hover:underline"
+            >
+              {relatedPost.data.title}
+            </a>
+            <p class="mt-1 text-sm opacity-85">{relatedPost.data.description}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}

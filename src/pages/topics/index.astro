@@ -1,0 +1,59 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Main from "@/layouts/Main.astro";
+import { SITE } from "@/config";
+import { TOPICS } from "@/data/topics";
+import {
+  breadcrumbStructuredData,
+  websiteStructuredData,
+} from "@/utils/structuredData";
+
+const title = `Topics | ${SITE.title}`;
+const description =
+  "Curated guides to Jing Lu's writing on LLM agents, evaluation, post-training, RLHF, and generative UI.";
+const pageUrl = new URL("/topics/", Astro.url.origin).href;
+---
+
+<Layout
+  {title}
+  {description}
+  structuredData={[
+    websiteStructuredData(new URL("/", Astro.url.origin).href),
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: "Topics",
+      description,
+      url: pageUrl,
+    },
+    breadcrumbStructuredData([
+      { name: SITE.title, url: new URL("/", Astro.url.origin).href },
+      { name: "Topics", url: pageUrl },
+    ]),
+  ]}
+>
+  <Header />
+  <Main
+    pageTitle="Topics"
+    pageDesc="Curated reading paths for the recurring themes on this site."
+  >
+    <ul class="grid gap-6 sm:grid-cols-2">
+      {
+        TOPICS.map(topic => (
+          <li class="rounded border border-muted p-4">
+            <a
+              href={`/topics/${topic.slug}/`}
+              class="text-lg font-semibold text-accent decoration-dashed underline-offset-4 hover:underline"
+            >
+              {topic.title}
+            </a>
+            <p class="mt-2">{topic.description}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </Main>
+  <Footer />
+</Layout>

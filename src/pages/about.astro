@@ -1,0 +1,73 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Main from "@/layouts/Main.astro";
+import Socials from "@/components/Socials.astro";
+import { SITE } from "@/config";
+import {
+  breadcrumbStructuredData,
+  personStructuredData,
+} from "@/utils/structuredData";
+
+const title = `About | ${SITE.title}`;
+const description =
+  "About Jing Lu, writing on LLM systems, AI agents, RLHF, post-training, evaluation, and ML engineering.";
+const pageUrl = new URL("/about/", Astro.url.origin).href;
+---
+
+<Layout
+  {title}
+  {description}
+  structuredData={[
+    {
+      "@context": "https://schema.org",
+      "@type": "ProfilePage",
+      name: "About Jing Lu",
+      url: pageUrl,
+      mainEntity: personStructuredData(),
+    },
+    breadcrumbStructuredData([
+      { name: SITE.title, url: new URL("/", Astro.url.origin).href },
+      { name: "About", url: pageUrl },
+    ]),
+  ]}
+>
+  <Header />
+  <Main
+    pageTitle="About"
+    pageDesc="I write about the practical side of building and evaluating AI systems."
+  >
+    <section class="space-y-5">
+      <p>
+        I am Jing Lu, and this site is where I collect technical notes on LLM
+        systems, AI agents, post-training, RLHF, evaluation, recommender
+        systems, and AI product design.
+      </p>
+      <p>
+        The common thread is implementation: how the research idea becomes a
+        working system, where it breaks, and what engineering patterns make it
+        reliable enough to ship.
+      </p>
+    </section>
+
+    <section aria-labelledby="areas" class="mt-8">
+      <h2 id="areas" class="text-xl font-semibold">Areas I Write About</h2>
+      <ul class="mt-3 list-disc ps-6">
+        <li>LLM agents, tool use, and agent runtime design</li>
+        <li>Agent and model evaluation</li>
+        <li>RLHF, post-training, and preference optimization</li>
+        <li>Instruction following and reasoning systems</li>
+        <li>Generative UI and AI product interfaces</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="links" class="mt-8">
+      <h2 id="links" class="text-xl font-semibold">Links</h2>
+      <div class="mt-3">
+        <Socials />
+      </div>
+    </section>
+  </Main>
+  <Footer />
+</Layout>

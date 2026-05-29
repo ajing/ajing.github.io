@@ -10,12 +10,17 @@ import ShareLinks from "@/components/ShareLinks.astro";
 import BackButton from "@/components/BackButton.astro";
 import BackToTopButton from "@/components/BackToTopButton.astro";
 import Comments from "@/components/Comments.astro";
+import RelatedPosts from "@/components/RelatedPosts.astro";
 import { getPath } from "@/utils/getPath";
 import { slugifyStr } from "@/utils/slugify";
 import { getReadingTime } from "@/utils/getReadingTime";
 import IconChevronLeft from "@/assets/icons/IconChevronLeft.svg";
 import IconChevronRight from "@/assets/icons/IconChevronRight.svg";
 import { SITE } from "@/config";
+import {
+  breadcrumbStructuredData,
+  personStructuredData,
+} from "@/utils/structuredData";
 
 export interface Props {
   post: CollectionEntry<"blog">;
@@ -39,6 +44,8 @@ const {
 
 const { Content } = await render(post);
 const readingTime = getReadingTime(post.body || "");
+const postPath = getPath(post.id, post.filePath);
+const postUrl = new URL(`${postPath}/`, Astro.url.origin).href;
 
 let ogImageUrl: string | undefined;
 
@@ -68,6 +75,26 @@ const layoutProps = {
   canonicalURL,
   ogImage,
   scrollSmooth: true,
+  structuredData: [
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      headline: title,
+      description,
+      image: ogImage,
+      url: postUrl,
+      mainEntityOfPage: postUrl,
+      datePublished: pubDatetime.toISOString(),
+      ...(modDatetime && { dateModified: modDatetime.toISOString() }),
+      author: personStructuredData(),
+      keywords: tags,
+    },
+    breadcrumbStructuredData([
+      { name: SITE.title, url: new URL("/", Astro.url.origin).href },
+      { name: "Posts", url: new URL("/posts/", Astro.url.origin).href },
+      { name: title, url: postUrl },
+    ]),
+  ],
 };
 
 /* ========== Prev/Next Posts ========== */
@@ -129,6 +156,8 @@ const nextPost =
     </ul>
 
     <BackToTopButton />
+
+    <RelatedPosts {post} {posts} />
 
     <ShareLinks />
 

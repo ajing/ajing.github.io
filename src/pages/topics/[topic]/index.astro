@@ -1,0 +1,76 @@
+---
+import type { GetStaticPaths } from "astro";
+import { getCollection, type CollectionEntry } from "astro:content";
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Main from "@/layouts/Main.astro";
+import Card from "@/components/Card.astro";
+import { SITE } from "@/config";
+import { TOPICS, type Topic } from "@/data/topics";
+import getSortedPosts from "@/utils/getSortedPosts";
+import { slugifyStr } from "@/utils/slugify";
+import {
+  breadcrumbStructuredData,
+  websiteStructuredData,
+} from "@/utils/structuredData";
+
+export const getStaticPaths = (async () =>
+  TOPICS.map(topic => ({
+    params: { topic: topic.slug },
+    props: { topic },
+  }))) satisfies GetStaticPaths;
+
+interface Props {
+  topic: Topic;
+}
+
+const { topic } = Astro.props;
+const posts = await getCollection("blog", ({ data }) => !data.draft);
+const topicTags = new Set(topic.tags.map(tag => slugifyStr(tag)));
+const topicPosts = getSortedPosts(posts).filter((post: CollectionEntry<"blog">) =>
+  post.data.tags.some(tag => topicTags.has(slugifyStr(tag)))
+);
+
+const title = `${topic.title} | ${SITE.title}`;
+const pageUrl = new URL(`/topics/${topic.slug}/`, Astro.url.origin).href;
+---
+
+<Layout
+  {title}
+  description={topic.description}
+  structuredData={[
+    websiteStructuredData(new URL("/", Astro.url.origin).href),
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: topic.title,
+      description: topic.description,
+      url: pageUrl,
+      about: topic.focus,
+    },
+    breadcrumbStructuredData([
+      { name: SITE.title, url: new URL("/", Astro.url.origin).href },
+      { name: "Topics", url: new URL("/topics/", Astro.url.origin).href },
+      { name: topic.title, url: pageUrl },
+    ]),
+  ]}
+>
+  <Header />
+  <Main pageTitle={topic.title} pageDesc={topic.description}>
+    <section aria-labelledby="focus-areas" class="mb-8">
+      <h2 id="focus-areas" class="text-xl font-semibold">Focus Areas</h2>
+      <ul class="mt-3 list-disc ps-6">
+        {topic.focus.map(item => <li>{item}</li>)}
+      </ul>
+    </section>
+
+    <section aria-labelledby="topic-posts">
+      <h2 id="topic-posts" class="text-xl font-semibold">Recommended Posts</h2>
+      <ul>
+        {topicPosts.map(post => <Card {...post} />)}
+      </ul>
+    </section>
+  </Main>
+  <Footer />
+</Layout>

@@ -12,6 +12,11 @@ import IconRss from "@/assets/icons/IconRss.svg";
 import IconArrowRight from "@/assets/icons/IconArrowRight.svg";
 import { SITE } from "@/config";
 import { SOCIALS } from "@/constants";
+import { TOPICS } from "@/data/topics";
+import {
+  personStructuredData,
+  websiteStructuredData,
+} from "@/utils/structuredData";
 
 const posts = await getCollection("blog");
 
@@ -20,7 +25,12 @@ const featuredPosts = sortedPosts.filter(({ data }) => data.featured);
 const recentPosts = sortedPosts.filter(({ data }) => !data.featured);
 ---
 
-<Layout>
+<Layout
+  structuredData={[
+    websiteStructuredData(new URL("/", Astro.url.origin).href),
+    personStructuredData(),
+  ]}
+>
   <Header />
   <main id="main-content" data-layout="index">
     <section id="hero" class="pt-8 pb-6">
@@ -55,6 +65,27 @@ const recentPosts = sortedPosts.filter(({ data }) => !data.featured);
           </div>
         )
       }
+    </section>
+
+    <Hr />
+
+    <section id="topics" class="pt-12 pb-6">
+      <h2 class="text-2xl font-semibold tracking-wide">Topic Hubs</h2>
+      <ul class="mt-4 grid gap-4 sm:grid-cols-2">
+        {
+          TOPICS.map(topic => (
+            <li>
+              <a
+                href={`/topics/${topic.slug}/`}
+                class="text-lg font-medium text-accent decoration-dashed underline-offset-4 hover:underline"
+              >
+                {topic.title}
+              </a>
+              <p class="mt-1 text-sm opacity-85">{topic.description}</p>
+            </li>
+          ))
+        }
+      </ul>
     </section>
 
     <Hr />
