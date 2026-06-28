@@ -16,8 +16,8 @@ const currentPath =
   pathname.endsWith("/") && pathname !== "/" ? pathname.slice(0, -1) : pathname;
 
 const isActive = (path: string) => {
-  const currentPathArray = currentPath.split("/").filter(p => p.trim());
-  const pathArray = path.split("/").filter(p => p.trim());
+  const currentPathArray = currentPath.split("/").filter((p) => p.trim());
+  const pathArray = path.split("/").filter((p) => p.trim());
 
   return currentPath === path || currentPathArray[0] === pathArray[0];
 };
@@ -27,17 +27,17 @@ const isActive = (path: string) => {
   <a
     id="skip-to-content"
     href="#main-content"
-    class="absolute start-16 -top-full z-50 bg-background px-3 py-2 text-accent backdrop-blur-lg transition-all focus:top-4"
+    class="bg-background text-accent absolute start-16 -top-full z-50 px-3 py-2 backdrop-blur-lg transition-all focus:top-4"
   >
     Skip to content
   </a>
   <div
     id="nav-container"
-    class="mx-auto flex max-w-app flex-col items-center justify-between sm:flex-row"
+    class="max-w-app mx-auto flex flex-col items-center justify-between sm:flex-row"
   >
     <div
       id="top-nav-wrap"
-      class="relative flex w-full items-baseline justify-between bg-background p-4 sm:items-center sm:py-6"
+      class="bg-background relative flex w-full items-baseline justify-between p-4 sm:items-center sm:py-6"
     >
       <a
         href="/"
@@ -63,41 +63,44 @@ const isActive = (path: string) => {
           id="menu-items"
           class:list={[
             "mt-4 grid w-44 grid-cols-2 place-content-center gap-2",
-            "[&>li>a]:block [&>li>a]:px-4 [&>li>a]:py-3 [&>li>a]:text-center [&>li>a]:font-medium [&>li>a]:hover:text-accent sm:[&>li>a]:px-2 sm:[&>li>a]:py-1",
+            "[&>li>a]:hover:text-accent [&>li>a]:block [&>li>a]:px-4 [&>li>a]:py-3 [&>li>a]:text-center [&>li>a]:font-medium sm:[&>li>a]:px-2 sm:[&>li>a]:py-1",
             "hidden",
             "sm:mt-0 sm:flex sm:w-auto sm:gap-x-5 sm:gap-y-0",
           ]}
         >
           <li class="col-span-2">
-            <a href="/posts" class:list={{ "active-nav": isActive("/posts") }}>
+            <a
+              href="/posts/"
+              class:list={{ "active-nav": isActive("/posts/") }}
+            >
               Posts
             </a>
           </li>
           <li class="col-span-2">
             <a
-              href="/start-here"
-              class:list={{ "active-nav": isActive("/start-here") }}
+              href="/start-here/"
+              class:list={{ "active-nav": isActive("/start-here/") }}
             >
               Start
             </a>
           </li>
           <li class="col-span-2">
-            <a href="/tags" class:list={{ "active-nav": isActive("/tags") }}>
+            <a href="/tags/" class:list={{ "active-nav": isActive("/tags/") }}>
               Tags
             </a>
           </li>
           <li class="col-span-2">
             <a
-              href="/topics"
-              class:list={{ "active-nav": isActive("/topics") }}
+              href="/topics/"
+              class:list={{ "active-nav": isActive("/topics/") }}
             >
               Topics
             </a>
           </li>
           <li class="col-span-2">
             <a
-              href="/about"
-              class:list={{ "active-nav": isActive("/about") }}
+              href="/about/"
+              class:list={{ "active-nav": isActive("/about/") }}
             >
               About
             </a>
@@ -106,11 +109,12 @@ const isActive = (path: string) => {
             SITE.showArchives && (
               <li class="col-span-2">
                 <LinkButton
-                  href="/archives"
+                  href="/archives/"
                   class:list={[
                     "focus-outline flex justify-center p-3 sm:p-1",
                     {
-                      "active-nav [&>svg]:stroke-accent": isActive("/archives"),
+                      "active-nav [&>svg]:stroke-accent":
+                        isActive("/archives/"),
                     },
                   ]}
                   ariaLabel="archives"
@@ -124,10 +128,10 @@ const isActive = (path: string) => {
           }
           <li class="col-span-1 flex items-center justify-center">
             <LinkButton
-              href="/search"
+              href="/search/"
               class:list={[
                 "focus-outline flex p-3 sm:p-1",
-                { "[&>svg]:stroke-accent": isActive("/search") },
+                { "[&>svg]:stroke-accent": isActive("/search/") },
               ]}
               ariaLabel="search"
               title="Search"
@@ -141,7 +145,7 @@ const isActive = (path: string) => {
               <li class="col-span-1 flex items-center justify-center">
                 <button
                   id="theme-btn"
-                  class="focus-outline relative size-12 p-4 sm:size-8 hover:[&>svg]:stroke-accent"
+                  class="focus-outline hover:[&>svg]:stroke-accent relative size-12 p-4 sm:size-8"
                   title="Toggles light & dark"
                   aria-label="auto"
                   aria-live="polite"

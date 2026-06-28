@@ -10,13 +10,13 @@ export interface Props {
 }
 
 const { post, posts, limit = 4 } = Astro.props;
-const currentTags = new Set(post.data.tags.map(tag => slugifyStr(tag)));
+const currentTags = new Set(post.data.tags.map((tag) => slugifyStr(tag)));
 
 const relatedPosts = posts
-  .filter(candidate => candidate.id !== post.id && !candidate.data.draft)
-  .map(candidate => {
-    const sharedTags = candidate.data.tags.filter(tag =>
-      currentTags.has(slugifyStr(tag))
+  .filter((candidate) => candidate.id !== post.id && !candidate.data.draft)
+  .map((candidate) => {
+    const sharedTags = candidate.data.tags.filter((tag) =>
+      currentTags.has(slugifyStr(tag)),
     );
     return { candidate, sharedCount: sharedTags.length };
   })
@@ -39,15 +39,17 @@ const relatedPosts = posts
         Related Posts
       </h2>
       <ul class="space-y-3">
-        {relatedPosts.map(relatedPost => (
+        {relatedPosts.map((relatedPost) => (
           <li>
             <a
-              href={getPath(relatedPost.id, relatedPost.filePath)}
+              href={`${getPath(relatedPost.id, relatedPost.filePath)}/`}
               class="text-accent decoration-dashed underline-offset-4 hover:underline"
             >
               {relatedPost.data.title}
             </a>
-            <p class="mt-1 text-sm opacity-85">{relatedPost.data.description}</p>
+            <p class="mt-1 text-sm opacity-85">
+              {relatedPost.data.description}
+            </p>
           </li>
         ))}
       </ul>
