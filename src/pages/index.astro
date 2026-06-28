@@ -39,7 +39,7 @@ const recentPosts = sortedPosts.filter(({ data }) => !data.featured);
       </h1>
       <a
         target="_blank"
-        href="/rss.xml"
+        href="/index.xml"
         class="inline-block"
         aria-label="rss feed"
         title="RSS Feed"
@@ -47,14 +47,15 @@ const recentPosts = sortedPosts.filter(({ data }) => !data.featured);
         <IconRss
           width={20}
           height={20}
-          class="scale-125 stroke-accent stroke-3 rtl:-rotate-90"
+          class="stroke-accent scale-125 stroke-3 rtl:-rotate-90"
         />
         <span class="sr-only">RSS Feed</span>
       </a>
 
       <p>
-        Practical insights on machine learning, AI systems, and building products that ship.
-        Topics include RLHF, LLM optimization, recommender systems, and generative UI.
+        Practical insights on machine learning, AI systems, and building
+        products that ship. Topics include RLHF, LLM optimization, recommender
+        systems, and generative UI.
       </p>
       {
         // only display if at least one social link is enabled
@@ -80,11 +81,11 @@ const recentPosts = sortedPosts.filter(({ data }) => !data.featured);
       <h2 class="text-2xl font-semibold tracking-wide">Topic Hubs</h2>
       <ul class="mt-4 grid gap-4 sm:grid-cols-2">
         {
-          TOPICS.map(topic => (
+          TOPICS.map((topic) => (
             <li>
               <a
                 href={`/topics/${topic.slug}/`}
-                class="text-lg font-medium text-accent decoration-dashed underline-offset-4 hover:underline"
+                class="text-accent text-lg font-medium decoration-dashed underline-offset-4 hover:underline"
               >
                 {topic.title}
               </a>
@@ -103,7 +104,7 @@ const recentPosts = sortedPosts.filter(({ data }) => !data.featured);
           <section id="featured" class="pt-12 pb-6">
             <h2 class="text-2xl font-semibold tracking-wide">Featured</h2>
             <ul>
-              {featuredPosts.map(data => (
+              {featuredPosts.map((data) => (
                 <Card variant="h3" {...data} />
               ))}
             </ul>
@@ -120,7 +121,7 @@ const recentPosts = sortedPosts.filter(({ data }) => !data.featured);
           <ul>
             {recentPosts.map(
               (data, index) =>
-                index < SITE.postPerIndex && <Card variant="h3" {...data} />
+                index < SITE.postPerIndex && <Card variant="h3" {...data} />,
             )}
           </ul>
         </section>

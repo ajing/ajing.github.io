@@ -9,13 +9,13 @@ export const GET: APIRoute = async () => {
   const posts = await getCollection("blog", ({ data }) => !data.draft);
   const sortedPosts = getSortedPosts(posts);
   const selectedPosts = sortedPosts
-    .filter(post => post.data.featured)
-    .concat(sortedPosts.filter(post => !post.data.featured))
+    .filter((post) => post.data.featured)
+    .concat(sortedPosts.filter((post) => !post.data.featured))
     .slice(0, 12);
 
   const topicLines = TOPICS.map(
-    topic =>
-      `- [${topic.title}](${new URL(`/topics/${topic.slug}/`, SITE.website).href}): ${topic.description}`
+    (topic) =>
+      `- [${topic.title}](${new URL(`/topics/${topic.slug}/`, SITE.website).href}): ${topic.description}`,
   );
   const postLines = selectedPosts.map(({ data, id, filePath }) => {
     const url = new URL(`${getPath(id, filePath)}/`, SITE.website).href;
@@ -30,7 +30,7 @@ export const GET: APIRoute = async () => {
     `Author: ${SITE.author}`,
     `Website: ${SITE.website}`,
     `About: ${new URL("/about/", SITE.website).href}`,
-    `RSS: ${new URL("rss.xml", SITE.website).href}`,
+    `RSS: ${new URL("index.xml", SITE.website).href}`,
     `JSON Feed: ${new URL("feed.json", SITE.website).href}`,
     `Full LLM index: ${new URL("llms-full.txt", SITE.website).href}`,
     "",
@@ -51,4 +51,3 @@ export const GET: APIRoute = async () => {
     },
   });
 };
-

@@ -56,6 +56,7 @@ const socialImageURL = new URL(ogImage, Astro.url);
     <meta name="title" content={title} />
     <meta name="description" content={description} />
     <meta name="author" content={author} />
+    <meta name="robots" content="index, follow" />
     <link rel="sitemap" href="/sitemap.xml" />
 
     <!-- Open Graph / Facebook -->
@@ -105,7 +106,7 @@ const socialImageURL = new URL(ogImage, Astro.url);
       rel="alternate"
       type="application/rss+xml"
       title={SITE.title}
-      href={new URL("rss.xml", Astro.site)}
+      href={new URL("index.xml", Astro.site)}
     />
     <link
       rel="alternate"

@@ -26,11 +26,13 @@ const { noMarginTop = false } = Astro.props;
         <a href="/start-here/" class="hover:text-accent">Start Here</a>
         <a href="/topics/" class="hover:text-accent">Topics</a>
         <a href="/about/" class="hover:text-accent">About</a>
-        <a href="/rss.xml" class="hover:text-accent">RSS</a>
+        <a href="/index.xml" class="hover:text-accent">RSS</a>
         <a href="/feed.json" class="hover:text-accent">JSON Feed</a>
         <a href="/llms.txt" class="hover:text-accent">LLMs</a>
       </nav>
-      <div class="my-2 flex flex-col items-center whitespace-nowrap sm:flex-row">
+      <div
+        class="my-2 flex flex-col items-center whitespace-nowrap sm:flex-row"
+      >
         <span>Copyright &#169; {currentYear}</span>
         <span class="hidden sm:inline">&nbsp;|&nbsp;</span>
         <span>All rights reserved.</span>
