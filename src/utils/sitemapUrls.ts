@@ -18,6 +18,10 @@ const staticPages = [
   "/topics/",
 ] as const;
 
+const priorityStaticPages = ["/", "/posts/", "/start-here/", "/topics/"] as const;
+const priorityTopicSlugs = new Set(["agents", "evaluation"]);
+const priorityPostCount = 8;
+
 export const getCanonicalSitemapEntries = async (
   site?: URL,
 ): Promise<SitemapEntry[]> => {
@@ -54,4 +58,25 @@ export const getCanonicalSitemapEntries = async (
   ];
 
   return Array.from(new Map(urls.map((url) => [url.loc, url])).values());
+};
+
+export const getPrioritySitemapEntries = async (
+  site?: URL,
+): Promise<SitemapEntry[]> => {
+  const origin = site ?? new URL(SITE.website);
+  const posts = getSortedPosts(await getCollection("blog"));
+  const canonicalEntries = await getCanonicalSitemapEntries(origin);
+  const priorityPaths = new Set([
+    ...priorityStaticPages,
+    ...TOPICS.filter((topic) => priorityTopicSlugs.has(topic.slug)).map(
+      (topic) => `/topics/${topic.slug}/`,
+    ),
+    ...posts
+      .slice(0, priorityPostCount)
+      .map((post) => `${getPath(post.id, post.filePath)}/`),
+  ]);
+
+  return canonicalEntries.filter(({ loc }) =>
+    priorityPaths.has(new URL(loc).pathname),
+  );
 };
