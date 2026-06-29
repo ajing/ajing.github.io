@@ -7,8 +7,14 @@ import Header from "@/components/Header.astro";
 import Footer from "@/components/Footer.astro";
 import Card from "@/components/Card.astro";
 import Pagination from "@/components/Pagination.astro";
+import { getPath } from "@/utils/getPath";
 import getSortedPosts from "@/utils/getSortedPosts";
 import { SITE } from "@/config";
+import {
+  breadcrumbStructuredData,
+  itemListStructuredData,
+  websiteStructuredData,
+} from "@/utils/structuredData";
 
 export const getStaticPaths = (async ({ paginate }) => {
   const posts = await getCollection("blog", ({ data }) => !data.draft);
@@ -16,9 +22,36 @@ export const getStaticPaths = (async ({ paginate }) => {
 }) satisfies GetStaticPaths;
 
 const { page } = Astro.props;
+const pageUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 ---
 
-<Layout title={`Posts | ${SITE.title}`}>
+<Layout
+  title={`Posts | ${SITE.title}`}
+  structuredData={[
+    websiteStructuredData(new URL("/", Astro.url.origin).href),
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: "Posts",
+      description: "All the articles published on this site.",
+      url: pageUrl,
+    },
+    breadcrumbStructuredData([
+      { name: SITE.title, url: new URL("/", Astro.url.origin).href },
+      { name: "Posts", url: new URL("/posts/", Astro.url.origin).href },
+    ]),
+    itemListStructuredData(
+      page.data.map(post => ({
+        name: post.data.title,
+        url: new URL(
+          `${getPath(post.id, post.filePath)}/`,
+          Astro.url.origin
+        ).href,
+        description: post.data.description,
+      }))
+    ),
+  ]}
+>
   <Header />
   <Main pageTitle="Posts" pageDesc="All the articles I've posted.">
     <ul>

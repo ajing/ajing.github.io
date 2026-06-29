@@ -7,6 +7,7 @@ import Socials from "@/components/Socials.astro";
 import LinkButton from "@/components/LinkButton.astro";
 import Card from "@/components/Card.astro";
 import Hr from "@/components/Hr.astro";
+import { getPath } from "@/utils/getPath";
 import getSortedPosts from "@/utils/getSortedPosts";
 import IconRss from "@/assets/icons/IconRss.svg";
 import IconArrowRight from "@/assets/icons/IconArrowRight.svg";
@@ -14,6 +15,7 @@ import { SITE } from "@/config";
 import { SOCIALS } from "@/constants";
 import { TOPICS } from "@/data/topics";
 import {
+  itemListStructuredData,
   personStructuredData,
   websiteStructuredData,
 } from "@/utils/structuredData";
@@ -23,12 +25,43 @@ const posts = await getCollection("blog");
 const sortedPosts = getSortedPosts(posts);
 const featuredPosts = sortedPosts.filter(({ data }) => data.featured);
 const recentPosts = sortedPosts.filter(({ data }) => !data.featured);
+const homeUrl = new URL("/", Astro.url.origin).href;
+const recentPostEntries = sortedPosts.slice(0, 10).map(post => ({
+  "@type": "BlogPosting",
+  headline: post.data.title,
+  description: post.data.description,
+  url: new URL(`${getPath(post.id, post.filePath)}/`, Astro.url.origin).href,
+  datePublished: post.data.pubDatetime.toISOString(),
+  ...(post.data.modDatetime && {
+    dateModified: post.data.modDatetime.toISOString(),
+  }),
+  author: personStructuredData(),
+}));
 ---
 
 <Layout
   structuredData={[
-    websiteStructuredData(new URL("/", Astro.url.origin).href),
+    websiteStructuredData(homeUrl),
     personStructuredData(),
+    {
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      name: SITE.title,
+      url: homeUrl,
+      description: SITE.desc,
+      author: personStructuredData(),
+      blogPost: recentPostEntries,
+    },
+    itemListStructuredData(
+      sortedPosts.slice(0, 10).map(post => ({
+        name: post.data.title,
+        url: new URL(
+          `${getPath(post.id, post.filePath)}/`,
+          Astro.url.origin
+        ).href,
+        description: post.data.description,
+      }))
+    ),
   ]}
 >
   <Header />

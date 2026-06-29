@@ -38,7 +38,7 @@ const socialImageURL = new URL(ogImage, Astro.url);
 <html
   dir={SITE.dir}
   lang=`${SITE.lang ?? "en"}`
-  class={`${scrollSmooth && "scroll-smooth"}`}
+  class:list={[scrollSmooth && "scroll-smooth"]}
 >
   <head>
     <meta charset="UTF-8" />

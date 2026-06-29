@@ -8,10 +8,12 @@ import Main from "@/layouts/Main.astro";
 import Card from "@/components/Card.astro";
 import { SITE } from "@/config";
 import { TOPICS, type Topic } from "@/data/topics";
+import { getPath } from "@/utils/getPath";
 import getSortedPosts from "@/utils/getSortedPosts";
 import { slugifyStr } from "@/utils/slugify";
 import {
   breadcrumbStructuredData,
+  itemListStructuredData,
   websiteStructuredData,
 } from "@/utils/structuredData";
 
@@ -54,6 +56,16 @@ const pageUrl = new URL(`/topics/${topic.slug}/`, Astro.url.origin).href;
       { name: "Topics", url: new URL("/topics/", Astro.url.origin).href },
       { name: topic.title, url: pageUrl },
     ]),
+    itemListStructuredData(
+      topicPosts.map(post => ({
+        name: post.data.title,
+        url: new URL(
+          `${getPath(post.id, post.filePath)}/`,
+          Astro.url.origin
+        ).href,
+        description: post.data.description,
+      }))
+    ),
   ]}
 >
   <Header />

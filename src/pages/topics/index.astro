@@ -7,6 +7,7 @@ import { SITE } from "@/config";
 import { TOPICS } from "@/data/topics";
 import {
   breadcrumbStructuredData,
+  itemListStructuredData,
   websiteStructuredData,
 } from "@/utils/structuredData";
 
@@ -32,6 +33,13 @@ const pageUrl = new URL("/topics/", Astro.url.origin).href;
       { name: SITE.title, url: new URL("/", Astro.url.origin).href },
       { name: "Topics", url: pageUrl },
     ]),
+    itemListStructuredData(
+      TOPICS.map(topic => ({
+        name: topic.title,
+        url: new URL(`/topics/${topic.slug}/`, Astro.url.origin).href,
+        description: topic.description,
+      }))
+    ),
   ]}
 >
   <Header />

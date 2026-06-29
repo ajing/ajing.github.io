@@ -6,7 +6,14 @@ import Header from "@/components/Header.astro";
 import Footer from "@/components/Footer.astro";
 import Card from "@/components/Card.astro";
 import getPostsByGroupCondition from "@/utils/getPostsByGroupCondition";
+import getSortedPosts from "@/utils/getSortedPosts";
+import { getPath } from "@/utils/getPath";
 import { SITE } from "@/config";
+import {
+  breadcrumbStructuredData,
+  itemListStructuredData,
+  websiteStructuredData,
+} from "@/utils/structuredData";
 
 // Redirect to 404 page if `showArchives` config is false
 if (!SITE.showArchives) {
@@ -14,6 +21,8 @@ if (!SITE.showArchives) {
 }
 
 const posts = await getCollection("blog", ({ data }) => !data.draft);
+const sortedPosts = getSortedPosts(posts);
+const pageUrl = new URL("/archives/", Astro.url.origin).href;
 
 const months = [
   "January",
@@ -31,7 +40,33 @@ const months = [
 ];
 ---
 
-<Layout title={`Archives | ${SITE.title}`}>
+<Layout
+  title={`Archives | ${SITE.title}`}
+  structuredData={[
+    websiteStructuredData(new URL("/", Astro.url.origin).href),
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: "Archives",
+      description: "Chronological archive of every post on this site.",
+      url: pageUrl,
+    },
+    breadcrumbStructuredData([
+      { name: SITE.title, url: new URL("/", Astro.url.origin).href },
+      { name: "Archives", url: pageUrl },
+    ]),
+    itemListStructuredData(
+      sortedPosts.map(post => ({
+        name: post.data.title,
+        url: new URL(
+          `${getPath(post.id, post.filePath)}/`,
+          Astro.url.origin
+        ).href,
+        description: post.data.description,
+      }))
+    ),
+  ]}
+>
   <Header />
   <Main pageTitle="Archives" pageDesc="All the articles I've archived.">
     {
