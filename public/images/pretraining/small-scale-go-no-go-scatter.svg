@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="620" viewBox="0 0 1040 620" role="img" aria-labelledby="title desc">
+  <title id="title">Small-scale pretraining go/no-go scatter</title>
+  <desc id="desc">A scatter plot showing when a small-scale pretraining result should move forward, wait for more evidence, or stop.</desc>
+  <rect width="1040" height="620" fill="#fbfaf7"/>
+  <text x="70" y="58" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700" fill="#1f2933">Small-scale go/no-go for pretraining ideas</text>
+  <text x="70" y="90" font-family="Inter, Arial, sans-serif" font-size="16" fill="#52606d">Use the first proxy run as a decision surface, not as a trophy score.</text>
+
+  <g transform="translate(100 120)">
+    <rect x="0" y="0" width="820" height="410" fill="#ffffff" stroke="#d9e2ec"/>
+    <rect x="410" y="0" width="410" height="205" fill="#e3f9e5" opacity="0.8"/>
+    <rect x="410" y="205" width="410" height="205" fill="#fffbea" opacity="0.95"/>
+    <rect x="0" y="0" width="410" height="205" fill="#f0f4f8" opacity="0.85"/>
+    <rect x="0" y="205" width="410" height="205" fill="#ffe3e3" opacity="0.75"/>
+
+    <line x1="410" y1="0" x2="410" y2="410" stroke="#9fb3c8" stroke-dasharray="8 8" stroke-width="2"/>
+    <line x1="0" y1="205" x2="820" y2="205" stroke="#9fb3c8" stroke-dasharray="8 8" stroke-width="2"/>
+
+    <line x1="0" y1="410" x2="820" y2="410" stroke="#334e68" stroke-width="2"/>
+    <line x1="0" y1="410" x2="0" y2="0" stroke="#334e68" stroke-width="2"/>
+    <polygon points="820,410 807,404 807,416" fill="#334e68"/>
+    <polygon points="0,0 -6,13 6,13" fill="#334e68"/>
+
+    <text x="560" y="62" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#0f5132">Move forward</text>
+    <text x="548" y="88" font-family="Inter, Arial, sans-serif" font-size="14" fill="#276749">Gain is real and regressions are clean</text>
+
+    <text x="535" y="270" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#7c5700">Hold / rerun</text>
+    <text x="498" y="296" font-family="Inter, Arial, sans-serif" font-size="14" fill="#8a6d1d">Promising, but unstable or unsafe</text>
+
+    <text x="112" y="62" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#334e68">Need stronger signal</text>
+    <text x="86" y="88" font-family="Inter, Arial, sans-serif" font-size="14" fill="#52606d">Stable, but too small to justify scale</text>
+
+    <text x="170" y="270" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#8a1c1c">Stop</text>
+    <text x="96" y="296" font-family="Inter, Arial, sans-serif" font-size="14" fill="#9b2c2c">No clear gain or hidden regressions</text>
+
+    <circle cx="615" cy="102" r="10" fill="#2f9e44"/>
+    <text x="632" y="108" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">Recipe C</text>
+    <circle cx="700" cy="144" r="10" fill="#2f9e44"/>
+    <text x="717" y="150" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">Filter A</text>
+    <circle cx="545" cy="158" r="10" fill="#2f9e44"/>
+    <text x="562" y="164" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">Mix B</text>
+
+    <circle cx="645" cy="272" r="10" fill="#f59f00"/>
+    <text x="662" y="278" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">Tokenizer X</text>
+    <circle cx="520" cy="337" r="10" fill="#f59f00"/>
+    <text x="537" y="343" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">Aggressive filter</text>
+
+    <circle cx="280" cy="132" r="10" fill="#627d98"/>
+    <text x="297" y="138" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">Mild dedup</text>
+    <circle cx="205" cy="320" r="10" fill="#d64545"/>
+    <text x="222" y="326" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">Curriculum Y</text>
+    <circle cx="345" cy="360" r="10" fill="#d64545"/>
+    <text x="362" y="366" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">Synthetic-only mix</text>
+
+    <text x="235" y="462" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#334e68">Small-scale validation gain</text>
+    <text x="252" y="485" font-family="Inter, Arial, sans-serif" font-size="13" fill="#627d98">loss reduction, eval lift, or quality per FLOP</text>
+    <text transform="translate(-58 305) rotate(-90)" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#334e68">Transfer evidence</text>
+    <text transform="translate(-34 348) rotate(-90)" font-family="Inter, Arial, sans-serif" font-size="13" fill="#627d98">rank stability + no regressions</text>
+
+    <text x="398" y="432" font-family="Inter, Arial, sans-serif" font-size="12" fill="#627d98">gain threshold</text>
+    <text x="12" y="198" font-family="Inter, Arial, sans-serif" font-size="12" fill="#627d98">safety threshold</text>
+  </g>
+</svg>

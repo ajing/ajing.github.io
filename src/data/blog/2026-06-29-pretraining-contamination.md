@@ -141,6 +141,10 @@ On the other side, aggressive semantic filtering can remove too much. If every d
 
 This creates a real engineering tradeoff. Too little filtering leaves leakage. Too much filtering damages the training distribution and may remove the very knowledge the benchmark is meant to test.
 
+![Contamination policy scatter: remove, review, or keep](/images/pretraining/contamination-policy-scatter.svg "Contamination policy scatter")
+
+*A decontamination system should not collapse every hit into one similarity threshold. The action depends on match confidence and leakage severity.*
+
 ## 6. What a serious decontamination pipeline actually does
 
 A mature decontamination system is not one classifier and not one embedding index. It is a layered pipeline with explicit policies. The important engineering idea is that each layer catches a different failure mode.

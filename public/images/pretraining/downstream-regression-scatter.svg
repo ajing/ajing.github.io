@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="620" viewBox="0 0 1040 620" role="img" aria-labelledby="title desc">
+  <title id="title">Validation gain versus downstream regression</title>
+  <desc id="desc">A scatter plot comparing validation loss gain against downstream and domain regression risk.</desc>
+  <rect width="1040" height="620" fill="#fbfaf7"/>
+  <text x="70" y="58" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700" fill="#1f2933">Loss wins are not enough</text>
+  <text x="70" y="90" font-family="Inter, Arial, sans-serif" font-size="16" fill="#52606d">A small proxy must pass both the smooth metric and the regression audit.</text>
+
+  <g transform="translate(105 125)">
+    <rect x="0" y="0" width="810" height="390" fill="#ffffff" stroke="#d9e2ec"/>
+    <rect x="405" y="0" width="405" height="195" fill="#e3f9e5" opacity="0.85"/>
+    <rect x="405" y="195" width="405" height="195" fill="#fffbea" opacity="0.9"/>
+    <rect x="0" y="195" width="405" height="195" fill="#ffe3e3" opacity="0.75"/>
+    <line x1="405" y1="0" x2="405" y2="390" stroke="#9fb3c8" stroke-dasharray="8 8" stroke-width="2"/>
+    <line x1="0" y1="195" x2="810" y2="195" stroke="#9fb3c8" stroke-dasharray="8 8" stroke-width="2"/>
+    <line x1="0" y1="390" x2="810" y2="390" stroke="#334e68" stroke-width="2"/>
+    <line x1="0" y1="390" x2="0" y2="0" stroke="#334e68" stroke-width="2"/>
+
+    <text x="542" y="52" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#0f5132">Scale candidate</text>
+    <text x="518" y="78" font-family="Inter, Arial, sans-serif" font-size="14" fill="#276749">loss improves and evals do not regress</text>
+    <text x="548" y="260" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#7c5700">Needs diagnosis</text>
+    <text x="506" y="286" font-family="Inter, Arial, sans-serif" font-size="14" fill="#8a6d1d">loss gain is hiding a capability tradeoff</text>
+    <text x="155" y="268" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#8a1c1c">Do not scale</text>
+
+    <circle cx="650" cy="95" r="10" fill="#2f9e44"/>
+    <text x="667" y="101" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">balanced data mix</text>
+    <circle cx="555" cy="145" r="10" fill="#2f9e44"/>
+    <text x="572" y="151" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">mild quality filter</text>
+    <circle cx="720" cy="166" r="10" fill="#2f9e44"/>
+    <text x="737" y="172" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">dedup v2</text>
+
+    <circle cx="625" cy="250" r="10" fill="#f59f00"/>
+    <text x="642" y="256" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">code-heavy mix</text>
+    <circle cx="520" cy="315" r="10" fill="#f59f00"/>
+    <text x="537" y="321" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">synthetic math boost</text>
+
+    <circle cx="280" cy="270" r="10" fill="#d64545"/>
+    <text x="297" y="276" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">noisy curriculum</text>
+    <circle cx="340" cy="330" r="10" fill="#d64545"/>
+    <text x="357" y="336" font-family="Inter, Arial, sans-serif" font-size="14" fill="#1f2933">tokenizer experiment</text>
+
+    <text x="282" y="448" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#334e68">Held-out validation gain</text>
+    <text x="262" y="471" font-family="Inter, Arial, sans-serif" font-size="13" fill="#627d98">average loss reduction at the proxy scale</text>
+    <text transform="translate(-58 300) rotate(-90)" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#334e68">Downstream safety</text>
+    <text transform="translate(-34 342) rotate(-90)" font-family="Inter, Arial, sans-serif" font-size="13" fill="#627d98">target evals and domain regressions</text>
+  </g>
+</svg>

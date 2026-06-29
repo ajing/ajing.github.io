@@ -54,6 +54,10 @@ That advantage can come from:
 
 Embeddings can help find some of these. They cannot reliably classify all of them.
 
+![Embedding similarity versus leakage risk](/images/pretraining/embedding-similarity-vs-leakage.svg "Embedding similarity versus leakage risk")
+
+*Embedding similarity and leakage risk are related, but they are not the same axis. Some high-similarity documents are harmless; some low-similarity documents leak the answer or solution.*
+
 ## 2. Embedding similarity has no natural decontamination threshold
 
 The most immediate engineering problem is threshold selection.

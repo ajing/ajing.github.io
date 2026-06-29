@@ -27,6 +27,14 @@ The core idea:
 >
 > It becomes credible when the improvement is stable across model sizes, token budgets, seeds, validation slices, and downstream evaluations.
 
+![IsoFLOP scaling-law monitor for small and medium pretraining runs](/images/pretraining/isoflop-scaling-law-monitor.svg "IsoFLOP scaling-law monitor")
+
+*This is the monitoring plot I would want in a real pretraining program. The green points follow the expected scaling-law band as FLOPs increase. The orange points are optimization or batch-condition problems. The red point is a data bottleneck or mixture problem: more compute is no longer buying the expected loss reduction.*
+
+![Small-scale go/no-go scatter for pretraining ideas](/images/pretraining/small-scale-go-no-go-scatter.svg "Small-scale go/no-go scatter")
+
+*A small proxy result should be treated as a decision surface. Move forward only when the gain is large enough and the transfer evidence is clean enough.*
+
 ## 1. Why small models are useful at all
 
 The reason small models are useful is not that they are miniature copies of large models in every way. They are not.
@@ -184,6 +192,10 @@ At this stage, you should not still be debating the basic data filter. You shoul
 
 The final run is still risky, but it should not be a blind bet.
 
+![A pretraining gain surviving, fading, or reversing across model scales](/images/pretraining/gain-survival-across-scales.svg "Gain survival across model scales")
+
+*The green line is the pattern you want: the intervention keeps beating the baseline as model size increases. The yellow line needs more evidence. The red line is a classic small-model trap.*
+
 ## 5. Two budget styles: isoFLOP and fixed-token
 
 There are two common ways to compare pretraining interventions.
@@ -211,6 +223,55 @@ This is the cleanest test if you are asking:
 > Which recipe gives better performance for the same training cost?
 
 IsoFLOP comparisons are especially important when the candidate changes data quality, data order, optimizer, deduplication, or filtering.
+
+The practical plot is validation loss versus FLOPs. For each run, put a point on the chart:
+
+```text
+run = model size + tokens + batch + optimizer + data recipe
+x   = total training FLOPs so far
+y   = held-out validation loss
+```
+
+Then compare the point to the fitted scaling-law band from your previous small runs. If the 300M, 1B, and 3B runs all sit on the same smooth curve, the recipe is behaving predictably. If a run lands far above the band, do not just keep training and hope. Something changed.
+
+Common interpretations:
+
+- **Point stays inside the band:** continue the scale ladder.
+- **Point is above the band early:** likely optimization issue, bad learning rate, bad warmup, unstable batch, or data-loader bug.
+- **Point is above the band only at larger scale:** the small-model result may not transfer, or the model is hitting a data-quality bottleneck.
+- **Curve flattens too early:** the data mix may be too narrow, too duplicated, or exhausted.
+- **One model scale is bad but nearby scales are good:** suspect batch size, LR schedule, implementation, or hardware-level training instability.
+
+### Batch condition is part of the experiment
+
+Batch size is not just a throughput parameter. It changes the optimization condition of the run.
+
+For a fixed FLOP budget, increasing batch size usually reduces the number of optimizer updates. That can improve hardware utilization, but if the batch is beyond the useful regime, you may spend the same FLOPs and get worse loss. McCandlish et al. frame this through the gradient noise scale: a measurable statistic that predicts the largest useful batch size and the tradeoff between compute-efficiency and time-efficiency ([McCandlish et al., 2018](https://arxiv.org/abs/1812.06162)).
+
+So when comparing small-scale pretraining ideas, do not only log:
+
+```text
+model size
+tokens
+FLOPs
+validation loss
+```
+
+Also log:
+
+```text
+global batch size in tokens
+microbatch size
+gradient accumulation
+learning rate
+warmup length
+optimizer state
+tokens per optimizer step
+loss spike history
+hardware throughput
+```
+
+If a point falls above the scaling-law band, batch is one of the first things to check. A bad batch/LR condition can make a good data recipe look bad.
 
 ### Fixed-token comparison
 
@@ -289,6 +350,10 @@ Multilingual validation loss:   +0.04
 ```
 
 This tells you whether the gain is broad or whether you are trading away one capability for another.
+
+![Validation gain versus downstream regression scatter](/images/pretraining/downstream-regression-scatter.svg "Validation gain versus downstream regression")
+
+*A recipe can improve average validation loss while breaking a target domain. That is not a scale-up candidate until the regression is understood.*
 
 ### Memorization and contamination checks
 
@@ -782,6 +847,7 @@ The best pretraining teams are not the ones that simply train the biggest model.
 
 - [Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361)
 - [Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556)
+- [An Empirical Model of Large-Batch Training](https://arxiv.org/abs/1812.06162)
 - [DataComp-LM: In search of the next generation of training sets for language models](https://arxiv.org/html/2406.11794v1)
 - [Language models scale reliably with over-training and on downstream tasks](https://arxiv.org/abs/2403.08540)
 - [Pythia: A Suite for Analyzing Large Language Models Across Training and Scaling](https://arxiv.org/abs/2304.01373)
