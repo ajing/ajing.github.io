@@ -1,73 +1,143 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1040" height="620" viewBox="0 0 1040 620" role="img" aria-labelledby="title desc">
-  <title id="title">IsoFLOP scaling-law monitor</title>
-  <desc id="desc">A monitoring chart showing validation loss versus training FLOPs across model scales and batch conditions, with a scaling-law prediction band.</desc>
+  <title id="title">Small-scale scaling validation dashboard</title>
+  <desc id="desc">A two-panel monitoring chart for pretraining scale-up decisions. The left panel shows held-out validation loss versus training FLOPs with a fitted scaling-law trend and residual bands. The right panel shows IsoFLOP sweeps where final loss has a U-shaped dependence on model size.</desc>
   <rect width="1040" height="620" fill="#fbfaf7"/>
-  <text x="70" y="58" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700" fill="#1f2933">Monitor small-scale runs against the scaling-law pattern</text>
-  <text x="70" y="90" font-family="Inter, Arial, sans-serif" font-size="16" fill="#52606d">Move forward when runs stay inside the prediction band; stop and diagnose when they drift above it.</text>
 
-  <g transform="translate(105 120)">
-    <rect x="0" y="0" width="810" height="405" fill="#ffffff" stroke="#d9e2ec"/>
+  <text x="58" y="54" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700" fill="#1f2933">Small-scale scaling validation dashboard</text>
+  <text x="58" y="83" font-family="Inter, Arial, sans-serif" font-size="15" fill="#52606d">A realistic go/no-go view: scaling-law fit, residual checks, and IsoFLOP allocation sweeps.</text>
 
-    <g stroke="#e6ecf2" stroke-width="1">
-      <line x1="0" y1="65" x2="810" y2="65"/>
-      <line x1="0" y1="135" x2="810" y2="135"/>
-      <line x1="0" y1="205" x2="810" y2="205"/>
-      <line x1="0" y1="275" x2="810" y2="275"/>
-      <line x1="0" y1="345" x2="810" y2="345"/>
-      <line x1="95" y1="0" x2="95" y2="405"/>
-      <line x1="250" y1="0" x2="250" y2="405"/>
-      <line x1="405" y1="0" x2="405" y2="405"/>
-      <line x1="560" y1="0" x2="560" y2="405"/>
-      <line x1="715" y1="0" x2="715" y2="405"/>
+  <g transform="translate(62 112)">
+    <rect x="0" y="0" width="452" height="404" fill="#ffffff" stroke="#d9e2ec"/>
+    <text x="16" y="28" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#1f2933">A. Loss vs training FLOPs</text>
+    <text x="16" y="49" font-family="Inter, Arial, sans-serif" font-size="12" fill="#627d98">Fit on pilot runs; diagnose points above the prediction band.</text>
+
+    <g transform="translate(54 70)">
+      <rect x="0" y="0" width="352" height="238" fill="#ffffff"/>
+      <g stroke="#e6ecf2" stroke-width="1">
+        <line x1="0" y1="0" x2="352" y2="0"/>
+        <line x1="0" y1="48" x2="352" y2="48"/>
+        <line x1="0" y1="96" x2="352" y2="96"/>
+        <line x1="0" y1="144" x2="352" y2="144"/>
+        <line x1="0" y1="192" x2="352" y2="192"/>
+        <line x1="0" y1="238" x2="352" y2="238"/>
+        <line x1="0" y1="0" x2="0" y2="238"/>
+        <line x1="88" y1="0" x2="88" y2="238"/>
+        <line x1="176" y1="0" x2="176" y2="238"/>
+        <line x1="264" y1="0" x2="264" y2="238"/>
+        <line x1="352" y1="0" x2="352" y2="238"/>
+      </g>
+
+      <path d="M4 50 C70 80, 128 107, 184 132 C245 159, 300 181, 350 198 L350 214 C290 197, 238 175, 180 150 C122 125, 65 97, 4 68 Z" fill="#d9f99d" opacity="0.58"/>
+      <path d="M4 59 C70 89, 128 116, 184 141 C245 168, 300 190, 350 207" fill="none" stroke="#2f9e44" stroke-width="3"/>
+      <path d="M4 61 C70 91, 128 118, 184 143 C245 170, 300 192, 350 209" fill="none" stroke="#1f2933" stroke-width="1.5" stroke-dasharray="5 5"/>
+
+      <circle cx="18" cy="64" r="4.8" fill="#2563eb"/>
+      <circle cx="56" cy="82" r="4.8" fill="#2563eb"/>
+      <circle cx="95" cy="100" r="4.8" fill="#2563eb"/>
+      <circle cx="136" cy="121" r="4.8" fill="#2563eb"/>
+      <circle cx="176" cy="140" r="4.8" fill="#2563eb"/>
+      <circle cx="220" cy="160" r="4.8" fill="#2563eb"/>
+      <circle cx="262" cy="178" r="4.8" fill="#2563eb"/>
+      <circle cx="306" cy="193" r="4.8" fill="#2563eb"/>
+      <circle cx="340" cy="205" r="4.8" fill="#2563eb"/>
+
+      <path d="M130 63 L136 75 L124 75 Z" fill="#f59f00"/>
+      <path d="M238 96 L244 108 L232 108 Z" fill="#f59f00"/>
+      <path d="M307 112 L317 122 L307 132 L297 122 Z" fill="#d64545"/>
+
+      <line x1="0" y1="238" x2="352" y2="238" stroke="#334e68" stroke-width="1.6"/>
+      <line x1="0" y1="238" x2="0" y2="0" stroke="#334e68" stroke-width="1.6"/>
+      <text x="-39" y="6" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">3.4</text>
+      <text x="-39" y="54" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">3.1</text>
+      <text x="-39" y="102" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">2.8</text>
+      <text x="-39" y="150" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">2.5</text>
+      <text x="-39" y="198" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">2.2</text>
+      <text x="-8" y="259" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">1e19</text>
+      <text x="78" y="259" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">1e20</text>
+      <text x="166" y="259" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">1e21</text>
+      <text x="254" y="259" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">1e22</text>
+      <text x="338" y="259" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">1e23</text>
+      <text x="112" y="285" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700" fill="#334e68">Training FLOPs, log scale</text>
+      <text transform="translate(-48 163) rotate(-90)" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700" fill="#334e68">Held-out loss</text>
     </g>
 
-    <path d="M72 95 C170 122, 248 152, 330 184 C425 222, 520 252, 615 278 C690 297, 735 307, 770 315 L770 350 C720 340, 660 327, 590 306 C500 279, 415 249, 330 214 C245 182, 165 150, 72 130 Z" fill="#d9f99d" opacity="0.55"/>
-    <path d="M72 112 C172 142, 250 172, 330 198 C425 233, 520 263, 615 292 C690 312, 735 322, 770 332" fill="none" stroke="#2f9e44" stroke-width="4"/>
-    <text x="602" y="354" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" fill="#276749">expected scaling-law band</text>
-
-    <line x1="0" y1="405" x2="810" y2="405" stroke="#334e68" stroke-width="2"/>
-    <line x1="0" y1="405" x2="0" y2="0" stroke="#334e68" stroke-width="2"/>
-    <polygon points="810,405 797,399 797,411" fill="#334e68"/>
-    <polygon points="0,0 -6,13 6,13" fill="#334e68"/>
-
-    <line x1="405" y1="0" x2="405" y2="405" stroke="#9fb3c8" stroke-dasharray="8 8" stroke-width="2"/>
-    <text x="374" y="424" font-family="Inter, Arial, sans-serif" font-size="12" fill="#627d98">same FLOPs</text>
-
-    <circle cx="95" cy="125" r="9" fill="#2f9e44"/>
-    <text x="110" y="131" font-family="Inter, Arial, sans-serif" font-size="13" fill="#1f2933">100M, good batch</text>
-    <circle cx="250" cy="178" r="9" fill="#2f9e44"/>
-    <text x="265" y="184" font-family="Inter, Arial, sans-serif" font-size="13" fill="#1f2933">300M</text>
-    <circle cx="405" cy="230" r="9" fill="#2f9e44"/>
-    <text x="420" y="250" font-family="Inter, Arial, sans-serif" font-size="13" fill="#1f2933">1B</text>
-    <circle cx="560" cy="282" r="9" fill="#2f9e44"/>
-    <text x="575" y="288" font-family="Inter, Arial, sans-serif" font-size="13" fill="#1f2933">3B</text>
-    <circle cx="715" cy="325" r="9" fill="#2f9e44"/>
-    <text x="730" y="331" font-family="Inter, Arial, sans-serif" font-size="13" fill="#1f2933">7B</text>
-
-    <rect x="396" y="210" width="18" height="18" rx="2" fill="#2563eb"/>
-    <text x="420" y="224" font-family="Inter, Arial, sans-serif" font-size="13" fill="#1f2933">isoFLOP candidate on band</text>
-    <rect x="396" y="288" width="18" height="18" rx="2" fill="#2563eb"/>
-    <text x="420" y="302" font-family="Inter, Arial, sans-serif" font-size="13" fill="#1f2933">smaller model, more tokens</text>
-
-    <polygon points="246,92 258,114 234,114" fill="#f59f00"/>
-    <text x="268" y="110" font-family="Inter, Arial, sans-serif" font-size="13" fill="#7c5700">batch too large or LR wrong</text>
-    <text x="268" y="128" font-family="Inter, Arial, sans-serif" font-size="12" fill="#8a6d1d">reduce batch, retune LR, rerun</text>
-
-    <polygon points="552,170 564,192 540,192" fill="#f59f00"/>
-    <text x="574" y="186" font-family="Inter, Arial, sans-serif" font-size="13" fill="#7c5700">optimization drift</text>
-    <text x="574" y="204" font-family="Inter, Arial, sans-serif" font-size="12" fill="#8a6d1d">training no longer follows proxy curve</text>
-
-    <path d="M690 230 L704 244 L690 258 L676 244 Z" fill="#d64545"/>
-    <text x="713" y="244" font-family="Inter, Arial, sans-serif" font-size="13" fill="#8a1c1c">data bottleneck / bad mix</text>
-    <text x="713" y="262" font-family="Inter, Arial, sans-serif" font-size="12" fill="#9b2c2c">add data or remix, then retrain</text>
-
-    <text x="70" y="452" font-family="Inter, Arial, sans-serif" font-size="13" fill="#334e68">1e19</text>
-    <text x="222" y="452" font-family="Inter, Arial, sans-serif" font-size="13" fill="#334e68">1e20</text>
-    <text x="377" y="452" font-family="Inter, Arial, sans-serif" font-size="13" fill="#334e68">1e21</text>
-    <text x="532" y="452" font-family="Inter, Arial, sans-serif" font-size="13" fill="#334e68">1e22</text>
-    <text x="687" y="452" font-family="Inter, Arial, sans-serif" font-size="13" fill="#334e68">1e23</text>
-    <text x="314" y="484" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#334e68">Training FLOPs (log scale)</text>
-    <text transform="translate(-58 295) rotate(-90)" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#334e68">Held-out validation loss</text>
-    <text transform="translate(-34 305) rotate(-90)" font-family="Inter, Arial, sans-serif" font-size="13" fill="#627d98">lower is better</text>
+    <g transform="translate(52 365)" font-family="Inter, Arial, sans-serif" font-size="12" fill="#334e68">
+      <circle cx="0" cy="-5" r="4.5" fill="#2563eb"/>
+      <text x="12" y="-1">inside band: continue scale ladder</text>
+      <path d="M212 -13 L218 -1 L206 -1 Z" fill="#f59f00"/>
+      <text x="226" y="-1">batch/LR branch: retune and rerun</text>
+      <path d="M0 17 L8 25 L0 33 L-8 25 Z" fill="#d64545"/>
+      <text x="12" y="29">data-mix residual: add/remix data before scaling</text>
+    </g>
   </g>
+
+  <g transform="translate(550 112)">
+    <rect x="0" y="0" width="428" height="404" fill="#ffffff" stroke="#d9e2ec"/>
+    <text x="16" y="28" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#1f2933">B. IsoFLOP sweeps</text>
+    <text x="16" y="49" font-family="Inter, Arial, sans-serif" font-size="12" fill="#627d98">For a fixed FLOP budget, sweep model size and train tokens.</text>
+
+    <g transform="translate(54 70)">
+      <rect x="0" y="0" width="318" height="238" fill="#ffffff"/>
+      <g stroke="#e6ecf2" stroke-width="1">
+        <line x1="0" y1="0" x2="318" y2="0"/>
+        <line x1="0" y1="48" x2="318" y2="48"/>
+        <line x1="0" y1="96" x2="318" y2="96"/>
+        <line x1="0" y1="144" x2="318" y2="144"/>
+        <line x1="0" y1="192" x2="318" y2="192"/>
+        <line x1="0" y1="238" x2="318" y2="238"/>
+        <line x1="0" y1="0" x2="0" y2="238"/>
+        <line x1="64" y1="0" x2="64" y2="238"/>
+        <line x1="128" y1="0" x2="128" y2="238"/>
+        <line x1="192" y1="0" x2="192" y2="238"/>
+        <line x1="256" y1="0" x2="256" y2="238"/>
+        <line x1="318" y1="0" x2="318" y2="238"/>
+      </g>
+
+      <path d="M10 58 C50 92, 82 122, 113 132 C150 144, 204 112, 304 58" fill="none" stroke="#93c5fd" stroke-width="2"/>
+      <path d="M10 82 C56 117, 94 143, 135 153 C176 162, 223 133, 304 74" fill="none" stroke="#60a5fa" stroke-width="2"/>
+      <path d="M10 109 C65 142, 111 164, 158 174 C201 182, 238 154, 304 92" fill="none" stroke="#2563eb" stroke-width="2.4"/>
+      <path d="M10 139 C74 168, 128 188, 182 195 C222 200, 257 172, 304 115" fill="none" stroke="#1d4ed8" stroke-width="2.4"/>
+      <path d="M10 170 C91 197, 151 216, 211 220 C249 222, 278 191, 304 144" fill="none" stroke="#1e3a8a" stroke-width="2.6"/>
+
+      <circle cx="113" cy="132" r="4.2" fill="#93c5fd"/>
+      <circle cx="135" cy="153" r="4.2" fill="#60a5fa"/>
+      <circle cx="158" cy="174" r="4.5" fill="#2563eb"/>
+      <circle cx="182" cy="195" r="4.5" fill="#1d4ed8"/>
+      <circle cx="211" cy="220" r="4.8" fill="#1e3a8a"/>
+      <path d="M113 132 L135 153 L158 174 L182 195 L211 220" fill="none" stroke="#2f9e44" stroke-width="2" stroke-dasharray="5 5"/>
+
+      <path d="M34 73 L40 85 L28 85 Z" fill="#f59f00"/>
+      <text x="46" y="81" font-family="Inter, Arial, sans-serif" font-size="11" fill="#7c5700">too small / too many repeats</text>
+      <path d="M270 82 L278 90 L270 98 L262 90 Z" fill="#d64545"/>
+      <text x="183" y="72" font-family="Inter, Arial, sans-serif" font-size="11" fill="#8a1c1c">too large, too few tokens</text>
+
+      <line x1="0" y1="238" x2="318" y2="238" stroke="#334e68" stroke-width="1.6"/>
+      <line x1="0" y1="238" x2="0" y2="0" stroke="#334e68" stroke-width="1.6"/>
+      <text x="-39" y="6" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">3.4</text>
+      <text x="-39" y="54" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">3.1</text>
+      <text x="-39" y="102" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">2.8</text>
+      <text x="-39" y="150" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">2.5</text>
+      <text x="-39" y="198" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">2.2</text>
+      <text x="-10" y="259" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">30M</text>
+      <text x="52" y="259" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">100M</text>
+      <text x="115" y="259" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">300M</text>
+      <text x="183" y="259" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">1B</text>
+      <text x="244" y="259" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">3B</text>
+      <text x="298" y="259" font-family="Inter, Arial, sans-serif" font-size="11" fill="#52606d">10B</text>
+      <text x="92" y="285" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700" fill="#334e68">Model parameters, log scale</text>
+      <text transform="translate(-48 163) rotate(-90)" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700" fill="#334e68">Final loss</text>
+    </g>
+
+    <g transform="translate(57 365)" font-family="Inter, Arial, sans-serif" font-size="12" fill="#334e68">
+      <line x1="0" y1="-6" x2="22" y2="-6" stroke="#93c5fd" stroke-width="2"/>
+      <text x="31" y="-2">lower compute</text>
+      <line x1="134" y1="-6" x2="156" y2="-6" stroke="#1e3a8a" stroke-width="2.6"/>
+      <text x="166" y="-2">higher compute</text>
+      <line x1="0" y1="24" x2="24" y2="24" stroke="#2f9e44" stroke-width="2" stroke-dasharray="5 5"/>
+      <text x="31" y="28">valley should move smoothly as FLOPs increase</text>
+    </g>
+  </g>
+
+  <text x="62" y="560" font-family="Inter, Arial, sans-serif" font-size="13" fill="#52606d">Use this as a synthetic monitoring template, not as measured data: the visual grammar follows common scaling-law and IsoFLOP plots.</text>
+  <text x="62" y="581" font-family="Inter, Arial, sans-serif" font-size="13" fill="#52606d">Move forward when both panels are smooth; stop when residuals jump or IsoFLOP minima become unstable.</text>
 </svg>

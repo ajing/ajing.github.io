@@ -29,7 +29,7 @@ The core idea:
 
 ![IsoFLOP scaling-law monitor for small and medium pretraining runs](/images/pretraining/isoflop-scaling-law-monitor.svg "IsoFLOP scaling-law monitor")
 
-*This is the monitoring plot I would want in a real pretraining program. The green points follow the expected scaling-law band as FLOPs increase. The orange points are optimization or batch-condition problems. The red point is a data bottleneck or mixture problem: more compute is no longer buying the expected loss reduction.*
+*This is a synthetic monitoring template, but the visual grammar is borrowed from real scaling-law practice: log-scale loss-vs-FLOPs fits, residual checks, and Chinchilla-style IsoFLOP sweeps. Move forward when the fitted curve and the IsoFLOP valleys stay smooth. Stop when residuals jump, the valley moves erratically, or a larger batch produces worse loss at the same compute.*
 
 ![Small-scale go/no-go scatter for pretraining ideas](/images/pretraining/small-scale-go-no-go-scatter.svg "Small-scale go/no-go scatter")
 
