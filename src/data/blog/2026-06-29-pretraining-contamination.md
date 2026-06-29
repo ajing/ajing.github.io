@@ -10,7 +10,7 @@ tags:
   - ML Engineering
   - Pretraining
   - Evaluation
-description: "A practical introduction to LLM pretraining contamination: why benchmark leakage is not ordinary deduplication, how public evals leak into web-scale corpora, and what an auditable decontamination pipeline should report."
+description: "A practical introduction to LLM pretraining contamination: why benchmark leakage is not ordinary deduplication, how public evals leak into web-scale corpora, and how layered decontamination pipelines reduce risk."
 ---
 
 Pretraining contamination is not a small data-cleaning mistake. It is a measurement problem. Once language models are trained on internet-scale corpora, public benchmarks, answer keys, code solutions, exam explanations, leaderboard discussions, and synthetic copies of all of the above can enter the training mixture. The result is that benchmark scores may measure a mixture of generalization, memorization, benchmark familiarity, and data-pipeline luck.
@@ -141,23 +141,151 @@ On the other side, aggressive semantic filtering can remove too much. If every d
 
 This creates a real engineering tradeoff. Too little filtering leaves leakage. Too much filtering damages the training distribution and may remove the very knowledge the benchmark is meant to test.
 
-## 6. What a serious decontamination pipeline looks like
+## 6. What a serious decontamination pipeline actually does
 
-A mature decontamination system should be layered.
+A mature decontamination system is not one classifier and not one embedding index. It is a layered pipeline with explicit policies. The important engineering idea is that each layer catches a different failure mode.
 
-First, maintain a benchmark registry. The team needs canonical copies of eval prompts, labels, answer choices, solution text, metadata, release dates, and licensing information.
+### Step 1: Build a benchmark registry
 
-Second, normalize both training data and benchmark data. Lowercasing, whitespace cleanup, punctuation normalization, code formatting, and canonical multiple-choice serialization all matter.
+The first artifact is a benchmark registry. For every benchmark you intend to report, store the item ID, split, release date, prompt, answer choices, correct label, explanation, source URL, license, and task family.
 
-Third, run exact and near-duplicate matching. This includes hashes, n-gram overlap, MinHash, SimHash, and URL/source-based quarantine.
+For multiple-choice and factual QA, store several searchable views:
 
-Fourth, add semantic retrieval. Embeddings can help find paraphrases and related passages, but they should be treated as a recall-oriented signal, not a final judge.
+- prompt only;
+- prompt plus all choices;
+- prompt plus correct answer;
+- answer only;
+- explanation only;
+- metadata such as category, source, and original URL.
 
-Fifth, add domain-specific checks. Code benchmarks may need AST similarity, import/function-name matching, repository-level quarantine, or unit-test behavior comparison. Math benchmarks may need equation normalization and template matching. Vision benchmarks may need perceptual image hashes.
+This detail matters because answer-only or prompt-plus-answer retrieval can find leaks that prompt-only search misses. Deng et al. report that concatenating question and label improved retrieval efficiency for contamination detection on benchmarks such as MMLU and TruthfulQA ([Deng et al., 2023](https://arxiv.org/html/2311.09783v2)).
 
-Sixth, apply a removal policy. Exact question-and-answer overlap should usually be removed. Weak semantic overlap may be flagged, sampled, or quarantined depending on risk.
+### Step 2: Canonicalize before matching
 
-Seventh, publish a residual-risk report. The right answer is rarely "perfectly clean." A more honest report says what was checked, what was removed, what was retained, and where uncertainty remains.
+Both benchmark items and candidate training documents should be normalized before matching. At minimum:
+
+- lowercase where appropriate;
+- normalize whitespace, punctuation, unicode variants, and HTML entities;
+- remove boilerplate navigation text;
+- canonicalize Markdown and PDF extraction artifacts;
+- serialize multiple-choice examples in a stable format;
+- format code consistently;
+- keep source URL and crawl timestamp attached to every chunk.
+
+This is boring infrastructure, but it is the difference between a real detector and a demo. Without canonicalization, tiny formatting differences create false negatives.
+
+### Step 3: Use exact and n-gram matching as the first wall
+
+Exact and n-gram matching should still be the first wall because it is cheap, scalable, and interpretable. This is the family of methods used in early large-model decontamination work: later contamination literature summarizes GPT-3 as using a 13-gram-style strategy, while PaLM split examples into clean and contaminated subsets when at least 70% of the 8-grams in the question, prompt, or target appeared in training data ([Deng et al., 2023](https://arxiv.org/html/2311.09783v2); [PaLM](https://jmlr.org/papers/v24/22-1144.html)).
+
+The practical version is:
+
+- hash exact benchmark strings and normalized strings;
+- run substring search for long benchmark spans;
+- run n-gram overlap at the chunk level;
+- use MinHash or SimHash for near-duplicates;
+- record the exact matched span, benchmark ID, document ID, source URL, score, and action.
+
+The action should be aggressive for exact prompt-plus-answer overlap. Remove the chunk or quarantine the whole document, depending on how the corpus is assembled.
+
+### Step 4: Quarantine known bad sources
+
+Some leakage is source-level, not item-level. If a GitHub repository is a benchmark mirror, a Kaggle notebook contains benchmark solutions, or a website exists to publish answer keys, matching item-by-item is too fragile. The safer policy is to quarantine the source.
+
+Useful source-level signals include:
+
+- URLs containing benchmark names;
+- GitHub repositories with benchmark files, answer keys, or leaderboard scripts;
+- notebooks titled as benchmark solutions;
+- benchmark README mirrors;
+- scraped forums or study guides discussing exact eval items;
+- synthetic datasets explicitly generated from benchmark prompts.
+
+This is especially important for code benchmarks. A solution repository may not repeat the exact prompt, but it can still contain behaviorally equivalent solutions.
+
+### Step 5: Add semantic retrieval, but use it as triage
+
+Embedding search is valuable, but it should be a candidate generator, not the final judge. It can surface paraphrases, translations, summaries, and explanation pages that n-gram matching misses. But it also brings false positives because many legitimate educational documents are semantically close to benchmark questions.
+
+Yang et al. show the key failure mode: paraphrased or translated benchmark samples can bypass string-matching decontamination, and if those variants remain in training, a 13B model can overfit the benchmark and reach drastically inflated performance ([Yang et al., 2023](https://arxiv.org/abs/2311.04850)).
+
+So the practical policy should be:
+
+- use embeddings to retrieve top-k candidates for each benchmark item;
+- classify the candidate as exact, answer-only, explanation, paraphrase, translation, code-equivalent, weak topical match, or harmless;
+- sample borderline cases for human or LLM-assisted review;
+- remove high-confidence semantic leaks;
+- report weak semantic-near matches as residual risk rather than pretending they do not exist.
+
+### Step 6: Use task-specific detectors
+
+Different benchmark families need different detectors.
+
+For code:
+
+- compare normalized code tokens;
+- compare AST structure;
+- quarantine known benchmark mirrors;
+- check function names, docstrings, and unit-test behavior;
+- look for canonical solutions and near-equivalent implementations.
+
+For math:
+
+- extract equations;
+- normalize variable names and entities;
+- compare solution templates;
+- detect same-number or same-operation variants;
+- distinguish "teaches arithmetic" from "renamed benchmark item."
+
+For reading comprehension:
+
+- match passages separately from questions;
+- search source documents;
+- check whether the answer sentence appears in training;
+- detect whether the same passage appears with different questions.
+
+For multimodal benchmarks:
+
+- use perceptual hashes for images;
+- check captions, alt text, filenames, and surrounding HTML;
+- treat image-text pairs as the unit of contamination.
+
+### Step 7: Add evaluation-side defenses
+
+Data cleaning alone is not enough, especially once public benchmarks become famous. Evaluation itself should become more robust.
+
+One direction is time-sensitive evaluation. LatestEval, for example, creates reading-comprehension evaluations from recent texts so the benchmark is less likely to overlap with older pretraining corpora; its pipeline gathers recent texts, identifies key information, and constructs questions while removing existing answers from the context ([LatestEval](https://arxiv.org/abs/2312.12343)).
+
+Other evaluation-side defenses include:
+
+- private holdout sets;
+- one-time exams;
+- benchmark item rotation;
+- adversarial rewrites of public items;
+- measuring score drop from original to rewritten versions;
+- reporting results separately on suspected contaminated and clean subsets.
+
+This matters because decontamination can reduce risk, but it cannot prove the model has never seen related material.
+
+### Step 8: Publish an auditable report
+
+A serious release should include a decontamination report. DCLM is a useful model here: it releases decontamination tooling and asks submissions to disclose a decontamination report rather than treating contamination as a private implementation detail ([DCLM](https://arxiv.org/html/2406.11794v1)).
+
+The report should include:
+
+- protected benchmark list and versions;
+- benchmark registry schema;
+- training-data sources and crawl windows;
+- canonicalization rules;
+- exact, n-gram, near-duplicate, semantic, and task-specific matching methods;
+- thresholds and why they were chosen;
+- counts of removed documents, chunks, and tokens;
+- examples of removed and retained borderline matches;
+- residual-risk categories;
+- performance on clean vs. suspicious subsets where available;
+- whether fresh, private, or time-sensitive evaluations were used.
+
+The goal is not to claim "zero contamination." The goal is to make the remaining uncertainty visible.
 
 ## 7. The deeper issue: evaluation governance
 
@@ -195,3 +323,5 @@ Decontamination is not just about cleaner data. It is about protecting the meani
 - [Investigating Data Contamination in Modern Benchmarks for Large Language Models](https://arxiv.org/html/2311.09783v2)
 - [Rethinking Benchmark and Contamination for Language Models with Rephrased Samples](https://arxiv.org/abs/2311.04850)
 - [DataComp-LM: In search of the next generation of training sets for language models](https://arxiv.org/html/2406.11794v1)
+- [PaLM: Scaling Language Modeling with Pathways](https://jmlr.org/papers/v24/22-1144.html)
+- [LatestEval: Addressing Data Contamination in Language Model Evaluation through Dynamic and Time-Sensitive Test Construction](https://arxiv.org/abs/2312.12343)
