@@ -14,6 +14,7 @@ export const GET: APIRoute = ({ site }) => {
     getRobotsTxt([
       new URL("sitemap.xml", origin),
       new URL("priority-sitemap.xml", origin),
+      new URL("index.xml", origin),
     ]),
   );
 };
