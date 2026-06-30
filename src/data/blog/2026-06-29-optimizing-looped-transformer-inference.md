@@ -1,7 +1,7 @@
 ---
 author: Jing Lu
 pubDatetime: 2026-06-29T18:00:00Z
-modDatetime: 2026-06-30T00:45:00Z
+modDatetime: 2026-06-30T01:10:00Z
 title: "Optimizing Inference for Router Looped Transformers"
 featured: true
 draft: false
@@ -271,6 +271,66 @@ This is CPU synthetic data, not deployment latency. But it supports two design d
 - route depth does not remove the value of KV cache;
 - the cache key must include route step, otherwise reused physical blocks collide.
 
+## Modal GPU Cache Benchmark
+
+After the first local benchmark, I ran a small A10G Modal grid to separate two claims:
+
+```text
+1. does route-template replay help on GPU?
+2. does this simple Python virtual-step KV microbench help on GPU?
+```
+
+Command shape:
+
+```text
+batch sizes: 1, 8, 16
+prompt lengths: 64, 128, 256
+decode tokens: 16, 32
+route steps: 8
+repeats: 15
+warmup: 5
+GPU: A10G
+```
+
+Source artifact:
+
+```text
+runs/modal-downloads/modal_cache_benchmark_grid_20260629/cache_benchmark_summary.json
+```
+
+The result is mixed, and useful.
+
+Route-template replay is clearly useful on GPU:
+
+| Batch size | Mean template speedup vs generic hard router |     Min |     Max |
+| ---------: | -------------------------------------------: | ------: | ------: |
+|        `1` |                                      `3.02x` | `2.92x` | `3.07x` |
+|        `8` |                                      `2.20x` | `2.12x` | `2.30x` |
+|       `16` |                                      `1.80x` | `1.61x` | `2.04x` |
+
+The logits still matched exactly:
+
+```text
+template_max_logit_diff = 0.0
+```
+
+So this is no longer just a CPU-local effect. The serving system should batch hard-router requests by route template.
+
+The virtual-step KV result is more cautious:
+
+| Batch size | Mean speedup vs no-cache |     Min |     Max |
+| ---------: | -----------------------: | ------: | ------: |
+|        `1` |                  `0.93x` | `0.89x` | `0.98x` |
+|        `8` |                  `0.99x` | `0.90x` | `1.03x` |
+|       `16` |                  `1.01x` | `0.97x` | `1.04x` |
+
+This does not disprove route-aware KV cache. It says the toy Python implementation is not a GPU serving implementation. The next KV experiment needs fused attention or paged KV blocks. In other words:
+
+```text
+route-aware KV identity is required for correctness;
+fused/paged implementation is required for speed.
+```
+
 ## Why vLLM Needs Route Identity
 
 vLLM's PagedAttention design stores KV cache in fixed-size blocks rather than one large contiguous tensor ([vLLM PagedAttention](https://docs.vllm.ai/en/latest/design/paged_attention/)). Its prefix caching design hashes full KV blocks using parent hash, block tokens, and extra hashes such as LoRA ids, multimodal hashes, or cache salts ([vLLM prefix caching](https://docs.vllm.ai/en/stable/design/prefix_caching/)).
@@ -408,11 +468,11 @@ The current evidence is enough to justify the optimization direction. It is not 
 
 Three things are still missing:
 
-| Missing evidence                              | Why it matters                                                                        | Current proxy                                                |
-| --------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| GPU decode latency with real KV cache         | CPU microbenchmarks can overstate or understate the serving win                       | Synthetic CPU virtual-step KV cache gives `1.27x` to `1.70x` |
-| Route-template diversity under varied prompts | Template batching only works if many requests share a small number of route templates | Current local run has one template: `0,1,0,1,0,1,0,1`        |
-| Accuracy/latency Pareto across thresholds     | A router candidate should not be chosen by accuracy alone                             | Modal thresholds show `t=0.55` and `t=0.60` are promising    |
+| Missing evidence                              | Why it matters                                                                        | Current status                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| GPU decode latency with real KV cache         | CPU microbenchmarks can overstate or understate the serving win                       | A10G route-template replay wins; Python KV microbench is not enough |
+| Route-template diversity under varied prompts | Template batching only works if many requests share a small number of route templates | Current synthetic run still has one template: `0,1,0,1,0,1,0,1`     |
+| Accuracy/latency Pareto across thresholds     | A router candidate should not be chosen by accuracy alone                             | Modal thresholds show `t=0.55` and `t=0.60` are promising           |
 
 The most important missing measurement is:
 
@@ -502,8 +562,8 @@ The best evidence so far is more precise:
 - soft router is a training mechanism, not a serving mechanism;
 - hard router can slightly beat fixed-loop accuracy while keeping fixed-like block calls;
 - current wall-clock latency is worse because the implementation still pays routing and grouping overhead;
-- route-template replay gives `1.41x` local speedup with exact logits;
-- virtual-step KV cache gives `1.27x` to `1.70x` speedup in a synthetic decoder microbench;
+- route-template replay gives `1.41x` local CPU speedup and `1.80x` to `3.02x` A10G speedup with exact logits;
+- virtual-step KV cache gives `1.27x` to `1.70x` speedup in a CPU synthetic decoder microbench, but the simple Python version does not yet show a stable GPU win;
 - vLLM and SGLang can support this class of model if cache identity includes route template and virtual route step.
 
 The next experiment should be a small GPU serving benchmark that combines all three pieces:
