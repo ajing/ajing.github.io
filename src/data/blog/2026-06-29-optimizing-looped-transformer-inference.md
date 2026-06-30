@@ -1,6 +1,7 @@
 ---
 author: Jing Lu
 pubDatetime: 2026-06-29T18:00:00Z
+modDatetime: 2026-06-30T00:45:00Z
 title: "Optimizing Inference for Router Looped Transformers"
 featured: true
 draft: false
@@ -400,6 +401,97 @@ This turns a dynamic router model back into a small set of dense batched kernels
 Token-level routing is more powerful, but it complicates the cache. Different tokens in the same request can take different routes, so the runtime needs per-token route signatures and may need to compact tokens by route step.
 
 I would not start there. The current data says request-level route-template batching already has measurable upside.
+
+## What Is Still Missing
+
+The current evidence is enough to justify the optimization direction. It is not enough to claim that router looped transformers are already faster in a real serving stack.
+
+Three things are still missing:
+
+| Missing evidence                              | Why it matters                                                                        | Current proxy                                                |
+| --------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| GPU decode latency with real KV cache         | CPU microbenchmarks can overstate or understate the serving win                       | Synthetic CPU virtual-step KV cache gives `1.27x` to `1.70x` |
+| Route-template diversity under varied prompts | Template batching only works if many requests share a small number of route templates | Current local run has one template: `0,1,0,1,0,1,0,1`        |
+| Accuracy/latency Pareto across thresholds     | A router candidate should not be chosen by accuracy alone                             | Modal thresholds show `t=0.55` and `t=0.60` are promising    |
+
+The most important missing measurement is:
+
+```text
+fixed loop vs hard router vs hard router + template batching + virtual-step KV cache
+```
+
+measured on the same GPU, same batch sizes, same prompt lengths, same decode lengths, and same model checkpoint.
+
+## Experiments To Run Next
+
+I would run the next experiments in this order.
+
+| Priority | Experiment                  | What to measure                                              | Pass condition                                                                                   |
+| -------: | --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+|     `P0` | GPU decode benchmark        | TTFT, TPOT, end-to-end latency, tokens/s                     | hard-router optimized path is faster than generic hard router and approaches or beats fixed loop |
+|     `P0` | Route-template histogram    | number of unique templates, top-k coverage, template entropy | top `8` to `16` templates cover most requests                                                    |
+|     `P1` | Threshold Pareto sweep      | accuracy, latency, block calls for `t=0.45` to `0.70`        | one threshold beats fixed accuracy without exceeding fixed block-call budget                     |
+|     `P1` | Prompt/decode length matrix | prompt lengths `64/128/256/512`, decode lengths `16/32/64`   | cache speedup grows with prompt length and remains positive at longer decode                     |
+|     `P2` | Token-level router scout    | per-token route diversity, batching fragmentation, accuracy  | token routing improves accuracy enough to justify scheduler complexity                           |
+|     `P2` | Template distillation       | small route predictor vs original router                     | same template choices with lower planning overhead                                               |
+
+The `P0` experiments are the ones needed before making a strong inference claim. The `P1` experiments choose a usable router candidate. The `P2` experiments are research extensions.
+
+## Low-Cost Modal Plan
+
+Because the goal is to control spend, the next Modal run should be a bounded inference-only benchmark, not a long training run.
+
+I would use:
+
+```text
+one small GPU
+one checkpoint
+three seeds only if the first seed is promising
+short prompt/decode grid first
+hard timeout
+write JSON after every benchmark cell
+```
+
+Suggested first grid:
+
+| Setting         | Values                                                                 |
+| --------------- | ---------------------------------------------------------------------- |
+| batch size      | `1`, `8`, `16`                                                         |
+| prompt length   | `64`, `128`, `256`                                                     |
+| decode tokens   | `16`, `32`                                                             |
+| route steps     | `8`                                                                    |
+| inference paths | fixed, soft router, hard router, hard + template, hard + template + KV |
+
+The first stopping rule should be simple:
+
+```text
+stop if hard + template is not at least 1.20x faster than generic hard router
+stop if virtual-step KV does not beat no-cache at prompt_len >= 128
+stop if accuracy drops below fixed by more than one seed-level std
+```
+
+That keeps the experiment cheap and prevents a long run from chasing a weak systems signal.
+
+## What Would Make This Publishable As A Research Result
+
+For a stronger public claim, I would want one table like this:
+
+| Model                    |           Accuracy |          TTFT |          TPOT |      tokens/s |            KV memory | Block calls | Notes                    |
+| ------------------------ | -----------------: | ------------: | ------------: | ------------: | -------------------: | ----------: | ------------------------ |
+| fixed loop               |           baseline |      baseline |      baseline |      baseline |             baseline |         `8` | simple serving path      |
+| soft router              | maybe higher/lower |         worse |         worse |         worse |               higher |        `16` | training path only       |
+| hard router              |          candidate |   worse today |   worse today |   worse today |              similar |   about `8` | needs systems work       |
+| hard + template batching |        same logits |        better |        better |        better |              similar |   about `8` | removes routing overhead |
+| hard + template + KV     |        same logits | best expected | best expected | best expected | higher virtual slots |   about `8` | correct serving target   |
+
+The headline should not be "router is faster" until the last row beats fixed loop on at least one realistic GPU decode setting.
+
+The safer headline today is:
+
+```text
+Router looped transformers need route-aware serving.
+The model signal is promising, and the cache/scheduler design is clear.
+```
 
 ## Current Conclusion
 
