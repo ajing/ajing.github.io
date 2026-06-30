@@ -331,6 +331,66 @@ route-aware KV identity is required for correctness;
 fused/paged implementation is required for speed.
 ```
 
+## Real Nanochat Byte-LM Serving Benchmark
+
+The synthetic cache benchmarks were useful, but they were still synthetic. I then ran a more realistic small-scale experiment on Modal A10G:
+
+```text
+task: byte-level nanochat_lm
+data: nanochat climbmix sample, up to 2M train bytes and 256K eval bytes
+model: d_model=64, n_heads=4, seq_len=128
+variants: fixed_2x4 vs sequence_router_path020_step
+seeds: 0, 1, 2
+profile: 8 batches * 16 examples * 128 tokens = 16,384 tokens/pass
+```
+
+The goal was not to claim a language-modeling result. The goal was narrower: test whether the router serving paths still behave correctly and whether the route-template optimization survives contact with real text.
+
+Source artifacts:
+
+```text
+runs/modal-downloads/nanochat_serving_benchmark_600s_seeds012_20260630/nanochat_serving_summary.json
+runs/modal-downloads/nanochat_serving_benchmark_2000s_seeds012_20260630/nanochat_serving_summary.json
+```
+
+The 600-step run is the cleaner early-training comparison:
+
+| Path | bpb mean +/- sd | byte acc | ms/pass | tokens/s | block calls |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| fixed_2x4 default | `3.7765 +/- 0.0113` | `0.2521 +/- 0.0004` | `45.133 +/- 0.733` | `363083 +/- 5850` | `8.0 +/- 0.0` |
+| router soft/default | `3.7903 +/- 0.0099` | `0.2505 +/- 0.0015` | `191.104 +/- 1.534` | `85737 +/- 687` | `16.0 +/- 0.0` |
+| router hard, t=0.5 | `3.7901 +/- 0.0099` | `0.2509 +/- 0.0014` | `98.600 +/- 1.782` | `166203 +/- 2997` | `8.0 +/- 0.0` |
+| router route-template replay, t=0.5 | exact same logits | exact same logits | `55.050 +/- 0.474` | `297636 +/- 2568` | `8.0 +/- 0.0` |
+
+The 2000-step run overfits the small sample, so I treat it as a serving-path stress test rather than a generalization result:
+
+| Path | bpb mean +/- sd | byte acc | ms/pass | tokens/s | block calls |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| fixed_2x4 default | `0.1502 +/- 0.0309` | `0.9799 +/- 0.0034` | `51.888 +/- 3.172` | `316567 +/- 19949` | `8.0 +/- 0.0` |
+| router soft/default | `0.2518 +/- 0.1174` | `0.9651 +/- 0.0170` | `219.760 +/- 16.352` | `74819 +/- 5352` | `16.0 +/- 0.0` |
+| router hard, t=0.6 | `0.2517 +/- 0.1173` | `0.9651 +/- 0.0171` | `111.114 +/- 4.453` | about `147K` | `8.0 +/- 0.0` |
+| router route-template replay, t=0.6 | exact same logits | exact same logits | `60.872 +/- 1.245` | about `269K` | `8.0 +/- 0.0` |
+
+The important result is not that the router wins. It does not.
+
+The important result is the split:
+
+- route-template replay is exact on real sequence logits, not only toy logits;
+- route-template replay gives `1.79x +/- 0.04x` speedup over generic hard routing at 600 steps and `1.83x +/- 0.08x` at 2000 steps;
+- soft/default router is about `4.23x` slower than fixed loop in both runs;
+- even route-template replay is still slower than fixed loop: about `1.22x` fixed latency at 600 steps and `1.17x` at 2000 steps;
+- the current router collapses to one route template: almost every request uses `0,1,0,1,0,1,0,1`.
+
+At 2000 steps, the router final stats explain the collapse:
+
+| Seed | last eval acc | final exit mass | route entropy | router path NLL |
+| ---: | ---: | ---: | ---: | ---: |
+| `0` | `0.9693` | `0.9864` | `0.0112` | `0.0022` |
+| `1` | `0.9418` | `0.9813` | `0.0157` | `0.0039` |
+| `2` | `0.9751` | `0.9931` | `0.0088` | `0.0016` |
+
+So the current router behaves like a learned fixed full-depth route, not like an input-adaptive routing policy. That is a strong negative result, and a useful one. The systems optimization is real, but the model still needs a better router objective or a template-bank design before the inference path can beat a fixed loop.
+
 ## Why vLLM Needs Route Identity
 
 vLLM's PagedAttention design stores KV cache in fixed-size blocks rather than one large contiguous tensor ([vLLM PagedAttention](https://docs.vllm.ai/en/latest/design/paged_attention/)). Its prefix caching design hashes full KV blocks using parent hash, block tokens, and extra hashes such as LoRA ids, multimodal hashes, or cache salts ([vLLM prefix caching](https://docs.vllm.ai/en/stable/design/prefix_caching/)).
@@ -471,8 +531,8 @@ Three things are still missing:
 | Missing evidence                              | Why it matters                                                                        | Current status                                                      |
 | --------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | GPU decode latency with real KV cache         | CPU microbenchmarks can overstate or understate the serving win                       | A10G route-template replay wins; Python KV microbench is not enough |
-| Route-template diversity under varied prompts | Template batching only works if many requests share a small number of route templates | Current synthetic run still has one template: `0,1,0,1,0,1,0,1`     |
-| Accuracy/latency Pareto across thresholds     | A router candidate should not be chosen by accuracy alone                             | Modal thresholds show `t=0.55` and `t=0.60` are promising           |
+| Route-template diversity under varied prompts | Template batching only works if many requests share a small number of route templates | Real nanochat run still collapses to one template: `0,1,0,1,0,1,0,1` |
+| Accuracy/latency Pareto across thresholds     | A router candidate should not be chosen by accuracy alone                             | Current router does not beat fixed loop on quality/latency Pareto   |
 
 The most important missing measurement is:
 
@@ -560,10 +620,11 @@ The current router looped transformer is not yet an inference win out of the box
 The best evidence so far is more precise:
 
 - soft router is a training mechanism, not a serving mechanism;
-- hard router can slightly beat fixed-loop accuracy while keeping fixed-like block calls;
+- hard router can keep fixed-like block calls, but this router candidate does not yet beat fixed loop on the nanochat quality/latency Pareto;
 - current wall-clock latency is worse because the implementation still pays routing and grouping overhead;
-- route-template replay gives `1.41x` local CPU speedup and `1.80x` to `3.02x` A10G speedup with exact logits;
+- route-template replay gives `1.41x` local CPU speedup, `1.80x` to `3.02x` A10G toy-cache speedup, and `1.7x` to `1.8x` A10G real nanochat hard-router speedup with exact logits;
 - virtual-step KV cache gives `1.27x` to `1.70x` speedup in a CPU synthetic decoder microbench, but the simple Python version does not yet show a stable GPU win;
+- the real nanochat router currently collapses to a nearly fixed full-depth template, so the next model-side task is route diversity, not only serving optimization;
 - vLLM and SGLang can support this class of model if cache identity includes route template and virtual route step.
 
 The next experiment should be a small GPU serving benchmark that combines all three pieces:
