@@ -1,6 +1,6 @@
 ---
 author: Jing Lu
-pubDatetime: 2026-07-09T18:00:00Z
+pubDatetime: 2026-07-09T06:00:00Z
 title: "From GRPO Outcome Rewards to Token-Level Advantage"
 featured: true
 draft: false
