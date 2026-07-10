@@ -10,7 +10,7 @@ tags:
   - ML Engineering
   - Pretraining
   - Scaling Laws
-description: "A small-budget BPE language-model experiment where a late token-feedback router shows a replicated positive margin over a matched fixed looped Transformer baseline."
+description: "A small-budget BPE language-model experiment where a sparse late-final-loop token-feedback router becomes the first route-looped Transformer candidate to beat matched fixed-loop baselines across several controlled checks."
 ---
 
 The useful result from this week is small, but real enough to change the research direction.
@@ -18,6 +18,8 @@ The useful result from this week is small, but real enough to change the researc
 After many routed looped Transformer variants that were either unstable, collapsed, or only improved one metric while hurting another, we finally have a replicated router candidate that beats a matched fixed loop baseline on a small BPE language-model setup.
 
 This follows an earlier negative result where a sequence-level router looked competitive but collapsed toward a low-entropy exit policy. The new result is different because the router is token-conditioned, sparse, and only active late in the recurrent computation.
+
+The July 10 update is that I am now comfortable calling this a **candidate**, not only a promising run. It has cleared the same matched-fixed gate across multiple controlled checks: d384, d512, matched-depth `4x2`, depth-16 `4x4`, and a batch-size-8 confirmation. The margins are still modest, but the sign is finally consistent.
 
 The current best candidate is:
 
@@ -38,6 +40,13 @@ eval cap = 512 KB
 This is not a solved architecture yet. The margins are still tiny, around `1e-3` in broad language-model loss. But the important change is that the router no longer wins only by sacrificing the general language-model objective. It is slightly better on validation loss, token accuracy, reasoning-slice loss, deterministic validation loss, easy-token loss, and fixed-defined hard-token loss at the same time.
 
 The `8 MB` train cap is intentional. This is a screening setup for architecture decisions, not evidence of pretraining-scale behavior.
+
+The short version:
+
+```text
+The first router candidate that looks worth scaling is not an early, broad,
+free-form router. It is a sparse late-final-loop feedback router.
+```
 
 ## The Core Idea
 
@@ -122,7 +131,34 @@ In plain language: let the fixed recurrent computation build a stable representa
 
 That constraint matters. Earlier variants that applied feedback more broadly were noisier. The router needs to be useful, but also quiet.
 
-## Three-Seed Result
+## Why I Am Calling It a Candidate
+
+The promotion criterion was not "one run beats fixed." The router had to beat the matched fixed-loop baseline on the full metric bundle across larger checks.
+
+The current candidate family is:
+
+```text
+token_feedback_router_latefin4x4_learnedsrc_scale010_dynfloor000_gate005_utilbce_w005_hard030_negbce004_top010_protectbce002_top010_pos015_start300_biasm4
+```
+
+For the matched-depth `4x2` checks, the sibling candidate is the same learned-source feedback router restricted to late blocks:
+
+```text
+token_feedback_router_lateonly4x2_learnedsrc_scale010_dynfloor000_gate005_utilbce_w005_hard030_negbce004_top010_protectbce002_top010_pos015_start300_biasm4
+```
+
+Here is the evidence stack that changed my mind:
+
+| Check | Matched baseline | Seeds | Result |
+|---|---|---:|---|
+| d384, `4x2`, batch4, 2000 steps | `fixed_4x2` | 0/1/2 | Router wins token accuracy, validation loss, reasoning loss, deterministic validation loss, easy-token loss, and hard-token loss |
+| d512, `4x2`, batch4, 2000 steps | `fixed_4x2` | 0/1/2 | Same all-metric win at larger width |
+| d512, depth16 `4x4`, batch4, 2000 steps | `fixed_4x4` | 0/1/2 | Same all-metric win after moving to the final-loop-only depth-16 structure |
+| d512, depth16 `4x4`, batch8, 2000 steps | `fixed_4x4` | 0/1/2 | Strongest current confirmation; hard-token margin widens |
+
+The important part is not that any one metric is dramatic. It is that the sign does not flip when the comparison gets stricter. Earlier routers often had one beautiful column and one ugly column. This one is boring in the right way: small positive margins across the whole gate.
+
+## Strongest Three-Seed Result
 
 The exact promoted candidate is:
 
@@ -194,6 +230,10 @@ This result should be framed carefully.
 
 It does not prove that routed looped Transformers are generally better than fixed looped Transformers. It does not prove a scaling law. It does not yet prove that routing will help at larger natural-language pretraining scale. It also does not claim a compute-efficiency win at inference time.
 
+It also does not mean "deep thinking is solved." The reasoning slice here is a useful language-model diagnostic, not a proof benchmark. The result says that late feedback can improve a matched next-token setup without paying a broad validation tax. That is a much narrower and more useful claim.
+
+Finally, this is separate from the original synthetic minimization target. The earlier synthetic track used a `gain_preserved >= 0.90` acceptance gate for preserving full-loop gains with a smaller structure. This blog post is about the language-model router track: can a routed feedback structure beat a matched fixed recurrent loop in small-budget BPE pretraining? Those are related research questions, but they should not be mixed.
+
 What it does prove is narrower:
 
 ```text
@@ -205,7 +245,13 @@ That is enough to promote the design from "diagnostic experiment" to "current ro
 
 ## Source Artifacts
 
-The promoted result is tracked in the project registry:
+The promoted result is tracked in the project-local candidate note:
+
+```text
+docs/router_candidate_20260709.md
+```
+
+The project registry is:
 
 ```text
 docs/current_candidate.json
@@ -228,7 +274,7 @@ The earlier batch4 depth-16 aggregate is also kept in the same registry, so the 
 
 ## The Research Direction From Here
 
-The next experiment should scale this exact structure before inventing a more complex router.
+The next experiment should scale this exact structure before inventing a more complex router. I do not want to spend GPU budget confirming old variants that already lost.
 
 The decision gate should be:
 
@@ -237,6 +283,15 @@ The decision gate should be:
 3. Keep three-seed comparisons.
 4. Require the router to win validation loss and reasoning loss, not only hard-token loss.
 5. Track route statistics so a win caused by collapse does not get promoted.
+
+Because the current margins are still small, the scale-up path should be conservative:
+
+1. Re-run the current best d512 depth-16 batch8 shape with one larger budget axis at a time.
+2. Start with a single seed scout before spending on seeds 1 and 2.
+3. Stop early if the router loses broad validation loss or hard-token loss.
+4. Only after that consider a wider model.
+
+The goal of the next run is not another tiny positive result. The goal is to see whether the margin widens when the router gets a more stable training signal.
 
 The architectural lesson is also becoming clearer:
 

@@ -3,17 +3,19 @@ author: Jing Lu
 pubDatetime: 2026-07-01T18:30:00Z
 title: "When a Looped Transformer Router Almost Works"
 featured: false
-draft: true
+draft: false
 tags:
   - AI
   - LLM
   - ML Engineering
   - Pretraining
   - Scaling Laws
-description: "A controlled small-scale language-composition experiment comparing fixed and routed looped Transformers, showing why the current sequence-level router is competitive but not yet a stable architecture winner."
+description: "A controlled small-scale language-composition experiment comparing fixed and routed looped Transformers, showing why the first sequence-level router was competitive but collapsed toward a weak exit policy."
 ---
 
 We tested a simple routed looped Transformer against a fixed looped baseline on a synthetic language-like next-token task. The result is useful, but not in the way we hoped.
+
+This is the negative/control result that came before the later token-feedback candidate. I am publishing it because the numbers explain why the successful direction had to change: the first router could win medium-budget points, but it did not learn a durable adaptive-computation policy.
 
 The router is competitive, and after adding a second interleaved grid it looks slightly more promising than the first pass. Across the controlled grid it wins 17 out of 27 seed-level fixed-vs-routed comparisons, with a small mean loss advantage of `-0.00224`. But the advantage is still fragile. At the longest `1600`-step horizon, it wins only 1 out of 3 new comparisons, and two smaller widths reverse against the fixed loop.
 
@@ -26,6 +28,8 @@ Synthetic language-like next-token data is a good bridge task for looped
 Transformer research, but the current sequence-level router is only a weak
 router candidate until we fix route collapse.
 ```
+
+The follow-up result is now clear: the next credible candidate was not another sequence-level destination router. It was a sparse late-final-loop token-feedback router, described in the later post [A Looped Transformer Router Shows Its First Replicated Gain](/posts/2026-07-06-looped-transformer-router-finally-starts-to-work/).
 
 ![Controlled fixed vs routed 2x4](/images/looped-transformer/controlled-language-router-comparison-plus-interleaved-20260701.png "Controlled fixed vs routed 2x4")
 
@@ -313,3 +317,5 @@ candidate should be anti-collapse and token-conditioned.
 ```
 
 That is not as exciting as declaring a win. It is more useful. The controlled language grid found the exact thing we need to improve before spending more compute: the router must learn a computation policy, not just an exit policy.
+
+As a research sequence, this post is the failed mechanism. The later token-feedback result is the first candidate mechanism. Keeping both matters: without this controlled collapse result, the successful sparse-feedback design looks arbitrary; with it, the design constraint is obvious. The router has to be token-aware, sparse, and protected against damaging the broad language-model objective.
