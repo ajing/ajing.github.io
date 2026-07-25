@@ -1,7 +1,8 @@
 ---
 author: Jing Lu
 pubDatetime: 2026-07-17T19:30:00Z
-title: "Reproducing CompactionRL: From the GLM-5.2 Algorithm to a Live slime E2E"
+modDatetime: 2026-07-25T05:30:00Z
+title: "Reproducing CompactRL: What Worked, What Failed, and Why We Did Not Scale"
 featured: true
 draft: false
 tags:
@@ -10,59 +11,87 @@ tags:
   - Agents
   - Reinforcement Learning
   - Post Training
-description: "A source-grounded reproduction of CompactionRL: the algorithm, missing recipe details, a 96-step multi-seed causal experiment, and a live Qwen actor-critic update through THUDM/slime on four A10 GPUs."
+description: "An auditable CompactRL reproduction spanning the public algorithm, a 96-step long-horizon simulation, integration with slime, real Qwen actor-critic training, value-function fixes, 17 experimental phases, and the evidence that stopped us from scaling."
 ---
 
-Long-horizon agents have a basic systems problem: their interaction history can grow beyond the model's context window before the task is finished.
-
-The GLM-5.2 materials motivated this investigation, but the public algorithmic specification is the separate CompactionRL paper. I treated the [GLM-5 technical report](https://arxiv.org/abs/2602.15763) and [GLM-5.2 model card](https://huggingface.co/zai-org/GLM-5.2) as model context, not as a complete training recipe.
-
-The usual response is to summarize old context. But an inference-time summarizer is not automatically a good reinforcement-learning action. If a summary silently drops the one fact needed 50 turns later, the policy may never learn that the summary caused the eventual failure.
+Long-horizon agents eventually face a basic systems problem: their interaction
+history can exceed the model's context window before the task is complete.
+Summarizing old context keeps the agent running, but an inference-time summary
+is not automatically a good reinforcement-learning action. If it drops the one
+fact needed 50 turns later, the policy may never learn that the summary caused
+the eventual failure.
 
 [CompactionRL](https://arxiv.org/abs/2607.05378) makes a sharper proposal:
 
-> Treat context compaction itself as an action sampled by the trainable policy, and give those summary tokens credit from the final task reward.
+> Treat context compaction as an action sampled by the trainable policy, and
+> give the summary tokens credit from the final task reward.
 
-That sounds simple. The hard part is preserving the RL semantics after one logical episode is split into several execution and summary sequences.
+I built an open reproduction to test that idea from three directions:
 
-I built an open reproduction to answer two separate questions:
+1. implement and independently test the public equations;
+2. test whether learned summaries solve a controlled 96-step task with three
+   context resets;
+3. integrate the method with public
+   [THUDM/slime](https://github.com/THUDM/slime) and run real Qwen actor–critic
+   training on Modal.
 
-1. Does jointly training the summary channel solve a controlled long-horizon task where a frozen summary cannot?
-2. Can the algorithm actually run through the public [THUDM/slime](https://github.com/THUDM/slime) stack with a real actor, critic, rollout engines, gradients, and checkpoint?
+The complete code, configs, reports, and decision artifacts are public in
+[`ajing/compactionrl-repro`](https://github.com/ajing/compactionrl-repro).
 
-The answer to both is yes, within a deliberately narrow claim boundary. The code and evidence are public in [`ajing/compactionrl-repro`](https://github.com/ajing/compactionrl-repro). The immutable result bundle is summarized in the [final E2E report](https://github.com/ajing/compactionrl-repro/blob/main/results/final_e2e_report.md).
+The short conclusion is:
 
-This is not a reproduction of the paper's GLM-scale benchmark gains. It is an algorithmic reproduction, a controlled causal experiment, and a live public-stack integration test.
+- the algorithmic path is correct;
+- the controlled long-horizon experiment works;
+- the real LLM training path works;
+- stable small-model capability improvement is **not** closed;
+- the final experiments did not justify further scale-up.
 
----
+This post explains both the positive result and the evidence that stopped us
+from turning it into a larger claim.
 
-## 1. The Algorithm in One Pass
+## What “the GLM-5.2 technical report” actually refers to
 
-Let the active history be:
+The public evidence is split across three sources:
+
+1. The [GLM-5.2 model card](https://huggingface.co/zai-org/GLM-5.2) describes
+   the model and training pipeline.
+2. The [GLM-5 technical report](https://arxiv.org/abs/2602.15763) describes
+   asynchronous agent RL and the slime infrastructure in more detail.
+3. The [CompactionRL paper](https://arxiv.org/abs/2607.05378) specifies the
+   compaction rollout, loss, and cross-trajectory credit equations reproduced
+   here.
+
+There is no single public “GLM-5.2 technical report” containing a directly
+executable CompactRL recipe. This project implements the intersection of the
+three public sources and explicitly separates it from undisclosed prompts,
+dataset ordering, reward code, and large-model training settings.
+
+It does **not** claim to reproduce the paper's 30B or 106B benchmark scores.
+
+## The algorithm in one pass
+
+Let the active history be
 
 $$
-h_t = (\text{system}, \text{user}, (a_1,o_1), \ldots, (a_t,o_t)).
+h_t = (\text{system}, \text{user}, (a_1,o_1), \ldots, (a_t,o_t)),
 $$
 
-Here, each assistant action $a_i$ and environment observation $o_i$ form one atomic step. Let the model's context capacity be $C$, and let $T_{\text{comp}}$ be the minimum remaining budget before compaction.
-
-Compaction triggers when:
+where each assistant action $a_i$ and environment observation $o_i$ form one
+atomic step. If the model's context capacity is $C$ and the required remaining
+budget is $T_{\text{comp}}$, compaction triggers when
 
 $$
 C - |h_t| < T_{\text{comp}}.
 $$
 
-At that point, the same trainable policy samples a summary $S_t$ from a fixed summary instruction. Execution then resumes from:
+The same policy then samples a summary. Execution resumes from
 
 $$
-\text{system} + \text{resume}(S_t) + \text{last } k \text{ atomic steps}.
+\text{system} + \text{resume}(\text{summary})
++ \text{newest } k \text{ atomic steps}.
 $$
 
-The paper's default recent tail is $k=2$. If the reconstructed prompt is still too large, the implementation reduces $k$ until it fits. The original action/observation boundary must remain intact; cutting an observation away from the action that produced it changes the environment history.
-
-### One episode becomes several trainable segments
-
-A logical trajectory may now look like:
+One logical trajectory becomes several trainable segments:
 
 ```text
 execution_0
@@ -72,19 +101,22 @@ summary_1
 execution_2
 ```
 
-Every segment shares one logical rollout ID and the same terminal verifier reward. Only tokens sampled by the policy receive loss:
+Four details are especially easy to get wrong:
 
-- assistant execution tokens: mask 1;
-- summary-generation tokens: mask 1;
-- prompts, environment observations, copied summaries, and copied recent-tail tokens: mask 0.
-
-This token provenance rule is critical. A summary should receive policy loss when it is generated, exactly once. Its copied appearance inside a later resume prompt must not receive loss again.
+- **The summary is an action.** It receives actor loss when the policy samples
+  it.
+- **The copied summary is context.** Its later appearance in the resume prompt
+  must be masked so it does not receive loss twice.
+- **Tool calls and observations remain atomic.** Splitting a pair corrupts
+  environment state and token provenance.
+- **Credit does not reset at segment boundaries.** Earlier summary tokens must
+  remain connected to the eventual task reward.
 
 ### Cross-trajectory GAE
 
-The paper computes local GAE inside each segment, then discounts earlier segments by the number of optimized tokens that occur after them.
-
-For segment $s$, let $N_{\text{after}}(s)$ be the number of enabled policy tokens in later segments. The corrected advantage is:
+The paper computes local GAE inside each segment, then discounts earlier
+segments by the number of optimized tokens that occur after them. For segment
+$s$:
 
 $$
 \widehat A_{s,i}
@@ -93,19 +125,20 @@ $$
 \widehat A^{\text{local}}_{s,i}.
 $$
 
-The reported length-adaptive trace parameter is:
+The length-adaptive trace parameter is
 
 $$
 \lambda_s = 1 - \frac{1}{1.5L_s},
 $$
 
-where $L_s$ is the segment response length. The reproduction uses the number of optimized response tokens and exposes this choice as an ablation because the public description does not fully settle every boundary convention.
+where $L_s$ is the response length.
 
 ### Token-normalized PPO
 
-Variable numbers and lengths of segments create another trap. Averaging one loss per segment lets short summaries receive the same weight as long execution sequences.
-
-The reproduction instead sums over every enabled token in the global batch and divides once by the total enabled-token count:
+Variable segment counts and lengths create another trap. Averaging one loss per
+segment lets a short summary receive the same weight as a long execution
+sequence. The implementation instead reduces once over every enabled token in
+the global batch:
 
 $$
 \mathcal L
@@ -117,289 +150,349 @@ $$
 }.
 $$
 
-This is not a minor reducer choice. In the paper's 106B ablation, removing token-level loss hurts more than removing cross-trajectory GAE on the reported compacted evaluations.
+These are not cosmetic details. The paper's 106B compacted ablation scores
+`66.8/24.5` with the full method, `60.0/21.3` without token-level loss
+normalization, and `63.0/22.5` without cross-trajectory GAE correction.
 
----
+The full derivation and disclosure gaps are in the repository's
+[technical analysis](https://github.com/ajing/compactionrl-repro/blob/main/docs/TECHNICAL_ANALYSIS.md).
 
-## 2. What the Paper Shows—and What It Does Not Release
+## What the paper reports
 
-The paper reports the following same-scaffold compacted-evaluation results:
+The public results motivate this reproduction; they are not directly
+comparable to our 0.5B synthetic-task experiments.
 
-| Model                   | Base | No-compaction PPO | CompactionRL |
-| ----------------------- | ---: | ----------------: | -----------: |
-| 30B SWE-bench Verified  | 50.5 |              48.0 |     **56.0** |
-| 30B Terminal-Bench 2.0  | 13.4 |              12.4 |     **20.2** |
-| 106B SWE-bench Verified | 59.8 |              62.5 |     **66.8** |
-| 106B Terminal-Bench 2.0 | 21.4 |              23.6 |     **24.5** |
+| Model and benchmark       | Base | PPO without compaction | CompactionRL |
+| ------------------------- | ---: | ---------------------: | -----------: |
+| 30B / SWE-bench Verified  | 50.5 |                   48.0 |         56.0 |
+| 30B / Terminal-Bench 2.0  | 13.4 |                   12.4 |         20.2 |
+| 106B / SWE-bench Verified | 59.8 |                   62.5 |         66.8 |
+| 106B / Terminal-Bench 2.0 | 21.4 |                   23.6 |         24.5 |
 
-For the 106B model, the reported ablations are:
+The narrow supported conclusion is that compaction-aware RL beats the tested
+baselines when evaluation also uses compaction under the same peak-context
+constraint. It does not establish universal superiority.
 
-| Variant                      | SWE-Verified | Terminal-Bench 2.0 |
-| ---------------------------- | -----------: | -----------------: |
-| Full CompactionRL            |     **66.8** |           **24.5** |
-| Without token-level loss     |         60.0 |               21.3 |
-| Without cross-trajectory GAE |         63.0 |               22.5 |
+An exact reproduction is blocked by missing details, including literal summary
+and resume prompts, exact training rows and order, maximum summary length,
+verifier and timeout behavior, optimizer settings, critic initialization, and
+the internal GLM-5.2 configuration.
 
-The narrow supported conclusion is that compaction-aware RL beats the tested baselines when evaluation also uses compaction under the same peak-context constraint. It does not establish universal superiority. Disabling compaction or changing the resume protocol at test time creates a distribution shift.
+## The central question: what should the value function learn?
 
-An exact reproduction is also blocked by missing details, including:
+This was the easiest place to obtain a training run that appeared healthy while
+delivering a corrupted actor signal.
 
-- literal summary and resume prompts;
-- exact training rows, ordering, duration, and seeds;
-- maximum summary length and summary sampling settings;
-- verifier and timeout handling;
-- several PPO, value, KL, optimizer, and warmup settings;
-- the exact interpretation of length for adaptive $\lambda$;
-- critic initialization and cross-boundary bootstrapping details;
-- the internal GLM-5.2 CompactionRL configuration and checkpoints.
+CompactRL does not require a critic whose target is “summary quality.” The
+default critic still predicts expected **task return**:
 
-So the right goal was not to manufacture a fake "paper reproduction" number. It was to isolate the public algorithm, test its causal claim, and prove the implementation against a real open RL stack.
+$$
+V_\phi(s_t)\approx \mathbb E[R_{\text{task}}\mid s_t].
+$$
 
----
+Summary and execution tokens belong to the same terminal-reward chain. We
+compute task returns and GAE first, then apply reward-distance correction to
+summary advantages across segment boundaries. Compaction changes trajectory
+structure and credit distance; it does not change the critic's semantic target.
 
-## 3. A Controlled Long-Horizon Experiment
+The implementation maintains these invariants:
 
-The repository includes a deterministic sequential-records environment with 360 tasks split into 240 train, 60 development, and 60 test examples. Tasks contain relevant updates, distractors, and an exact terminal verifier.
+- execution and summary segments share the terminal task reward;
+- the critic evaluates trainable summary states;
+- copied context does not receive duplicate policy loss;
+- critic warm-up may precede actor training;
+- actor and critic checkpoints use separate paths;
+- a missing scalar value head is **zero-initialized**, not randomized before
+  PPO.
 
-The stronger experiment is a 96-step memory chain:
+That last issue caused a concrete failure. On an all-zero-reward replay, a
+random value head predicted approximately `0.9747`, produced critic gradient
+norms as high as `785.3`, and even produced an actor gradient norm of `47.8`.
+After zero initialization, the same audit yielded exactly zero values, returns,
+advantages, and gradients.
 
-- a hidden fact appears at step 1;
-- execution continues for 96 steps;
-- compaction is forced at steps 24, 48, and 72;
+### Why later summary-quality signals are actor-only
+
+Phases 7–17 tested fidelity rewards, positive routing, token-local credit,
+coverage-stop pressure, and causal-prefix redistribution. The resulting rule
+is:
+
+> The task critic learns only the environment-defined task return. Handcrafted
+> summary-quality signals enter as optional actor-only auxiliary advantages
+> after task GAE has been computed.
+
+A repeated field, missing milestone, or excess summary token is not itself an
+environment value. Mixing those heuristics into returns can produce a critic
+that accurately fits the wrong target.
+
+The corrected exact-paired Phase 17 audit validates this boundary. All 48 task
+streams, outcomes, and token trajectories match Phase 16 exactly. Every
+critic/value metric is bit-identical. Only actor loss and gradient change, by
+the small amount predicted by the auxiliary intervention.
+
+The current data flow is:
+
+```text
+environment reward
+    → task return and GAE
+    → critic target
+    → cross-trajectory correction
+    → optional actor-only summary credit
+    → PPO actor loss
+```
+
+## A controlled 96-step long-horizon experiment
+
+Before renting GPUs, I built a dependency-free memory chain:
+
+- each episode lasts 96 steps;
+- the context resets at steps 24, 48, and 72;
 - only the newest two atomic steps survive outside the summary;
-- the final answer depends on the step-1 fact.
+- the final answer depends on a fact observed at step 1;
+- the joint arm trains execution and summary decisions;
+- the control uses the same actor–critic but freezes the summary policy.
 
-The recent tail therefore cannot solve the task. Information has to pass through the learned summary at every reset.
+Across seeds `7`, `17`, and `29`:
 
-I compared:
+| Method                 | Mean accuracy |
+| ---------------------- | ------------: |
+| Frozen-summary control |        51.81% |
+| Joint CompactionRL     |        99.69% |
+| Difference             |     +47.88 pp |
 
-1. **Joint CompactionRL:** both summary and execution decisions learn from the terminal reward.
-2. **Frozen summary:** the execution policy learns, but the summary policy remains fixed.
+This is not a language-model benchmark. It answers a narrower causal question:
+can terminal reward traverse multiple compaction boundaries and teach an early
+summary action to preserve task-critical state? In this setting, yes.
 
-Across seeds 7, 17, and 29:
+The
+[experiment](https://github.com/ajing/compactionrl-repro/blob/main/experiments/long_horizon_memory_chain.py)
+and its
+[readable trace](https://github.com/ajing/compactionrl-repro/blob/main/results/long_horizon_memory_chain.md)
+are both public.
 
-| Arm                |      Mean accuracy | Minimum seed |
-| ------------------ | -----------------: | -----------: |
-| Joint CompactionRL |        **99.693%** |  **99.669%** |
-| Frozen summary     |            51.815% |            — |
-| Joint minus frozen | **+47.878 points** |            — |
+## Integrating with public slime
 
-The preregistered gate required:
+The audited slime revision is
+[`fb42ae4`](https://github.com/THUDM/slime/tree/fb42ae456fac8166afb604f13b30d22bb3c75053).
+It already provides PPO, a critic, per-token loss, a custom advantage hook,
+`list[Sample]` fan-out, and agent adapters. At that revision, it does not
+provide a directly enabled “CompactionRL estimator plus rollout.”
 
-- joint mean accuracy at least 95%;
-- every joint seed at least 90%;
-- joint minus frozen at least 30 percentage points.
+The reproduction therefore uses a thin integration:
 
-All three gates passed. This demonstrates the causal idea in a controlled discrete policy: training the summary channel can preserve information across repeated context resets when a fixed summary cannot.
+- framework-neutral equations live in `src/compactionrl/`;
+- rollout and framework adapters live in `integrations/slime/`;
+- custom advantages enter through a public extension point;
+- a minimal patch is pinned to the audited critic loop;
+- each live run records immutable identity, token trajectories, masks,
+  advantage/return audits, actor/critic gradients, and role-specific
+  checkpoints.
 
-It does not demonstrate that a pretrained language model improves on SWE-bench. That requires a different experiment.
+The concrete contract and launch path are documented in the
+[slime integration guide](https://github.com/ajing/compactionrl-repro/blob/main/docs/SLIME_INTEGRATION.md).
 
----
+## Calibration before the numbered phases
 
-## 4. Integrating With Public slime
+The later experiments did not begin from an unverified GPU stack. Earlier
+controls progressively isolated sampling, checkpoint, grammar, and
+full-context learnability:
 
-I pinned public slime at commit [`fb42ae4`](https://github.com/THUDM/slime/tree/fb42ae456fac8166afb604f13b30d22bb3c75053). The stack already exposes most required primitives:
+| Experiment                         | Result                                                                | Interpretation                                    |
+| ---------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- |
+| First five-update scale pilot      | Full `7/40`; summary-masked `5/40`; both `0/23` on `early_fact`       | E2E path works; no retention evidence             |
+| Corrected-value three-arm training | 60 updates and 50 critic warm-up steps, but roles shared a save path  | Training works; old checkpoint claim invalid      |
+| Role-specific checkpoint eval      | Trained `12/60`; base `14/60`                                         | Two actor updates do not improve held-out ability |
+| Second seed continuation           | Seed 17 `20/60`; seed 23 `12/60`; base `14/60`                        | Positive result does not replicate across seeds   |
+| Critic LR `3e-6→1e-6`              | Mean value loss roughly halves; score `12→13/60`, `p=1`               | Stability is not capability                       |
+| Reference-KL screen                | KL `0.01` scores `14/60`; KL `0.05` initially scores `21/60`          | KL requires paired replication                    |
+| Deterministic sampling             | Two independent 4×A10 runs match 8 trajectories and 183 request seeds | Common-random-number comparison is viable         |
+| Controlled KL replication          | No-KL `26/60`; KL `0.05` `19/60`                                      | Initial KL gain is overturned                     |
+| Independent no-KL rerun            | Original `26/60`; rerun `25/60`; base `14/60`                         | Same-seed gain repeats                            |
+| Deterministic optimizer gate       | Tokens, actor gradients, and four critic updates match exactly        | Short optimizer comparisons are auditable         |
+| Second model seed                  | Seed 17 no-KL `29/60`; base `14/60`; seed 23 is also positive         | No-KL signal appears on two model seeds           |
+| Full-context control               | `40/60`; early/latest each `20/20`; ordered-plan `0/20`               | Ordered-plan first has a grammar problem          |
+| Schema hint and fixed example      | Ordered-plan remains `0/20` and `1/20`                                | Prompt patches do not fix the grammar             |
+| Grammar SFT                        | Full-context `20/20`; compacted `8/20`                                | A genuine summary-transfer gap is isolated        |
 
-- PPO with a critic;
-- global per-token loss;
-- a custom advantage function hook;
-- custom rollout generation;
-- `list[Sample]` fan-out from one episode;
-- shared rollout IDs;
-- response loss masks;
-- sampled token IDs and behavior log probabilities.
+The reversal of the initial KL `0.05` result is particularly important.
+Without a fixed task stream and common sampling randomness, an attractive RL
+difference may simply represent two different training trajectories.
 
-The reproduction adds two out-of-tree pieces:
+## Complete Phase 1–17 result ledger
 
-1. a custom rollout that emits chronological execution and summary siblings;
-2. an advantage hook that restores sibling order and applies cross-trajectory GAE.
+`PASS` below means that a mechanism or preregistered gate passed. It does not
+mean that the paper's model capability was reproduced.
 
-This is a better first integration than a large framework fork. The algorithm remains testable without GPUs, while slime owns distributed rollout, Megatron training, SGLang serving, and checkpointing.
+| Phase | Intervention                                  | Key result                                                                                                                 | Decision                              |
+| ----: | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+|     1 | First public slime/Qwen pilot                 | Full `7/40`; summary-masked `5/40`; both `0/23` on `early_fact`                                                            | Path PASS; capability unproven        |
+|     2 | Reward-bearing RL after grammar SFT           | Seeds 23/29 reach `16/20` and `15/20`; locked test `16/20`, `13/20` vs SFT `6/20`; seed 37 regresses to `2/20`             | Signal on 2/3 seeds; unstable         |
+|     3 | Fresh preregistered data, batch 24            | SFT `22/60`; trained seeds `31/60`, `41/60`, `36/60`; one seed fails invention gate                                        | Do not scale                          |
+|     4 | Actor reference KL `0.01`                     | KL exact is below no-KL in both pairs: `25 vs 28` and `39 vs 52` out of 60                                                 | KL is not the default                 |
+|     5 | Positive-trajectory actor advantages          | With positive samples, `44/60` vs batch-gate `42/60`; without them, both remain `19/60`                                    | Works but depends on sparse successes |
+|     6 | Scaled positive advantages                    | Both seeds underperform batch gate: `50 vs 55` and `48 vs 52` out of 60                                                    | Reject scale-up                       |
+|     7 | Scalar fidelity reward `y·q`                  | Critic fits correctly, but every failed summary has target zero; no stable gain                                            | Reward is too sparse                  |
+|     8 | Dense signed reward `R=y+q-1`                 | Candidates collapse to `0/60` and `2/60` with `2.9/5.6`-token summaries; controls score `53/60`, `55/60`                   | Negative advantages damage actor      |
+|     9 | Zero nonpositive actor advantages only        | Rescues the Phase 8 settings from `5/60`, `0/60` to `51/60`, `55/60`                                                       | Establish actor/value routing         |
+|    10 | Admit summary loss only when `R>0.999`        | Perfect-fidelity `54/60` vs any-success `57/60`; repetition falls `93.75%→37.89%`, but absolute gates fail                 | Useful constraint; not closed         |
+|    11 | Summary-only k3 KL `0.01`                     | `54/60` vs no-KL `50/60`; invention `7.53% vs 26.88%`; length `107.58 vs 138.93`; repetition still `65.59%`                | Best tradeoff; stop scaling           |
+|    12 | Increase KL to `0.03`                         | Exact `55/60`, but invention `9.68%`, repetition `82.8%`, and length `131.67` worsen                                       | No full retrain                       |
+|    13 | Actor-only scalar fidelity offset             | Exact `57/60`, but invention `13.98%`, repetition `88.17%`, and length `134.72`                                            | Scalar credit is too coarse           |
+|    14 | Local supported/repeated-token credit         | First attempt exposes token re-encoding mismatch; retry is blocked by nested-diagnostic logging; no checkpoint             | Two engineering faults found          |
+|    15 | Repair logger; close token-credit update      | Actor optimizer PASS; critic tensors unchanged; actor-only eval `55/60` vs Phase 11 `54/60`, `p=1`, with worse quality     | Mechanism PASS; capability FAIL       |
+|    16 | Lower coefficient plus coverage-stop pressure | Dual checkpoints PASS; eval `52/60`, below Phases 11/15; repetition and length do not improve                              | Do not scale                          |
+|    17 | Marker-gated causal-prefix credit             | Corrected pair has bit-identical critic metrics; actor loss `-0.0384168→-0.0384282`; gradient norm changes only `-0.0588%` | Mechanism PASS; no eval or scale      |
 
-### The DP=1 constraint
+Every number traces to a
+[phase report](https://github.com/ajing/compactionrl-repro/tree/main/reports)
+and a
+[frozen decision artifact](https://github.com/ajing/compactionrl-repro/tree/main/configs).
 
-The current hook must see every sibling from one logical rollout at once. Public slime can partition siblings across data-parallel ranks before the custom advantage function runs.
+## Failures that could have produced false conclusions
 
-The safe out-of-tree configuration therefore uses data-parallel size 1 for the actor and critic. A future upstream improvement should either:
+### A random value head
 
-- keep all siblings from one rollout on the same DP rank; or
-- compute custom advantages before DP partitioning.
+The missing critic head was initially random, so even zero reward produced
+large advantages. Zero initialization and a zero-reward replay gate fixed it.
 
-Transporting explicit `segment_kind` and `segment_order` metadata into the training batch would also remove the need to encode chronology through `Sample.index`.
+### A shared actor/critic checkpoint directory
 
----
+Critic shards saved later replaced actor shards, invalidating an early
+saved-checkpoint capability claim. Role-specific paths and checkpoint inventory
+are now publication gates.
 
-## 5. The Live Four-A10 Experiment
+### Re-encoding text does not reproduce sampled tokens
 
-The live run used:
+Phase 14 initially retokenized decoded summary text to locate credit. A real
+tokenizer does not guarantee segment-wise decode–encode identity. The repair
+aligns against sampled-token prefix decoding and audits every offset and its
+total mass.
 
-- model: `Qwen/Qwen2.5-0.5B-Instruct`;
-- slime commit: `fb42ae456fac8166afb604f13b30d22bb3c75053`;
-- actor: 1 A10;
-- critic: 1 A10;
-- rollout: 2 A10s across two SGLang engines;
-- rollout batch: 4;
-- one PPO update;
-- debug rollout, training tensors, actor/critic gradient norms, and checkpoint enabled.
+### Logging made valid training look like a failed mechanism
 
-The GPU job completed in 354.5 seconds. A separate CPU process then audited the saved artifacts without calling the training hook again.
+A nested diagnostic could not be serialized by the slime logger. Rollout and
+critic work had completed, but the run produced no checkpoint. Phase 15 closed
+the mechanism only after repairing the logger.
 
-The publication gate required more than a zero exit code:
+### The first Phase 17 run was not an exact pair
 
-- a real execution-summary-execution path;
-- shared logical rollout identity and terminal reward;
-- summary tokens enabled for loss;
-- environment observations masked from loss;
-- independent GAE and return recomputation within `5e-5`;
-- finite nonzero actor and critic gradients;
-- a post-update checkpoint;
-- hashes and sizes for the rollout, training, gradient, and checkpoint evidence.
+The launcher omitted the Phase 17 profile and routed it to `synthetic`, while
+Phase 16 used `synthetic_phase10`. The completed run was rejected as paired
+evidence. After freezing and testing dataset routing, the corrected run matched
+all 48 tasks, outcomes, and trajectories.
 
-The final result was:
+These failures show why “RL is unstable” is not a sufficient explanation.
+Dataset, sampling, value initialization, checkpoint, and logging errors must be
+eliminated before the remaining difference can be called optimization
+variance.
 
-| Live measurement                           |      Result |
-| ------------------------------------------ | ----------: |
-| Logical rollouts                           |           4 |
-| Trainable samples                          |          16 |
-| Compact logical rollouts                   |           3 |
-| Complete execution-summary-execution paths |           3 |
-| Summary segments                           |           6 |
-| Execution segments                         |           9 |
-| Independently audited train groups         |           4 |
-| Maximum advantage error                    |   `6.98e-6` |
-| Maximum return error                       |   `6.98e-6` |
-| Actor gradient norm                        |   `43.0648` |
-| Critic gradient norm                       | `3825.2558` |
-| Checkpoint files                           |          11 |
-| Checkpoint tree size                       |     6.92 GB |
-| Positive trainable-segment rewards         |  **0 / 16** |
+## Why we did not scale
 
-All 11 engineering and numerical checks passed.
+Several local results were strong:
 
-The last row matters. The unadapted 0.5B instruct model did not follow the console command protocol in this batch. Nonzero policy gradients came from the critic-based advantage structure even though all four logical tasks had zero terminal reward. This live run proves that the compact rollout, critic, actor, loss masks, cross-segment advantages, gradient flow, and checkpoint path are wired correctly. It does **not** prove model capability improvement.
+- deterministic no-KL seed 23: `26/60` vs base `14/60`, paired `p=0.00754`;
+- independent same-seed rerun: `25/60`;
+- seed 17: `29/60` vs base `14/60`, paired `p=0.000729`;
+- substantial ordered-plan gains on two Phase 2 seeds;
+- simultaneous exact, invention, and length improvement in Phase 11.
 
-That is why the repository keeps two evidence layers:
+The stronger negative evidence matters just as much:
 
-```text
-96-step multi-seed experiment
-    → causal evidence that trainable summaries can solve the long horizon
+- the initial KL `0.05` gain reverses under common-random-number control;
+- the first ordered-plan full-context control is `0/20` because of output
+  grammar, not memory;
+- once grammar SFT reaches `20/20` in full context, compaction reduces it to
+  `8/20`, isolating summary transfer as the real problem;
+- the third Phase 2 seed fails;
+- Phase 3 fails its absolute invention gate;
+- most Phase 11–17 interventions improve one metric while damaging repetition,
+  invention, or length;
+- Phase 17 changes the real actor gradient by only about `0.059%`.
 
-live Qwen/slime one-update run
-    → engineering and numerical evidence that the public-stack integration works
-```
+Simultaneously satisfying all criteria is difficult because the current small
+model and reward design operate in a multi-objective conflict region. That is
+an experimental result, not a reason to lower the criteria. Adding GPUs would
+sample the same conflict more expensively.
 
-Combining them is informative. Conflating them would be misleading.
+## Cost discipline
 
----
+Later experiments used a staged authorization ladder:
 
-## 6. Five Integration Bugs That Were Worth Finding
+1. local analytic or counterfactual gate;
+2. tokenizer and dataset preflight;
+3. one-update mechanism probe;
+4. evaluation only after mechanism and quality gates pass;
+5. multi-seed or scaled runs only after evaluation passes.
 
-The final run passed only after several failures that local unit tests could not fully expose.
+The conservative GPU cost ceilings for Phases 15, 16, and 17 were approximately
+`$0.75`, `$0.69`, and `$1.07`. Phase 17 includes both the rejected
+wrong-dataset run and the corrected pair. We did not purchase a Phase 17
+evaluation because the exact-paired gradient audit already showed that the
+effect was too small.
 
-### 1. A shell apostrophe changed parsing without failing `bash -n`
+A cheap run is not justified merely because it costs less than one dollar. It
+must answer one question that can change the next decision.
 
-An error message contained `slime's` inside a parameter expansion. The unmatched interaction with a later quoted Python snippet caused Bash to absorb a large part of the launcher, eventually surfacing as an unrelated unbound `MASTER_ADDR`.
+## Reproduce the reproduction
 
-Lesson: for generated launchers, use `bash -x` with a fake Ray executable and inspect the fully expanded final command. Syntax-only validation is not enough.
-
-### 2. Ray did not inherit the shell's working directory
-
-The launcher ran `cd /root/slime`, then submitted `python train.py`. The Ray job started in `/root` and failed because `/root/train.py` did not exist.
-
-Fix: submit the absolute `/root/slime/train.py` path.
-
-### 3. The repository root was importable, but `src/` was not
-
-Ray workers could import `integrations.slime.rollout`, then failed on `compactionrl.simulation` because the package lives under `src/`.
-
-Fix: include both the repo root and `repo/src` in the Ray runtime `PYTHONPATH`.
-
-### 4. slime expects a dotted function path
-
-The first hook path used Python packaging's familiar `module:function` form. slime's loader calls `rpartition(".")`, so it requires:
-
-```text
-compactionrl.adapters.slime.compactionrl_advantages
-```
-
-This failed only after rollout generation and critic training, immediately before actor advantage computation.
-
-### 5. `TRUNCATED` samples are still trainable
-
-The first independent audit correctly counted only `COMPLETED` samples for completion statistics, but then incorrectly used that same subset to join training metadata. slime also trains valid `TRUNCATED` responses.
-
-Fix: keep completion statistics and trainable-sample auditing as separate sets. After the fix, all four groups—not only the compact completed group—matched the independent GAE calculation.
-
-These bugs are part of the result. A framework integration is not complete when the adapter imports. It is complete when real saved tensors reconstruct the intended algorithm after distributed packing and training.
-
----
-
-## 7. Reproduce the Reproduction
-
-The framework-neutral checks need no third-party package:
+The core algorithm and long-horizon simulation require no third-party package:
 
 ```bash
 git clone https://github.com/ajing/compactionrl-repro.git
 cd compactionrl-repro
-bash scripts/run_checks.sh
+PYTHONPATH=src python3 -m unittest discover -s tests -v
+PYTHONPATH=src python3 examples/toy_joint_training.py
+PYTHONPATH=src python3 experiments/long_horizon_memory_chain.py
 ```
 
-That command runs 40 algorithm and evidence-gate tests, regenerates the toy actor-critic result, and reruns the 96-step long-horizon experiment.
+Generate and inspect the deterministic synthetic data:
 
-To validate against a pinned slime checkout:
+```bash
+PYTHONPATH=src python3 scripts/generate_sim_data.py
+PYTHONPATH=src python3 scripts/summarize_sim_data.py
+```
+
+Validate a pinned slime checkout:
 
 ```bash
 python3 scripts/check_slime_compat.py --slime-root /path/to/slime
 ```
 
-The Modal path is explicit about spend:
+For a real Modal run, do not begin with the largest profile. Read the preflight,
+evidence-download, and publication-gate sections of the
+[integration guide](https://github.com/ajing/compactionrl-repro/blob/main/docs/SLIME_INTEGRATION.md),
+then select a frozen
+[configuration](https://github.com/ajing/compactionrl-repro/tree/main/configs).
 
-```bash
-uvx --from modal modal run integrations/slime/modal_e2e.py \
-  --mode prepare --confirm spend_modal_credits
+## What should come next
 
-uvx --from modal modal run integrations/slime/modal_e2e.py \
-  --mode one-batch --confirm spend_modal_credits
-```
+The next step is not to scale Phase 17 unchanged. More promising changes are:
 
-The one-batch command automatically launches the independent audit. The repository's final report builder refuses to publish a PASS if the live audit, actor gradient, critic gradient, compaction path, GAE parity, or checkpoint evidence is missing.
+1. keep the task critic pure and train a separate, calibrated summary-quality
+   model used only as a constraint or actor-side control variate;
+2. represent summaries as structured memory slots so write, overwrite, and
+   stop become explicit actions;
+3. begin with tasks already proven solvable in full context, then increase
+   compaction count through a horizon curriculum;
+4. preregister a cross-seed Pareto gate over task success, milestone recall,
+   invention, repetition, and summary length;
+5. move to a larger model only after the small model exhibits a stable and
+   sufficiently large gradient effect.
 
----
+## Bottom line
 
-## 8. What I Would Do Next
+CompactRL's core idea is credible and reproducible: make the summary a policy
+action and propagate terminal reward through context resets to summary tokens.
+In the controlled 96-step experiment, it nearly perfectly solves a problem
+that the frozen-summary control cannot solve. On public slime, the reproduction
+also demonstrates an auditable path through actor, critic, GAE, masks,
+checkpoints, and deterministic trajectories.
 
-The next useful experiment is not to rerun the same zero-reward 0.5B batch many times. It is to make the small-model task learnable while preserving the long-horizon causal structure.
+“The algorithm can work” and “this small-model recipe works robustly” are
+different claims. The evidence supports the first. The second likely requires
+a different summary representation or credit model, not a larger copy of
+Phase 17.
 
-I would stage it this way:
-
-1. add a constrained command grammar or a short supervised warm start so the model can produce `next` and `submit`;
-2. run several PPO updates until terminal rewards become nonzero;
-3. compare full CompactionRL against frozen-summary, no token normalization, and no cross-trajectory correction;
-4. report learning curves and multiple seeds, not one final checkpoint;
-5. only then move to a small SWE-Dev slice with an executable verifier;
-6. upstream segment metadata and whole-rollout DP placement into slime before scaling.
-
-Paper-scale work should begin with the disclosed 30B setting, frozen dataset IDs, prompts, tokenizer, scaffold, and container commits. The 106B or internal GLM-5.2 regime should come only after the smaller ablations reproduce directionally.
-
----
-
-## Bottom Line
-
-CompactionRL's important contribution is not "summarize when the context is full."
-
-It is the combination of:
-
-- making the summary a policy action;
-- preserving exact token provenance after context rewriting;
-- sharing terminal reward across execution and summary siblings;
-- correcting cross-segment temporal credit;
-- normalizing PPO over enabled tokens rather than segments.
-
-The controlled experiment shows that this can solve a genuine long-horizon information bottleneck. The live slime run shows that the open implementation reaches real rollout engines, actor and critic gradients, an independently verified advantage calculation, and a checkpoint.
-
-The remaining gap to the paper's headline results is no longer a missing algorithm skeleton. It is model capability, a learnable task interface, undisclosed recipe details, evaluation scale, and compute.
-
-Code: [`ajing/compactionrl-repro`](https://github.com/ajing/compactionrl-repro)  
-Evidence: [final E2E report](https://github.com/ajing/compactionrl-repro/blob/main/results/final_e2e_report.md)  
-Algorithm source: [CompactionRL](https://arxiv.org/abs/2607.05378)  
-Related model sources: [GLM-5 technical report](https://arxiv.org/abs/2602.15763), [GLM-5.2 model card](https://huggingface.co/zai-org/GLM-5.2)
+The most useful artifact is not only a successful experiment. It is the
+combination of successful and failed evidence that prevents the next
+researcher from paying to rediscover the same mistakes.
