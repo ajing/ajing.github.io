@@ -15,13 +15,13 @@ tags:
 description: "A reproducible blueprint for Agent RL: environment snapshots, verifier contracts, credit assignment, three-policy semantics, asynchronous generation and training, partial rollouts, and runnable smoke tests."
 ---
 
-> The hard part of Agent RL is not choosing PPO over GRPO. It is proving that an environment interaction became a trustworthy gradient.
+> The hard part of Agent RL is not choosing PPO over GRPO. It is showing that a specific environment interaction produced a trustworthy gradient signal.
 
 **Three contracts, one causal test, and a reference implementation that starts with a single-machine smoke run.**
 
-Most introductions to Agent RL begin with algorithm names: PPO, GRPO, RLOO, DAPO. That framing turns a systems problem into a survey of loss functions.
+Most introductions to Agent RL start with algorithm names: PPO, GRPO, RLOO, DAPO. That framing turns a systems problem into a survey of loss functions.
 
-Suppose a trajectory receives reward 1. We still need to answer five questions:
+Suppose a trajectory earns reward 1. Before training on it, we still need to answer five questions:
 
 1. Which environment state did the agent actually change?
 2. Did an independent verifier assign the reward, or did the agent merely claim success?
@@ -29,9 +29,9 @@ Suppose a trajectory receives reward 1. We still need to answer five questions:
 4. Which `π_beh` sampled the actions, and how far is it from the `π_train` being updated?
 5. When comparing checkpoints, did the prompt, tools, memory, sampler, and execution scaffold remain fixed?
 
-If any answer is missing, the training curve can rise while the learned behavior remains unknown.
+If any question goes unanswered, the training curve may improve even though we still do not know what the model learned.
 
-This article is not an Agent RL encyclopedia. It builds one minimal, runnable, auditable loop:
+This article is not an Agent RL encyclopedia. Instead, it builds one minimal, runnable, and auditable loop:
 
 ```text
 Task sampler → resettable environment → agent rollout
@@ -39,17 +39,17 @@ Task sampler → resettable environment → agent rollout
 held-out eval ← policy update ← credit ← verifier
 ```
 
-The same reference implementation runs throughout the article. You should be able to connect a terminal, browser, or API agent; execute a small experiment; and only then decide whether you need more sophisticated credit assignment or distributed infrastructure.
+The same reference implementation runs throughout the article. By the end, you should be able to plug in a terminal, browser, or API agent, run a small experiment, and only then decide whether you need more sophisticated credit assignment or distributed infrastructure.
 
-The system reduces to three contracts:
+The design rests on three contracts:
 
 - **Transition Contract:** What happened in the environment?
 - **Verification Contract:** Why does the terminal state deserve this reward?
 - **Update Contract:** How does that reward map to action tokens and a policy update?
 
-## 1. Define the training object: an agent is a POMDP policy
+## 1. First define the training object: an agent is a POMDP policy
 
-The key difference between an agent and single-turn RLVR is that an action changes the world observed later.
+The key difference between an agent and single-turn RLVR is that its actions change the world it later observes.
 
 A trajectory is:
 
@@ -57,52 +57,52 @@ A trajectory is:
 τ = (o₀, a₀, o₁, a₁, …, o_T)
 ```
 
-The true state `s_t` is usually only partially observable. A database can contain values the agent has not read; a GUI can lag behind disk; and the user's intent may be only partially specified. The policy therefore conditions on history:
+The true state `s_t` is usually only partially observable. A database may contain values the agent has not read, a GUI may lag behind disk, and the user's intent may be only partially specified. The policy therefore conditions on history:
 
 ```text
 πθ(a_t | h_t),  h_t = (o_≤t, a_<t)
 ```
 
-This is naturally a [POMDP](https://people.csail.mit.edu/lpk/papers/aij98-pomdp.pdf). An LLM call can also be viewed as a variable-duration macro action, so long-horizon agents often have an SMDP or options flavor.
+This is naturally modeled as a [POMDP](https://people.csail.mit.edu/lpk/papers/aij98-pomdp.pdf). An LLM call can also act as a variable-duration macro-action, giving long-horizon agents an SMDP or options flavor.
 
 ### The first engineering choice: action granularity
 
-At the environment layer, a tool-using agent usually emits one complete tool call:
+At the environment layer, a tool-using agent usually emits one complete tool call as a single action:
 
 ```json
 { "kind": "tool", "name": "read_file", "args": { "path": "src/app.py" } }
 ```
 
-The policy gradient, however, lands on the action tokens:
+At training time, however, the policy-gradient loss is computed over the tokens that encode that action:
 
 ```text
 log πθ(a_t | h_t)
 = Σ_{k ∈ action_mask_t} log πθ(y_{t,k} | h_t, y_{t,<k})
 ```
 
-Tool results, system prompts, user text, and other agents' outputs are not actions of the current policy and must be masked out of the loss. Otherwise the model is trained to predict what the environment returned rather than what it should do.
+Tool results, system prompts, user text, and other agents' outputs are not actions taken by the current policy, so they must be masked out of the loss. Otherwise, the model learns to predict what the environment returned instead of what it should do next.
 
-Safety should not be compressed into one scalar whose terms can cancel:
+Safety should not be collapsed into a single scalar whose terms can cancel:
 
 ```text
 maximize   E[R_task]
 subject to E[C_unsafe] ≤ d
 ```
 
-Severe authorization violations, grader tampering, and irreversible side effects belong behind hard gates or constrained objectives, not in a scalar that high task reward can offset.
+Severe authorization violations, grader tampering, and irreversible side effects should be handled with hard gates or constrained objectives. A high task reward must not be allowed to offset them.
 
 ### The policy boundary is larger than a checkpoint
 
-For an agent, the deployed and evaluated policy is not just its weights:
+For an agent, the policy being deployed and evaluated includes more than its weights:
 
 ```text
 Π = (weights, system prompt, chat template, tool schemas,
      parser/canonicalizer, memory/compactor, retry/budget, sampler)
 ```
 
-Changing only the system prompt, history propagation, or tool-call template can change results substantially. Attributing such gains to model capability is therefore a confounding error. A [systematic study of tool-calling evaluation pipelines](https://arxiv.org/abs/2606.00135) likewise finds sensitivity to seeds, system prompts, multi-turn templates, and history propagation.
+Even with frozen weights, changing the system prompt, history propagation, or tool-call template can shift results substantially. Crediting those gains to model capability would therefore confound training with the surrounding scaffold. A [systematic study of tool-calling evaluation pipelines](https://arxiv.org/abs/2606.00135) likewise finds sensitivity to seeds, system prompts, multi-turn templates, and history propagation.
 
-The minimum implementation needs an immutable `PolicyManifest`:
+At minimum, the implementation needs an immutable `PolicyManifest`:
 
 ```yaml
 policy_version: ckpt-0007
@@ -119,13 +119,13 @@ step_budget: 8
 sampler: { temperature: 1.0, top_p: 1.0, top_k: null }
 ```
 
-Every rollout, update, and evaluation should reference this manifest rather than a checkpoint name alone. Run a paired sensitivity test: hold weights fixed and vary the scaffold to measure pipeline variance; then hold the scaffold fixed across checkpoints so differences can be attributed to training updates.
+Every rollout, update, and evaluation should point to this manifest, not just a checkpoint name. Use a paired sensitivity test: first hold the weights fixed and vary the scaffold to measure pipeline variance; then hold the scaffold fixed across checkpoints so that any remaining difference can be attributed to training.
 
 ---
 
 ## 2. Transition Contract: an environment is not a prompt wrapper
 
-A trainable environment needs at least four capabilities: exact reset, typed-action execution, authoritative-state export, and independent outcome verification. Local credit assignment additionally requires snapshot and restore.
+A training-ready environment needs at least four capabilities: exact reset, typed-action execution, authoritative-state export, and independent outcome verification. Local credit assignment also requires snapshot and restore.
 
 ```python
 from dataclasses import dataclass
@@ -168,11 +168,11 @@ class Verifier(Protocol):
     def score(self, task_id: str, final_state: bytes) -> dict[str, float]: ...
 ```
 
-`Verifier` is deliberately separate from `AgentEnv`. The agent may observe the environment but must not control the scoring process. Reprovision scorers, hidden tests, and reference artifacts under an independent identity in an immutable, read-only namespace the agent cannot write, then verify the final artifact there. Do not trust the agent's own `pytest passed` message. A fresh rootless container is an implementation layer, not a complete security boundary; high-risk arbitrary code execution still needs stronger isolation and least privilege.
+`Verifier` is deliberately separate from `AgentEnv`. The agent may observe the environment, but it must not control the scoring process. Provision fresh scorers, hidden tests, and reference artifacts under an independent identity in an immutable, read-only namespace outside the agent's write authority. Then verify the final artifact there. Do not trust the agent's own `pytest passed` message. A fresh rootless container is one layer of isolation, not a complete security boundary; high-risk arbitrary code execution still requires stronger isolation and least privilege.
 
-### A snapshot is a state contract, not just a saved image
+### A snapshot is a state contract, not just a state dump
 
-Outcome-only RL requires every episode to reset reproducibly to its task-specific initial state. Precise replay, fault recovery, and turn-level branching make snapshots first-class environment objects. At minimum, distinguish three kinds:
+Even outcome-only RL requires every episode to reset reproducibly to its task-specific initial state. Precise replay, fault recovery, and turn-level branching make snapshots first-class environment objects. At minimum, distinguish three kinds:
 
 | Snapshot                     | Created                                           | Purpose                                                                                                          |
 | ---------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -180,7 +180,7 @@ Outcome-only RL requires every episode to reset reproducibly to its task-specifi
 | **Branch snapshot**          | Immediately before an action is generated         | Fork continuations from the same `(h_t, s_t)` to estimate a local counterfactual advantage                       |
 | **Sealed terminal snapshot** | After the episode ends                            | Preserve terminal state and side-effect evidence for an independent verifier; never expose it to the agent again |
 
-The hard test for snapshot fidelity is not “restore returned without an error.” It is:
+A successful `restore` call is not enough. The real test of snapshot fidelity is:
 
 ```text
 restore(S_t); replay(a_t, …, a_n)
@@ -190,21 +190,21 @@ fork(S_t, branch_id=i) and fork(S_t, branch_id=j)
     ⇒ writes remain isolated and neither branch can mutate S_t
 ```
 
-A valid snapshot must cover at least four layers:
+A valid snapshot must capture at least four layers:
 
 1. **Mutable world state:** filesystem, database, browser cookies and local storage, application buffers, tool caches, and external memory written by the agent.
-2. **Entropy sources:** environment RNG, mock clock, queue ordering, and controllable service responses. With the live internet or shared SaaS, claim only partial replay unless the environment uses simulation or record/replay.
+2. **Entropy sources:** environment RNG, mock clock, queue ordering, and controllable service responses. When the environment depends on the live internet or shared SaaS, claim only partial replay unless it uses simulation or record/replay.
 3. **Provenance:** task, parent snapshot, environment image, schema/version, and content hash.
-4. **Agent prefix:** a world snapshot does not contain `h_t`. A branch also needs exact context tokens, retrieval and memory state, behavior-policy version, and sampling configuration.
+4. **Agent prefix:** a world snapshot does not contain `h_t`. Reconstructing a branch also requires the exact context tokens, retrieval and memory state, behavior-policy version, and sampling configuration.
 
-The real branch point is therefore not a bare `snapshot_id`:
+The true branch point is therefore more than a bare `snapshot_id`:
 
 ```text
 B_t = (snapshot_ref, context_token_ids, memory_ref,
        behavior_policy_version, sampling_config)
 ```
 
-Implementations differ by environment:
+The snapshot backend depends on the environment:
 
 | Environment             | Minimal snapshot backend                                                                                       | Common gap                                                          |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
@@ -214,7 +214,7 @@ Implementations differ by environment:
 | Browser / GUI           | Server database plus browser profile, cookies/local storage, and a fixed clock                                 | A screenshot or DOM is not authoritative state                      |
 | OS / resident process   | VM or microVM memory snapshot, otherwise an application-level checkpoint                                       | Restore is expensive; devices and external networks can still drift |
 
-[OSWorld](https://arxiv.org/abs/2404.07972) provides initial-state setup and execution-based evaluators. [AppWorld](https://arxiv.org/abs/2407.18901) uses state-based tests for both task goals and collateral damage. Both illustrate why “the page looks the same” is not a state-equivalence criterion. [BPO](https://arxiv.org/abs/2607.14171) uses intermediate snapshots and sibling forks for local credit, but remains a 2026 preprint.
+[OSWorld](https://arxiv.org/abs/2404.07972) provides initial-state setup and execution-based evaluators. [AppWorld](https://arxiv.org/abs/2407.18901) uses state-based tests for both task goals and collateral damage. Both show why “the page looks the same” is not a valid state-equivalence test. [BPO](https://arxiv.org/abs/2607.14171) uses intermediate snapshots and sibling forks for local credit, but remains a 2026 preprint.
 
 ### Components you can use directly
 
@@ -227,13 +227,13 @@ Implementations differ by environment:
 | Evaluation harness          | Independent identity + read-only grader namespace           | [UK AISI Inspect](https://inspect.aisi.org.uk/)                                |
 | High-risk execution         | Rootless container, no host secrets, network off by default | gVisor or microVM, plus episode-scoped credentials                             |
 
-The most neglected environment property is **state authority**. Disk, an application buffer, and the rendered GUI can disagree. “It looks correct on screen” does not prove that persistent state is correct. Bind every mutation and completion claim to a state version, and fail closed when the version has drifted.
+One of the most neglected environment properties is **state authority**. Disk, an application buffer, and the rendered GUI can disagree. “It looks correct on screen” does not prove that the persistent state is correct. Bind every mutation and completion claim to a state version, and fail closed when that version has drifted.
 
 ---
 
 ## 3. Transition Contract: a rollout must be sufficient to reconstruct the gradient
 
-The following JSONL record is closer to a trainable data contract than merely storing a prompt and response:
+A prompt-and-response log is not enough. A training trace should look more like this JSONL record:
 
 ```json
 {
@@ -280,19 +280,19 @@ Five rules are non-negotiable:
 4. Preserve the raw observation or an immutable object reference. A model-generated summary is not sufficient for replay.
 5. For a branch rollout, record its parent run, branch point, and snapshot manifest. The same snapshot without the same agent prefix is not the same decision state.
 
-There are two distinct reproducibility claims. Given recorded actions, **environment replay** should recover the same observations, state hashes, and reward. Re-running GPU sampling need not produce a token-identical trajectory across kernels and inference engines, so do not make that a cross-platform requirement. An invalid action should consume a declared step, return a structured error, and produce no undeclared side effects; the harness must not silently repair it for the model.
+There are two distinct reproducibility claims. Given recorded actions, **environment replay** should recover the same observations, state hashes, and reward. By contrast, re-running GPU sampling need not reproduce every token across kernels and inference engines, so token-identical sampling should not be a cross-platform requirement. An invalid action should consume a declared step, return a structured error, and produce no undeclared side effects; the harness must not silently repair it for the model.
 
-Start synchronously: freeze a checkpoint, finish a complete rollout batch, then perform exactly one optimizer step. Introduce asynchrony only after this loop is correct. Otherwise asynchrony can make trajectories stale, and the distance between `π_beh` and the current `πθ` becomes hidden off-policy bias.
+Start synchronously: freeze a checkpoint, finish a complete rollout batch, and then perform exactly one optimizer step. Introduce asynchrony only after this loop is correct. Otherwise, asynchrony can make trajectories stale and conceal off-policy bias in the gap between `π_beh` and the current `πθ`.
 
 Hugging Face generation is sufficient at small scale. For throughput, use [vLLM](https://arxiv.org/abs/2309.06180) or [SGLang](https://arxiv.org/abs/2312.07104). In either case, verify that the server returns the true sampled token IDs and log probabilities rather than text that is retokenized after generation.
 
 ---
 
-## 4. Verification Contract: reward is bounded by verifier quality
+## 4. Verification Contract: verifier quality sets the reward ceiling
 
-The most dangerous Agent RL bug is assigning high reward to an incorrect artifact. It does not merely corrupt one evaluation example; it produces a gradient in the wrong direction.
+The most dangerous bug in Agent RL is assigning a high reward to an incorrect artifact. That error does more than corrupt one evaluation example: it contributes a gradient in the wrong direction.
 
-Compose verifiers in this order:
+Layer verifiers in this order:
 
 ```text
 authoritative state check / hidden tests / compiler
@@ -304,7 +304,7 @@ independent semantic judge for residual open-ended semantics
 human audit of high-risk samples
 ```
 
-A useful score should return more than `reward: 1`:
+A useful verifier should return more than `reward: 1`:
 
 ```python
 score = {
@@ -325,20 +325,20 @@ constraint_cost = (
 )
 ```
 
-Preserve a reward vector before deciding which terms enter the objective. Tampering invalidates the measurement itself, so quarantine the sample. Policy violations and collateral damage belong in hard constraints or a separate constraint cost. This makes it possible to plot a safety–utility frontier instead of guessing why a composite reward moved.
+Preserve the reward vector before deciding which terms enter the objective. Tampering invalidates the measurement itself, so quarantine the sample. Put policy violations and collateral damage behind hard constraints or in a separate constraint cost. You can then plot a safety–utility frontier instead of guessing why a composite reward moved.
 
-On a representative audit set adjudicated by humans or a stronger external program, estimate at least two verifier errors:
+On a representative audit set adjudicated by humans or a stronger external program, estimate at least two kinds of verifier error:
 
-- **False positive:** an incorrect result is accepted and can write the wrong behavior into the policy.
+- **False positive:** an incorrect result is accepted and can reinforce incorrect behavior in the policy.
 - **False negative:** a correct result is rejected, wasting useful experience and potentially making the policy overly conservative.
 
-Low false-positive rate is not free. A hybrid verifier may reject more correct outputs simply because it is conservative. Report FP, FN, denominators, and confidence intervals together. Report ECE or Brier score only when the verifier emits interpretable probabilities, and disagreement only when multiple verifiers exist. Do not force probability calibration onto a deterministic compiler or hidden test. In its studied settings, [reward-model overoptimization](https://arxiv.org/abs/2210.10760) also shows that optimizing a proxy can progressively separate proxy reward from true quality; it is not a direct estimate of Agent-verifier error rates.
+A low false-positive rate comes with trade-offs: a conservative hybrid verifier may achieve it by rejecting more correct outputs. Report FP, FN, denominators, and confidence intervals together. Report ECE or Brier score only when the verifier emits interpretable probabilities, and report disagreement only when multiple verifiers exist. Do not force probability calibration onto a deterministic compiler or hidden test. In its studied settings, [reward-model overoptimization](https://arxiv.org/abs/2210.10760) also shows that optimizing a proxy can progressively separate proxy reward from true quality. That result is not a direct estimate of Agent-verifier error rates.
 
 ---
 
-## 5. Update Contract: GRPO removes a critic, not the long-horizon attribution problem
+## 5. Update Contract: removing a critic does not solve long-horizon attribution
 
-Suppose the same task, initial state, and behavior `PolicyManifest` produce `G` sibling trajectories. The simplest critic-free estimator is RLOO:
+Suppose we sample `G` sibling trajectories from the same task, initial state, and behavior `PolicyManifest`. The simplest critic-free estimator is RLOO:
 
 ```text
 A_i = R_i - (1 / (G - 1)) Σ_{j ≠ i} R_j
@@ -350,21 +350,21 @@ A_i = R_i - (1 / (G - 1)) Σ_{j ≠ i} R_j
 A_i = (R_i - mean(R₁:G)) / (std(R₁:G) + ε)
 ```
 
-Both avoid a separate critic. They fit settings with a strong outcome verifier, relatively short episodes, and multiple samples from the same task. [DeepSeekMath](https://arxiv.org/abs/2402.03300) is the primary public source for GRPO.
+Both methods avoid a separate critic. They are well suited to settings with a strong outcome verifier, relatively short episodes, and multiple samples from the same task. [DeepSeekMath](https://arxiv.org/abs/2402.03300) is the primary public source for GRPO.
 
-A group must share the task, initial environment seed, and behavior `PolicyManifest`. Do not normalize rewards across unrelated task difficulties and mistake relative task difficulty for action quality.
+Every trajectory in a group must share the same task, initial environment seed, and behavior `PolicyManifest`. Normalizing across unrelated task difficulties would conflate relative task difficulty with action quality.
 
-If siblings are conditionally independent given the task and checkpoint, and a trajectory succeeds with probability `p`, the probability that a Bernoulli-reward group has no relative signal is:
+If siblings are conditionally independent given the task and checkpoint, and each trajectory succeeds with probability `p`, then a Bernoulli-reward group has no relative signal with probability:
 
 ```text
 P(zero variance) = p^G + (1-p)^G
 ```
 
-Easy tasks yield all successes; tasks that are too hard yield all failures. Neither supplies a group-relative gradient. Task sampling is therefore part of the RL estimator. But **reward variance means only that a batch can produce a gradient; it does not mean the experience will improve held-out capability.**
+Easy tasks produce all successes; tasks that are too hard produce all failures. Neither case supplies a group-relative gradient, so task sampling becomes part of the RL estimator. But **reward variance means only that a batch can produce a gradient; it does not mean the experience will improve held-out capability.**
 
 ### Optimization unit: token, turn, and trajectory are different objectives
 
-If the estimand is expected episode return, the score-function term is `A_i Σ_t log π(a_i,t|h_i,t)`. Dividing it by a constant that depends on the sampled trajectory length changes the estimand. The following objectives differ by only a `mean`, yet weight the length distribution differently:
+If the estimand is expected episode return, the score-function term is `A_i Σ_t log π(a_i,t|h_i,t)`. Dividing it by a quantity that depends on the sampled trajectory length changes that estimand. The following objectives may appear to differ only in where the `mean` is taken, but they weight the length distribution differently:
 
 ```text
 L_episode  = (1/B) Σ_i Σ_t ℓ_i,t
@@ -372,9 +372,9 @@ L_len_norm = (1/B) Σ_i [(1/T_i) Σ_t ℓ_i,t]
 L_token    = (1/Σ_i T_i) Σ_i Σ_t ℓ_i,t
 ```
 
-`L_episode` is the episode-return policy-gradient objective. `L_len_norm` gives each trajectory approximately equal total scalar weight and therefore gives each token in a long trajectory a smaller coefficient. `L_token` forms a ratio estimator using the batch's realized token count. Splitting a multi-turn trajectory into turn samples and averaging changes episode weights again. The latter two may be deliberate variance- or length-control surrogates, but they are not the original expected-return estimand.
+`L_episode` is the episode-return policy-gradient objective. `L_len_norm` gives each trajectory approximately equal total scalar weight, so each token in a long trajectory receives a smaller coefficient. `L_token` forms a ratio estimator using the batch's realized token count. Splitting a multi-turn trajectory into turn samples and averaging changes the episode weights yet again. The latter two may be deliberate variance- or length-control surrogates, but neither is the original expected-return estimand.
 
-Dividing by `std(R_group)` is not merely a numerical stabilization trick either: it reweights task groups by within-group reward scale and becomes especially sensitive near zero variance. [Dr.GRPO](https://arxiv.org/abs/2503.20783) modifies the objective in response to group-standard-deviation and response-length normalization bias. [STEPO](https://arxiv.org/abs/2607.09773) explicitly constrains turn-level credit mass in multi-turn settings. STEPO is a 2026 method and belongs in an ablation, not as a default best practice.
+Dividing by `std(R_group)` is not merely a numerical stabilization trick. It reweights task groups by their within-group reward scale and becomes especially sensitive near zero variance. [Dr.GRPO](https://arxiv.org/abs/2503.20783) modifies the objective in response to group-standard-deviation and response-length normalization bias. [STEPO](https://arxiv.org/abs/2607.09773) explicitly constrains turn-level credit mass in multi-turn settings. STEPO is a 2026 method and belongs in an ablation, not in the default recipe.
 
 The minimal `LossReducer` comparison is:
 
@@ -383,13 +383,13 @@ reduction: episode_sum # vs length_normalized vs token_mean vs turn_mass_conserv
 group_reward_scale: none # vs std
 ```
 
-In addition to final success, report per-episode gradient mass by success/failure, trajectory length, turn count, and task family. Otherwise reward can rise simply because the optimizer learned to favor one length band.
+Alongside final success, report per-episode gradient mass by success/failure, trajectory length, turn count, and task family. Otherwise, reward may rise simply because the optimizer learned to favor one length band.
 
 ### A dense score is not causal credit
 
-Broadcasting one `A_i` to every action token says only that the trajectory outperformed its siblings. It does not identify the tool call that caused success. An early exploratory action that mattered and a late, irrelevant verbose action receive the same sign. A score at every step does not solve the problem automatically either: a step score can correlate with success without the action changing the probability of success.
+Broadcasting one `A_i` to every action token tells us only that the trajectory outperformed its siblings. It does not identify which tool call caused the success. An important early exploratory action and a late, irrelevant verbose action receive the same sign. Adding a score at every step does not automatically solve the problem either: a step score can correlate with success even when the action does not change the probability of success.
 
-### When to upgrade the credit estimator
+### When the credit estimator needs an upgrade
 
 | Observed problem                            | Better technique                                                       | Cost or assumption                                          |
 | ------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------- |
@@ -401,7 +401,7 @@ Broadcasting one `A_i` to every action token says only that the trajectory outpe
 | Environment supports snapshot and restore   | [BPO](https://arxiv.org/abs/2607.14171)-style sibling branches         | Fork cost and restore fidelity; 2026 evidence               |
 | Trajectory crosses the context window       | Segment critic or compaction with cross-segment credit                 | A summary can lose sufficient state                         |
 
-In a snapshotable environment, fork `K` actions from the same state `s_t` and roll each continuation to termination:
+In a snapshotable environment, fork `K` continuations from the same state `s_t`, each beginning with a sampled action, and roll them to termination:
 
 ```text
 S_t = env.snapshot();  H_t = exact_agent_prefix()
@@ -414,11 +414,11 @@ for k in 1..K:
 A_t,k = G_t,k - (1 / (K - 1)) Σ_{j ≠ k} G_t,j
 ```
 
-Because sibling continuations share both world state and agent prefix, this comparison is closer to a local counterfactual than subtracting rewards from unrelated initial trajectories. `branch_id` isolates writes; it must not silently alter environment randomness. Exploration differences should come only from policy sampling. Every branch needs the same remaining step and token budgets, plus an isolation test, or higher return may merely reflect more compute. The argument also relies on faithful snapshots and controlled environment randomness; it is not universal causal identification for open environments.
+Because sibling continuations share both world state and agent prefix, the comparison is closer to a local counterfactual than subtracting rewards from unrelated initial trajectories. `branch_id` isolates writes; it must not silently alter environment randomness. Exploration differences should come only from policy sampling. Every branch also needs the same remaining step and token budgets, plus an isolation test. Otherwise, a higher return may merely reflect more compute. This argument relies on faithful snapshots and controlled environment randomness; it is not universal causal identification for open environments.
 
-Whatever the `CreditEngine`, add a small causal audit. At a fixed snapshot, delete, replace, or resample actions assigned high credit; measure the change in terminal return; and report rank correlation between estimated credit and intervention delta. This cannot prove global optimality, but it can reject a dense score that is unrelated to action effect. Keep an outcome-only arm so the process reward does not become a new attackable proxy.
+Whatever `CreditEngine` you choose, add a small causal audit. At a fixed snapshot, delete, replace, or resample actions assigned high credit. Then measure the change in terminal return and report the rank correlation between estimated credit and intervention delta. This cannot prove global optimality, but it can reject a dense score that is unrelated to action effect. Keep an outcome-only arm so that the process reward does not become a new attackable proxy.
 
-DAPO and DPPO mostly change sampling, aggregation, or trust-region control. They do not answer which turn caused success. [DAPO](https://arxiv.org/abs/2503.14476) uses dynamic sampling to reduce zero-variance groups. [DPPO](https://arxiv.org/abs/2602.04879), a 2026 preprint, constrains updates using more direct KL/TV divergence estimates. Credit assignment remains a separate design decision.
+DAPO and DPPO primarily change sampling, aggregation, or trust-region control; neither identifies which turn caused success. [DAPO](https://arxiv.org/abs/2503.14476) uses dynamic sampling to reduce zero-variance groups. [DPPO](https://arxiv.org/abs/2602.04879), a 2026 preprint, constrains updates using more direct KL/TV divergence estimates. Credit assignment remains a separate design decision.
 
 ---
 
@@ -426,7 +426,7 @@ DAPO and DPPO mostly change sampling, aggregation, or trust-region control. They
 
 ### Name the three policies
 
-A reliable implementation cannot call every previous model `old_policy`:
+A reliable implementation cannot collapse every previous model into `old_policy`:
 
 | Symbol   | Role                                                       | What must be stored                                                             |
 | -------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -434,7 +434,7 @@ A reliable implementation cannot call every previous model `old_policy`:
 | `π_prox` | Center of clipping or the trust region                     | Checkpoint version and whether it equals `π_beh`                                |
 | `π_ref`  | Frozen capability anchor                                   | Reference revision, KL direction, and estimation method                         |
 
-In synchronous one-step training, `π_beh = π_prox` is common. Under asynchrony, replay, or generator/trainer numerical mismatch, that equality cannot be assumed. Correcting behavior data toward a proximal policy and then updating around that proximal policy gives the conceptual decomposition:
+In synchronous one-step training, `π_beh = π_prox` is common. Under asynchrony, replay, or generator/trainer numerical mismatch, do not assume that equality. If behavior data are corrected toward a proximal policy and the update is then constrained around that proximal policy, the conceptual decomposition is:
 
 ```text
 w_off  = π_prox(a|h) / π_beh(a|h)
@@ -443,13 +443,13 @@ r_prox = π_θ(a|h)    / π_prox(a|h)
 π_θ(a|h) / π_beh(a|h) = r_prox · w_off
 ```
 
-An estimator may truncate, reject, or combine these ratios, but it must state which quantity it changes. [PPO](https://arxiv.org/abs/1707.06347) provides a proximal update only when its data and old-policy semantics hold. [AReaL](https://arxiv.org/abs/2505.24298) explicitly separates asynchronous behavior and proximal policies.
+An estimator may truncate, reject, or combine these ratios, but it must say which quantity it changes. [PPO](https://arxiv.org/abs/1707.06347) provides a proximal update only when its data and old-policy semantics hold. [AReaL](https://arxiv.org/abs/2505.24298) explicitly separates asynchronous behavior and proximal policies.
 
-`π_ref` serves another role and is not the importance-sampling denominator. `log πθ - log πref` estimates a target KL only under a stated sampling distribution. Averaging it over stale behavior samples does not automatically estimate the current policy's forward KL. Specify the KL direction, sampling distribution, whether a full-vocabulary audit or non-negative estimator is used, and whether KL appears in the reward or loss—not both by accident.
+`π_ref` has a different role: it is not the importance-sampling denominator. `log πθ - log πref` estimates a target KL only under a stated sampling distribution, and averaging it over stale behavior samples does not automatically recover the current policy's forward KL. Specify the KL direction, the sampling distribution, whether you use a full-vocabulary audit or a non-negative estimator, and whether KL enters the reward or the loss—not both by accident.
 
 ### Align the granularity of reward, ratios, and clipping
 
-Agents often receive sequence-level outcome reward. Distinguish a true change-of-measure ratio from a length-normalized stability score:
+Agents often receive only a sequence-level outcome reward. Distinguish a true change-of-measure ratio from a length-normalized stability score:
 
 ```text
 token IS ratio:       r_t = exp(log πθ(a_t|h_t) - log πbeh(a_t|h_t))
@@ -459,9 +459,9 @@ turn normalized score:     s_turn = exp[(1/T_turn) Σ_t log r_t]
 episode normalized score:  s_seq  = exp[(1/T_episode) Σ_t log r_t]
 ```
 
-`R_IS` is the actual trajectory importance ratio, but its variance grows explosively with horizon. `s_turn` and `s_seq` are geometric-mean surrogates that deliberately change the target; they do not provide unbiased trajectory-level off-policy correction. [DAPO](https://arxiv.org/abs/2503.14476) uses a token-level policy loss with asymmetric clipping. [GSPO](https://arxiv.org/abs/2507.18071) uses a length-normalized sequence likelihood-ratio score with sequence-level clipping, with particular emphasis on MoE stability. These are not interchangeable implementation details. For a multi-turn agent, use a turn-normalized score as a third ablation and report token, whole-turn, and whole-episode clip fractions separately. Report rejection fraction only if the system actually discards samples.
+`R_IS` is the actual trajectory importance ratio, but its variance grows explosively with horizon. `s_turn` and `s_seq` are geometric-mean surrogates that deliberately change the target; they do not provide unbiased trajectory-level off-policy correction. [DAPO](https://arxiv.org/abs/2503.14476) uses a token-level policy loss with asymmetric clipping. [GSPO](https://arxiv.org/abs/2507.18071) instead uses a length-normalized sequence likelihood-ratio score with sequence-level clipping, with particular emphasis on MoE stability. These choices are not interchangeable implementation details. For a multi-turn agent, include a turn-normalized score as a third ablation and report token, whole-turn, and whole-episode clip fractions separately. Report a rejection fraction only if the system actually discards samples.
 
-If every rollout comes from the current complete `PolicyManifest`, `π_beh = π_prox = πθ` at the start of gradient computation, generator/trainer log probabilities pass the consistency gate, and the batch receives exactly one optimizer step, the minimum expected-episode-return objective is RLOO/REINFORCE plus KL:
+The simplest baseline applies under a strict synchronous contract. Every rollout must come from the current complete `PolicyManifest`; `π_beh = π_prox = πθ` at the start of gradient computation; generator and trainer log probabilities must pass the consistency gate; and the fresh batch must receive exactly one optimizer step. Under these conditions, the simplest objective for expected episode return is RLOO/REINFORCE plus KL:
 
 ```text
 L_pg = -(1/B) Σ_i A_i · [Σ_{k∈M_i} log πθ(y_i,k | y_i,<k)]
@@ -469,9 +469,9 @@ L_pg = -(1/B) Σ_i A_i · [Σ_{k∈M_i} log πθ(y_i,k | y_i,<k)]
 L = L_pg + β KL(πθ || πref)
 ```
 
-This baseline has no critic and no replay. Ratio clipping need not pretend to solve a problem that is absent. Dividing by the sample-specific `|M_i|` would switch to the length-normalized surrogate from the previous section.
+This baseline has no critic and no replay. At that first step, there is no behavior mismatch for ratio clipping to correct. Dividing by the sample-specific `|M_i|` would instead switch to the length-normalized surrogate from the previous section.
 
-Whenever `πθ ≠ π_beh`—because of multiple epochs over a batch, stale async or replay data, or generator/trainer mismatch that requires correction—the implementation must explicitly select importance correction, clipping, rejection, or quarantine. The standard PPO-style surrogate below covers only the special case `π_prox = π_beh`; when all three policies differ, return to the three-policy contract:
+Whenever `πθ ≠ π_beh`—because of multiple epochs over a batch, stale async or replay data, or generator/trainer mismatch that requires correction—the implementation must explicitly choose importance correction, clipping, rejection, or quarantine. The standard PPO-style surrogate below covers only the special case `π_prox = π_beh`. When all three policies differ, return to the three-policy contract:
 
 ```text
 ρ_t(θ) = exp(log πθ(a_t|h_t) - log πbeh(a_t|h_t))
@@ -480,9 +480,9 @@ L = -E[min(ρ_t A_t,
            clip(ρ_t, 1-ε, 1+ε) A_t)] + β KL(πθ || πref)
 ```
 
-[PPO](https://arxiv.org/abs/1707.06347) clips the surrogate likelihood ratio on sampled actions; it does not directly constrain the full policy change. Monitor `clip_fraction`, KL, entropy, gradient norm, and importance-ratio tails together. The reduction must come from the preregistered `LossReducer`; framework defaults must not silently decide whether tokens, turns, or trajectories receive equal weight.
+[PPO](https://arxiv.org/abs/1707.06347) clips the surrogate likelihood ratio on sampled actions; it does not directly constrain the full policy change. Monitor `clip_fraction`, KL, entropy, gradient norm, and importance-ratio tails together. The preregistered `LossReducer` must control the reduction; framework defaults must not silently decide whether tokens, turns, or trajectories receive equal weight.
 
-The minimum training loop is uncomplicated:
+The minimum training loop is deliberately simple:
 
 ```python
 for task_batch in sampler:
@@ -512,28 +512,28 @@ for task_batch in sampler:
     registry.publish_new_checkpoint()
 ```
 
-Three concerns remain separate by construction:
+This structure keeps three decisions separate:
 
 - `advantages` selects the credit estimator.
-- `reinforce_with_kl_loss` selects the update objective. Whenever `πθ ≠ π_beh` because of batch reuse, async or replay staleness, or a corrected deployment–training mismatch, use an objective with explicit ratios or correction.
-- `collector/registry` determines whether the data are near-on-policy.
+- `reinforce_with_kl_loss` selects the update objective. Whenever `πθ ≠ π_beh` because of batch reuse, async or replay staleness, or a generator–trainer mismatch requiring correction, use an objective with explicit ratios or correction.
+- `collector/registry` determines whether the admitted data are near-on-policy.
 
-This separation lets RLOO, GAE, or branching credit change without rewriting the environment or verifier.
+As a result, you can swap RLOO for GAE or branching credit without rewriting the environment or verifier.
 
 ### Average entropy can hide exploration collapse
 
-Recent mathematical-reasoning RLVR work studies gradient covariance and high-entropy minority tokens, finding that a small subset of tokens can carry disproportionate exploration signal. [Entropy Mechanism](https://arxiv.org/abs/2505.22617) and [High-Entropy Minority Tokens](https://arxiv.org/abs/2506.01939) motivate a hypothesis for agents: do those tokens correspond to tool choices or behavioral forks? The reasoning evidence does not establish that mapping.
+Recent work on mathematical-reasoning RLVR studies gradient covariance and high-entropy minority tokens, finding that a small subset of tokens can carry a disproportionate share of the exploration signal. [Entropy Mechanism](https://arxiv.org/abs/2505.22617) and [High-Entropy Minority Tokens](https://arxiv.org/abs/2506.01939) motivate a testable hypothesis for agents: do those tokens correspond to tool choices or behavioral forks? The reasoning evidence does not establish that mapping.
 
-An `ExplorationMonitor` should stratify entropy and gradient mass by advantage sign, entropy quantile, turn index, tool/action type, and success/failure. Test whether high-entropy tokens align with actual branch or action interventions, and plot held-out `pass@k` and tool-sequence diversity alongside `pass@1`. This distinguishes justified convergence under reward, distributional bias caused by clipping, and premature collapse at consequential decisions.
+An `ExplorationMonitor` should stratify entropy and gradient mass by advantage sign, entropy quantile, turn index, tool/action type, and success/failure. Test whether high-entropy tokens align with actual branch or action interventions, and plot held-out `pass@k` and tool-sequence diversity alongside `pass@1`. These views help distinguish justified convergence under reward, distributional bias from clipping, and premature collapse at consequential decisions.
 
-### Generator–trainer asynchrony changes the data distribution
+### Asynchrony between generator and trainer changes the data distribution
 
-Separate two roles that are often both called the actor:
+First separate two roles that are often both called the actor:
 
-- A **generator / rollout worker** holds inference-only behavior policy `π_beh^v`, interacts with the environment, and writes immutable trajectories.
-- A **trainer / learner** holds master parameters, optimizer state, and current training version `π_train^u`; it consumes trajectories and publishes new weights.
+- A **generator / rollout worker** holds an inference-only behavior policy `π_beh^v`, interacts with the environment, and writes immutable trajectories.
+- A **trainer / learner** holds the master parameters, optimizer state, and current training version `π_train^u`; it consumes trajectories and publishes new weights.
 
-The complete flow is:
+The data flow is:
 
 ```text
 Task queue → Generator pool (π_beh^v) → Environment
@@ -547,7 +547,7 @@ Verifier → complete group → Trainer (π_train^u) → staged checkpoint
                     Generator pool (π_beh^(v+1))
 ```
 
-Define lag and sampled-action drift:
+Track both system lag and sampled-action drift:
 
 ```text
 Δ_version = u - v
@@ -556,9 +556,9 @@ D_sample  = (1/|M|) Σ_{t∈M(τ~π_beh^v)}
             |log π_train^u(a_t|h_t) - log π_beh^v(a_t|h_t)|
 ```
 
-`Δ_version` is system age. `D_sample` is only a drift diagnostic over action tokens sampled from `π_beh^v`, restricted to the action mask `M`; it is not a policy-space distance. One version of lag can mean very different drift under different learning rates, KL penalties, update sizes, and sampling distributions. Enforce both a version gate and a ratio or drift gate.
+`Δ_version` is system age. `D_sample` is only a drift diagnostic over action tokens sampled from `π_beh^v`, restricted to the action mask `M`; it is not a policy-space distance. A one-version lag can correspond to very different amounts of drift under different learning rates, KL penalties, update sizes, and sampling distributions. Enforce both a version gate and a ratio or drift gate.
 
-Synchronous versus asynchronous is not a Boolean. It describes at least three data semantics:
+The synchronous/asynchronous distinction is not binary. It spans at least three data semantics:
 
 | Mode                          | Generator–trainer relationship                                              | Data semantics                                                                    |
 | ----------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -566,32 +566,32 @@ Synchronous versus asynchronous is not a Boolean. It describes at least three da
 | **Pipelined / bounded async** | Generators continue; trainer admits only complete groups with `Δ_version≤L` | Bounded staleness; call it near-on-policy only if drift and ratio gates also pass |
 | **Unbounded async / replay**  | Trainer can repeatedly consume arbitrarily old data                         | Genuinely off-policy; an unchanged on-policy recipe is invalid                    |
 
-Set `L=0` in the reference implementation. Add `L=1` only as an explicit ablation. Do not begin with “train whatever is in the queue.” For RLOO or GRPO, every sibling in a group must also come from the same behavior version. Mixing `π^v` and `π^(v+1)` makes group differences a mixture of action quality and policy drift.
+Set `L=0` in the reference implementation, and add `L=1` only as an explicit ablation. Do not begin with “train whatever is in the queue.” For RLOO or GRPO, every sibling in a group must also come from the same behavior version. Mixing `π^v` and `π^(v+1)` makes group differences reflect both action quality and policy drift.
 
-Schedule a complete group lease, not whichever trajectory arrives first:
+Schedule rollouts by a complete-group lease, not by whichever trajectory arrives first:
 
 ```text
 lease = (group_id, behavior_manifest_hash,
          base_snapshot_id, sampler_config_hash)
 ```
 
-All siblings share the lease, and their advantage is computed only after the full group has completed verification. If one sibling times out, discard the group or apply a preregistered fallback estimator. Never fill the missing slot later with a sample from a newer policy.
+This group lease binds every sibling to the same behavior manifest, base snapshot, and sampler until the full group has completed verification. Only then should the trainer compute their advantages. If one sibling times out, discard the group or apply a preregistered fallback estimator. Never fill the missing slot later with a sample from a newer policy.
 
 #### What happens to an in-flight episode?
 
-A long agent rollout can still be active when the trainer publishes a new version. Only three choices have clear semantics:
+A long agent rollout may still be running when the trainer publishes a new version. Only three choices have clear semantics:
 
-1. **Finish old:** let the old generator finish the episode and route only new tasks to the new version. This is cleanest but requires double buffering or temporary retention of old workers.
-2. **Abort and restart:** discard the partial trajectory and restart from the base snapshot under the new version. This is statistically clear but wastes rollout compute.
-3. **Mixed-policy continuation:** switch weights mid-episode. A strict on-policy baseline should forbid this. If used, store the behavior version and log probability for every action or token and use an estimator designed for mixed-policy data.
+1. **Finish old:** let the old generator finish the episode and route only new tasks to the new version. This has the cleanest semantics but requires double buffering or temporary retention of old workers.
+2. **Abort and restart:** discard the partial trajectory and restart from the base snapshot under the new version. This is statistically clean but wastes rollout compute.
+3. **Mixed-policy continuation:** switch weights mid-episode. A strict on-policy baseline should forbid this mode. If you use it, store the behavior version and log probability for every action or token and choose an estimator designed for mixed-policy data.
 
-`pause → load new weights → resume` is a serving feature, not a proof of RL correctness. If one unfinished generation uses different parameters before and after the pause, quarantine and regenerate it; if an episode switches versions between turns, label it as mixed-policy. Old KV cache is not valid under new weights either. [vLLM's native RL APIs](https://vllm.ai/blog/2026-05-28-native-rl-apis) support weight transfer and `abort`, `wait`, and `keep` pause modes, but the algorithm still has to choose one of the semantics above.
+`pause → load new weights → resume` is a serving feature, not a proof of RL correctness. If a single in-flight generation spans two parameter versions, quarantine it and regenerate it. If an episode switches versions between turns, label it as mixed-policy. A KV cache created under the old weights is invalid under the new weights. [vLLM's native RL APIs](https://vllm.ai/blog/2026-05-28-native-rl-apis) support weight transfer and `abort`, `wait`, and `keep` pause modes, but the algorithm still has to choose one of the semantics above.
 
-[DORA](https://arxiv.org/abs/2604.26256), a 2026 preprint, instead keeps multiple rollout-policy versions alive so long trajectories finish on their original version, then applies bounded-staleness admission at the trainer. It is a useful multi-version-serving design reference, not mature consensus.
+[DORA](https://arxiv.org/abs/2604.26256), a 2026 preprint, takes a different approach: it keeps multiple rollout-policy versions alive so that long trajectories can finish on their original version, then applies bounded-staleness admission at the trainer. It is a useful reference for multi-version serving, not yet established practice.
 
-#### Partial rollouts, truncation, and compaction are data semantics
+#### Partial rollouts, truncation, and compaction change the data semantics
 
-An incomplete episode can denote several statistically different events:
+An incomplete episode can represent several statistically different events:
 
 ```text
 agent_finish | env_terminal_success | env_terminal_failure
@@ -600,11 +600,11 @@ max_step_truncation | max_token_truncation
 tool_timeout | infra_abort | scheduler_cancel
 ```
 
-The first three are policy or environment terminal events, although the verifier still decides success. A finite-horizon budget exhausted under a preregistered task contract can also be a legitimate terminal failure. By contrast, ad hoc harness truncation, tool timeout, infrastructure abort, and scheduler cancellation are censored or system events. The distinction is not the enum name but whether the budget was part of the task definition in advance. Silently assigning reward 0 to the latter set turns censoring into failure and systematically reweights long tasks.
+The first three are policy or environment terminal events, although the verifier still decides success. Exhausting a finite-horizon budget under a preregistered task contract can also be a legitimate terminal failure. By contrast, ad hoc harness truncation, tool timeout, infrastructure abort, and scheduler cancellation are censored or system events. What matters is not the enum name, but whether the budget was part of the task definition in advance. Silently assigning reward 0 to censored or system events turns censoring into failure and systematically reweights long tasks.
 
-[APRIL](https://arxiv.org/abs/2509.18521) overprovisions requests, admits a target number of completed samples, and carries unfinished prefixes into later iterations to reduce rollout tail latency. [RollPacker](https://arxiv.org/abs/2509.21009) is a useful comparison that tries to preserve synchronous semantics. The first-completion admission rule in APRIL **may** induce a temporal curriculum favoring fast or short trajectories. That is an inference to test by length, difficulty, and reward—not a result already established by the paper.
+[APRIL](https://arxiv.org/abs/2509.18521) overprovisions requests, admits a target number of completed samples, and carries unfinished prefixes into later iterations to reduce rollout tail latency. [RollPacker](https://arxiv.org/abs/2509.21009) provides a useful comparison because it tries to preserve synchronous semantics. APRIL's first-completion admission rule **may** induce a temporal curriculum that favors fast or short trajectories. This is an inference to test by length, difficulty, and reward—not a result established by the paper.
 
-Continuing a partial rollout requires a `TrajectorySegmentStore` containing:
+To continue a partial rollout, the `TrajectorySegmentStore` must contain:
 
 ```text
 segment_id, continuation_parent,
@@ -613,13 +613,13 @@ behavior_policy_version, behavior_logprobs, sampler_config,
 remaining_step/token_budget, termination_reason
 ```
 
-Preregister four comparisons: continuation pinned to the old version, mixed-version continuation, abort and restart, and synchronous completion. A continued RLOO or GRPO group must preserve group semantics; do not replace a missing sibling with one generated later by a new policy.
+Preregister four comparisons: continuation pinned to the old version, mixed-version continuation, abort and restart, and synchronous completion. A continued RLOO or GRPO group must preserve its group semantics. Do not replace a missing sibling with one generated later by a new policy.
 
-Context compaction is part of the policy boundary, not lossless log compression. A summary determines what the policy sees next and can omit state needed by the verifier. [CompactionRL](https://arxiv.org/abs/2607.05378) jointly optimizes summary generation and cross-segment credit, providing recent 2026 evidence. At minimum, record pre- and post-compaction token hashes, compactor model and version, summary token IDs, and the snapshot at which compaction occurred. Keep a no-compaction control and test summary omission and restore fidelity separately.
+Context compaction is part of the policy boundary, not a lossless form of log compression. The summary determines what the policy sees next and may omit state needed by the verifier. [CompactionRL](https://arxiv.org/abs/2607.05378) jointly optimizes summary generation and cross-segment credit, providing recent 2026 evidence. At minimum, record pre- and post-compaction token hashes, the compactor model and version, summary token IDs, and the snapshot at which compaction occurred. Keep a no-compaction control, and test summary omission separately from restore fidelity.
 
 #### Weight publication must be atomic
 
-Never accept a new request while only some tensors or TP/PP/EP ranks have updated. A minimal publication protocol is:
+Never accept a new request while only some tensors have been loaded or only some TP/PP/EP ranks have received the update. Use at least the following publication protocol:
 
 ```text
 trainer completes u+1
@@ -631,11 +631,11 @@ trainer completes u+1
 → only then route subsequent requests to u+1
 ```
 
-For the pinned-policy baseline, the lease boundary is the episode boundary. Only an explicit mixed-policy experiment may switch atomically at a recorded segment or turn boundary and label the continuation with a new behavior version. Never hot-swap silently at an arbitrary token.
+Do not confuse the group lease above with the episode-level policy lease. In the pinned-policy baseline, each episode-level lease prevents mid-episode weight switching and ends at that episode's boundary. Only an explicit mixed-policy experiment may switch atomically at a recorded segment or turn boundary, with the continuation labeled under a new behavior version. Never hot-swap silently at an arbitrary token.
 
-Colocated systems can time-share devices and reshard between training and inference. Separate GPU pools need NCCL, CUDA IPC, RDMA, or checkpoint/object-store transport. [HybridFlow/verl](https://arxiv.org/abs/2409.19256) separates RL dataflow from model placement and resharding. LoRA reduces the bytes transferred, but `base_revision + adapter_revision` still forms one indivisible policy version.
+Colocated systems can time-share devices and reshard between training and inference. Separate GPU pools require NCCL, CUDA IPC, RDMA, or checkpoint/object-store transport. [HybridFlow/verl](https://arxiv.org/abs/2409.19256) separates RL dataflow from model placement and resharding. LoRA reduces the number of bytes transferred, but `base_revision + adapter_revision` still forms one indivisible policy version.
 
-A trainer might use BF16 while the generator uses FP8 or quantized inference. Even with identical version IDs and checksums, kernels, parallel layouts, MoE routing, constrained decoding, and sampler implementations can yield different log probabilities. This **training–inference mismatch** is distinct from stale data:
+The trainer might use BF16 while the generator uses FP8 or another quantized format. Even with identical version IDs and checksums, differences in kernels, parallel layouts, MoE routing, constrained decoding, and sampler implementations can produce different log probabilities. This **training–inference mismatch** is distinct from stale data:
 
 ```text
 δ_TIM,t   = log π_generator^v(a_t|h_t) - log π_trainer^v(a_t|h_t)
@@ -645,31 +645,31 @@ A trainer might use BF16 while the generator uses FP8 or quantized inference. Ev
 δ_total,t = δ_TIM,t + δ_stale,t
 ```
 
-Measure pure TIM by comparing generator and trainer at the same version `v`. Measure pure staleness by loading versions `v` and `u` in the same trainer backend. Generator `v` versus trainer `u` is only the total gap. Retain signed per-token deltas, then aggregate the mean and `p95/max |δ|`; subtracting absolute values is not an error decomposition.
+Measure pure TIM by comparing the generator and trainer at the same version `v`. Measure pure staleness by loading versions `v` and `u` in the same trainer backend. Comparing generator `v` with trainer `u` measures only the total gap. Retain the signed per-token deltas; report their signed mean together with the p95 and maximum of `|δ|`. Subtracting absolute values does not yield an error decomposition.
 
-At a frozen checkpoint, a `LogprobConsistencyAuditor` should replay exact prefixes and sampled token IDs through both backends and report TIM metrics, sequence log-perplexity difference, and a non-negative `k3` estimator. Preregister tolerances from the actual hardware and a pure BF16 same-engine baseline. [Diagnosing Training–Inference Mismatch](https://arxiv.org/abs/2605.14220) reports that even small numerical differences can independently disrupt training after policy drift is isolated. [verl's rollout-correction implementation](https://github.com/verl-project/verl/blob/main/docs/algo/rollout_corr.md) exposes related metrics, importance correction, and rejection hooks. These are implementation references; correction does not replace a zero-mismatch diagnostic.
+At a frozen checkpoint, a `LogprobConsistencyAuditor` should replay exact prefixes and sampled token IDs through both backends. It should report TIM metrics, the sequence log-perplexity difference, and a non-negative `k3` estimator. Preregister tolerances on the actual hardware and include a pure BF16 same-engine baseline. [Diagnosing Training–Inference Mismatch](https://arxiv.org/abs/2605.14220) reports that even small numerical differences can disrupt training after policy drift is isolated. [verl's rollout-correction implementation](https://github.com/verl-project/verl/blob/main/docs/algo/rollout_corr.md) exposes related metrics, importance correction, and rejection hooks. These are implementation references; correction does not replace a zero-mismatch diagnostic.
 
-Tokenizer, chat template, tool rendering, grammar, quantization, routing replay, and inference engine all belong in `PolicyManifest`. Otherwise apparent ratio drift can come from an implementation mismatch rather than a policy update.
+The tokenizer, chat template, tool rendering, grammar, quantization, routing replay, and inference engine all belong in `PolicyManifest`. Without them, apparent ratio drift may come from an implementation mismatch rather than a policy update.
 
 #### What should happen to stale data?
 
-PPO clipping limits an update on sampled actions; it cannot turn severely stale data back into on-policy data. Multiplying importance ratios across a long trajectory creates extreme variance.
+PPO clipping limits an update on sampled actions, but it cannot turn severely stale data back into on-policy data. Meanwhile, multiplying importance ratios across a long trajectory creates extreme variance.
 
-Behavior log probabilities must describe the **actual sampler distribution**. If the generator uses temperature, top-p, or top-k but stores only raw-model log probabilities, the importance-ratio denominator is wrong. Truncation can also violate the support condition required for off-policy correction. The cleanest baseline uses temperature 1 with no top-k or top-p truncation, or records the fully transformed sampling probability.
+Behavior log probabilities must describe the **actual sampler distribution**. If the generator applies temperature, top-p, or top-k but stores only raw-model log probabilities, the importance-ratio denominator is wrong. Truncation may also violate the support condition required for off-policy correction. The cleanest baseline uses temperature 1 without top-k or top-p truncation. If truncation is retained, record the fully transformed sampling probability while noting that logging it does not restore missing support.
 
 Use this order of operations:
 
-1. Bound off-policyness first with a version-lag cutoff and behavior-homogeneous groups.
+1. First bound how far off-policy the data may be, using a version-lag cutoff and groups that are homogeneous in behavior version.
 2. Store rollout-time behavior log probabilities; recompute current probabilities in the trainer; monitor ratio p50/p95/p99 and effective sample size.
 3. For mild drift, use ratio clipping, a KL gate, or explicit sample rejection.
 4. Consider truncated importance correction such as [IMPALA/V-trace](https://arxiv.org/abs/1802.01561) only when a turn-level critic already exists.
 5. Quarantine trajectories beyond the preregistered lag or ratio gate, or retain them for offline analysis; never train on them silently.
 
-An asynchronous stack is also a rate-control system. If generator rate `λ_gen` persistently exceeds trainer admission rate `λ_train`, the queue grows and samples inevitably become staler. Monitor queue age and high-water marks; apply generator backpressure, dynamic worker allocation, or stale-sample quarantine. Stratify stale and dropped rates by task family, trajectory length, and reward. Otherwise the system can preferentially discard long, difficult episodes and silently alter the curriculum.
+An asynchronous stack is also a queueing system. If the generator rate `λ_gen` persistently exceeds the trainer admission rate `λ_train`, the queue grows and samples inevitably become staler. Monitor queue age and high-water marks, then apply generator backpressure, dynamic worker allocation, or stale-sample quarantine. Stratify stale and dropped rates by task family, trajectory length, and reward. Otherwise, the system may preferentially discard long, difficult episodes and silently alter the curriculum.
 
-[AReaL](https://arxiv.org/abs/2505.24298) demonstrates decoupled generation and training, controlled staleness, and staleness-aware PPO. [Asynchronous RLHF](https://arxiv.org/abs/2410.18252) directly studies the performance–efficiency trade-off from off-policy async data. Their main evidence comes from reasoning and instruction following, so neither settles multi-turn tool-agent training.
+[AReaL](https://arxiv.org/abs/2505.24298) demonstrates decoupled generation and training, controlled staleness, and staleness-aware PPO. [Asynchronous RLHF](https://arxiv.org/abs/2410.18252) directly studies the performance–efficiency trade-off of off-policy async data. Most of their evidence comes from reasoning and instruction following, so neither settles the case for multi-turn tool-agent training.
 
-A minimal controller looks like this:
+A minimal admission controller looks like this:
 
 ```python
 MAX_VERSION_LAG = 0  # synchronous baseline; later ablate with 1
@@ -695,9 +695,9 @@ while True:
     registry.publish_atomically_at_episode_boundary(next_policy)
 ```
 
-Each group also needs an immutable `group_id` and exactly-once consumption. Atomically commit `consumed_group_ids + optimizer_step + output_policy_version` in the trainer checkpoint. After recovery, the process must neither reapply a group nor treat an applied-but-unacknowledged group as unconsumed.
+Each group also needs an immutable `group_id` and exactly-once consumption. Atomically commit `consumed_group_ids + optimizer_step + output_policy_version` in the trainer checkpoint. After recovery, the trainer must neither reapply a group nor treat an applied-but-unacknowledged group as unconsumed.
 
-Do not judge asynchrony by tokens per second alone. Compare synchronous and asynchronous systems on held-out success, safety, KL, ratio tails, stale/drop rate, queue age, generator and trainer utilization, weight-sync latency, and wall-clock time to a target. More throughput with less held-out capability learned per hour is not a win.
+Do not judge asynchrony by tokens per second alone. Compare synchronous and asynchronous systems on held-out success, safety, KL, ratio tails, stale/drop rate, queue age, generator and trainer utilization, weight-sync latency, and wall-clock time to a target. Higher throughput is not a win if held-out capability improves less per hour.
 
 ### Component map
 
@@ -710,9 +710,9 @@ Do not judge asynchrony by tokens per second alone. Compare synchronous and asyn
 | Multi-version streaming            | Several pinned policy pools remain active | [DORA](https://arxiv.org/abs/2604.26256)-style leases, routing, and bounded admission | Let long episodes finish on their original version; 2026 preprint |
 | Existing agent runtime             | Trace adapter                             | [Agent Lightning](https://arxiv.org/abs/2508.03680)-style disaggregation              | Decouple execution from training                                  |
 
-There are useful implementation anchors. [slime's `train_async.py`](https://github.com/THUDM/slime/blob/main/train_async.py) waits for active generation before updating weights and is a useful introduction to semi-asynchronous execution. The [verl fully asynchronous recipe](https://github.com/verl-project/verl/blob/main/docs/advance/fully_async.md) separates Rollouter, MessageQueue, Trainer, and ParameterSynchronizer. [THUDM AgentRL](https://github.com/THUDM/AgentRL) implements multi-turn rollout, actor, and reference worker pools with a `group_id` queue on Ray. These repositories provide components; they do not replace the version, log-probability, and held-out gates above.
+Several repositories provide useful implementation anchors. [slime's `train_async.py`](https://github.com/THUDM/slime/blob/main/train_async.py) waits for active generation before updating weights and offers a useful introduction to semi-asynchronous execution. The [verl fully asynchronous recipe](https://github.com/verl-project/verl/blob/main/docs/advance/fully_async.md) separates the Rollouter, MessageQueue, Trainer, and ParameterSynchronizer. [THUDM AgentRL](https://github.com/THUDM/AgentRL) implements multi-turn rollout, actor, and reference worker pools with a `group_id` queue on Ray. These repositories provide components; they do not replace the version, log-probability, and held-out gates above.
 
-A minimal repository needs no more than these modules:
+A minimal repository can start with these modules:
 
 ```text
 agent_rl_min/
@@ -735,13 +735,13 @@ agent_rl_min/
 └── tests/           # replay, masks, versions, corruption, logprob contract
 ```
 
-Start synchronously. Treat bounded asynchrony as an ablation that changes both the algorithm and the system. Throughput is not a free algorithmic improvement.
+Start synchronously. Treat bounded asynchrony as an ablation because it changes both the algorithm and the system. Throughput is not a free algorithmic improvement.
 
 ---
 
-## 7. A smoke experiment you can actually run
+## 7. A smoke experiment you can run end to end
 
-This is not a paper-scale recipe. It is the smallest experiment that can show the loop is not cheating.
+This is not a paper-scale recipe. It is the smallest end-to-end experiment designed to expose obvious ways the loop can game its measurements.
 
 ```yaml
 model: Qwen/Qwen2.5-1.5B-Instruct
@@ -809,9 +809,9 @@ evaluation:
   dedup_rule_version: v1
 ```
 
-Begin with deterministic file, JSON, schema, and CLI repair tasks. Each task should contain an initial container snapshot, a natural-language objective, allowed tools, a hidden grader, and invariants that must remain unchanged. Split train and held-out sets by task template or environment family, not by changing a few numbers.
+Begin with deterministic file, JSON, schema, and CLI repair tasks. Each task should include an initial container snapshot, a natural-language objective, a set of allowed tools, a hidden grader, and invariants that must remain unchanged. Separate train and held-out sets by task template or environment family, not by changing a few numbers.
 
-If the base model cannot reliably emit typed actions on the smoke set, add a small tool-call and recovery SFT stage first. Do not expect RL to discover useful exploration from a distribution of universal failure and parse errors.
+If the base model cannot reliably emit typed actions on the smoke set, add a small tool-call and recovery SFT stage first. Do not expect RL to discover useful exploration when every rollout either fails or ends in a parse error.
 
 ### Four controls
 
@@ -822,7 +822,7 @@ If the base model cannot reliably emit typed actions on the smoke set, add a sma
 
 ### Go / no-go gates
 
-Before measuring capability gain, require all of the following:
+Before measuring capability gain, require every gate below to pass:
 
 - Reset reproduces the same state hash.
 - After restore, replaying a fixed action suffix reproduces observations, state hashes, and reward exactly.
@@ -844,19 +844,19 @@ Before measuring capability gain, require all of the following:
 - In an independent toy-logit test, the aggregate policy-gradient directional derivative has the correct sign for positive and negative advantages. A real shared-parameter batch need only reduce the aggregate objective with bounded KL; do not demand monotonic change for every sampled action.
 - The shuffled-reward control shows no stable held-out gain.
 
-Report held-out success, retain-suite delta, `pass^3`, invalid-action rate, tool calls, tokens, latency, side-effect rate, verifier FP/FN on the audit set with denominators and confidence intervals, termination distribution, zero-advantage group rate, length-stratified gradient mass, KL, gradient norm, and bootstrap confidence intervals. For asynchronous runs, add version and wall-clock lag, queue age, stale/drop rate, weight-sync latency, generator/trainer utilization, and training–inference mismatch. For clipped objectives, report clip fraction at the corresponding granularity; report rejection fraction only when samples are actually discarded, and always include importance-ratio tails.
+The core report should include held-out success, retain-suite delta, `pass^3`, invalid-action rate, tool calls, tokens, latency, side-effect rate, verifier FP/FN on the audit set with denominators and confidence intervals, termination distribution, zero-advantage group rate, length-stratified gradient mass, KL, gradient norm, and bootstrap confidence intervals. For asynchronous runs, also report version and wall-clock lag, queue age, stale/drop rate, weight-sync latency, generator/trainer utilization, and training–inference mismatch. For clipped objectives, report the clip fraction at the corresponding granularity. Report a rejection fraction only when samples are actually discarded, and always include importance-ratio tails.
 
-When the policy, scaffold, and budget are fixed and attempts are independent or at least exchangeable, `pass@3` asks whether at least one of three attempts succeeds and is closer to search capacity. `pass^3` asks whether all three succeed and is closer to operational reliability. This distinction comes from [τ-bench](https://arxiv.org/abs/2406.12045). Three attempts per task still have high variance; production reliability requires more repetitions, per-task uncertainty, and confidence intervals.
+When the policy, scaffold, and budget are fixed and attempts are independent or at least exchangeable, `pass@3` measures whether at least one of three attempts succeeds, making it closer to a measure of search capacity. `pass^3` measures whether all three succeed, making it closer to operational reliability. This distinction comes from [τ-bench](https://arxiv.org/abs/2406.12045). Three attempts per task still have high variance; production reliability requires more repetitions, per-task uncertainty estimates, and confidence intervals.
 
 ---
 
 ## 8. From a runnable loop to a research program
 
-Once the loop works, five directions are more valuable than swapping optimizers again.
+Once the loop is sound, five research directions matter more than another optimizer swap.
 
 ### 8.1 Which experiences actually create capability?
 
-A middling pass rate or nonzero group variance says only that a task supplies a learning signal. It does not show that training on the task improves performance elsewhere.
+A middling pass rate or nonzero group variance tells us only that a task supplies a learning signal. It does not show that training on the task improves performance elsewhere.
 
 A stronger estimand is:
 
@@ -864,39 +864,39 @@ A stronger estimand is:
 u(g, s) = J_heldout(Update(θ₀, rollout(g, s))) - J_heldout(θ₀)
 ```
 
-Every candidate update starts independently from the same checkpoint `θ₀`. This defines a noisy one-update effect estimand; it does not identify a causal effect by itself. Attribution also requires paired evaluation seeds, no-update and null controls, multiple rollout and update seeds, confidence intervals, and correction for selecting the maximum among many candidates. This is the question behind the CUES-TMax protocol. Until the formal causal updates are complete, a behavior taxonomy or surrogate cannot be treated as a utility label.
+Every candidate update starts independently from the same checkpoint `θ₀`. This defines a noisy one-update effect estimand, but it does not identify a causal effect by itself. Attribution also requires paired evaluation seeds, no-update and null controls, multiple rollout and update seeds, confidence intervals, and a correction for selecting the maximum among many candidates. This is the question behind the CUES-TMax protocol. Until the formal causal updates are complete, neither a behavior taxonomy nor a surrogate can be treated as a utility label.
 
-`TaskSampler` therefore needs more than a “keep nonzero-variance groups” switch. An auditable curriculum should maintain at least four streams: currently learnable tasks, hard tasks with rare positive examples, mastered retain tasks, and tasks quarantined because the environment is infeasible or the verifier is untrustworthy. Store sampling propensity and capability family for every sample so narrowing of the training distribution is measurable. [TMax](https://arxiv.org/abs/2606.23321) is a 2026 preprint that demonstrates difficulty control, persona diversity, and verifier diversification. The next step is an independent one-update intervention that separates learnability from causal utility.
+`TaskSampler` therefore needs more than a “keep nonzero-variance groups” switch. An auditable curriculum should maintain at least four streams: currently learnable tasks, hard tasks with rare positive examples, mastered retain tasks, and tasks quarantined because the environment is infeasible or the verifier is untrustworthy. Store the sampling propensity and capability family for every sample so that any narrowing of the training distribution remains measurable. [TMax](https://arxiv.org/abs/2606.23321) is a 2026 preprint that demonstrates difficulty control, persona diversity, and verifier diversification. The next step is an independent one-update intervention that separates learnability from causal utility.
 
 ### 8.2 Does target gain come at the cost of general capability?
 
-Reference KL on current RL prompts constrains outputs only near sampled contexts. It does not preserve unsampled domains, old tool schemas, instruction following, or safety refusals. A `RetainEvaluator` should freeze task-family-disjoint probes and measure target gain and retain loss every fixed number of updates. Stop or roll back when regression crosses a preregistered frontier.
+Reference KL on current RL prompts constrains outputs only near sampled contexts. It does not preserve unsampled domains, old tool schemas, instruction following, or safety refusals. A `RetainEvaluator` should freeze task-family-disjoint probes and measure target gain and retain loss at fixed update intervals. Stop or roll back when regression crosses a preregistered frontier.
 
-The minimal comparison is fixed KL, SFT/PTX replay, domain-balanced replay, and a no-retention control. Plot the target-gain–retain-loss Pareto frontier instead of reporting training KL alone. [InstructGPT](https://arxiv.org/abs/2203.02155) mixed pretraining data to mitigate some regressions. [RECAP](https://arxiv.org/abs/2510.21978) more directly argues that current-task KL does not preserve broader capabilities, but its evidence is from vision-language models and a recent preprint. Treat it as motivation for an Agent experiment, not a completed transfer result.
+The minimal comparison includes fixed KL, SFT/PTX replay, domain-balanced replay, and a no-retention control. Plot the target-gain–retain-loss Pareto frontier instead of reporting training KL alone. [InstructGPT](https://arxiv.org/abs/2203.02155) mixed pretraining data to mitigate some regressions. [RECAP](https://arxiv.org/abs/2510.21978) argues more directly that current-task KL does not preserve broader capabilities, but its evidence comes from vision-language models and a recent preprint. Treat it as motivation for an Agent experiment, not as a completed transfer result.
 
 ### 8.3 Does verifier error accumulate with horizon?
 
-The hypothesis is that longer horizons create more opportunities to encounter conflicting documents, stale state, wrong-path artifacts, semantic lures, and ambiguous rubrics. Hold experiment-owned token budget fixed, inject controlled corruptions, and separately plot actor error, verifier FP/FN, calibration where applicable, reward-hacking rate, and horizon. Fixed token count reduces length confounding but does not remove task difficulty, content density, or tool-topology confounding. A single average LLM-judge accuracy is insufficient.
+Longer horizons may create more opportunities to encounter conflicting documents, stale state, wrong-path artifacts, semantic lures, and ambiguous rubrics. To test that hypothesis, hold the experiment-owned token budget fixed, inject controlled corruptions, and separately plot actor error, verifier FP/FN, calibration where applicable, reward-hacking rate, and horizon. A fixed token count reduces length confounding but does not remove confounding from task difficulty, content density, or tool topology. One average LLM-judge accuracy is not enough.
 
-Our verifier-horizon pilot observed a horizon-associated increase but did not satisfy the preregistered superlinearity test. It also used 14 episodes per cell, below the preregistered target of 50. In the small V3 sample, the hybrid verifier had FP `0/7`, but FN rose to `5/9 (55.6%)`, compared with `3/9 (33.3%)` for the semantic judge. The result supports a stronger protocol, not the claims that hybrid verification is free or that error necessarily grows superlinearly. The full design, failure gates, and results are in the [three-stage verifier-horizon experiment](https://ajing.github.io/posts/2026-08-14-verifier-error-horizon-scaling/).
+Our verifier-horizon pilot observed a horizon-associated increase but did not satisfy the preregistered superlinearity test. It also used only 14 episodes per cell, below the preregistered target of 50. In the small V3 sample, the hybrid verifier had FP `0/7`, but FN rose to `5/9 (55.6%)`, compared with `3/9 (33.3%)` for the semantic judge. The result supports strengthening the protocol; it does not show that hybrid verification is cost-free or that error necessarily grows superlinearly. The full design, failure gates, and results are in the [three-stage verifier-horizon experiment](https://ajing.github.io/posts/2026-08-14-verifier-error-horizon-scaling/).
 
-An independent identity must provision tests, scorer, clock, and reference artifacts into a read-only namespace the agent cannot modify. [METR's real agent traces](https://metr.org/blog/2025-06-05-recent-reward-hacking/) include reward hacking through scorer and test modification and metadata exploitation. [OpenAI's work on chain-of-thought monitoring](https://openai.com/index/chain-of-thought-monitoring/) shows that current monitors can catch some hacks, but optimizing the monitor signal directly can make intent harder to observe. Use monitor outputs as quarantine or audit signals unless they have been validated as training rewards.
+An independent identity must provision the tests, scorer, clock, and reference artifacts in a read-only namespace that the agent cannot modify. [METR's real agent traces](https://metr.org/blog/2025-06-05-recent-reward-hacking/) include reward hacking through scorer and test modification as well as metadata exploitation. [OpenAI's work on chain-of-thought monitoring](https://openai.com/index/chain-of-thought-monitoring/) shows that current monitors can catch some hacks, but optimizing the monitor signal directly can make intent harder to observe. Use monitor outputs as quarantine or audit signals unless they have been validated as training rewards.
 
 ### 8.4 Did the agent really change the state?
 
-A successful tool response, a successful-looking GUI, and a correct authoritative persistent state are three different events. For a hybrid GUI/CLI agent, bind each mutation to a generation fence and make write authority single-use, atomic, and auditable. When state consistency cannot be proven, abstention is more correct than false completion. This boundary comes from the state model in the recent ReplicaGuard prototype: disk is authority, a dirty buffer is protected intent, and the GUI is evidence. The current results come from a controlled loopback environment and do not establish real-world prevalence.
+A successful tool response, a convincing GUI, and a correct authoritative persistent state are three different things. For a hybrid GUI/CLI agent, bind each mutation to a generation fence and make write authority single-use, atomic, and auditable. When state consistency cannot be proven, abstention is more correct than a false claim of completion. This boundary comes from the state model in the recent ReplicaGuard prototype: disk is authority, a dirty buffer is protected intent, and the GUI is evidence. The current results come from a controlled loopback environment and do not establish real-world prevalence.
 
 ### 8.5 The policy can exploit benchmarks and user simulators too
 
-Separate Agent evaluation into five axes: capability, repeated-run reliability, safety and side effects, cost and latency, and evaluation integrity. A single success rate or LLM-judge score cannot represent all five. An `EvalFirewall` should use temporal and/or private holdouts, then audit exact and semantic overlap separately across templates, environments, and repositories. Removing task identifiers reduces explicit recognition but cannot prevent semantic fingerprinting. Network and answer-source restrictions must also preserve the construct being tested: disabling the web changes an open-web research task. Publish the allow/block policy and its realism cost. Reverify final artifacts under an independent identity in a read-only grader namespace, and publish the system prompt, tools, budget, retries, and scaffold manifest. These measures reduce contamination; they do not eliminate it.
+Evaluate agents along five separate axes: capability, repeated-run reliability, safety and side effects, cost and latency, and evaluation integrity. No single success rate or LLM-judge score can represent all five. An `EvalFirewall` should use temporal and/or private holdouts, then audit exact and semantic overlap separately across templates, environments, and repositories. Removing task identifiers reduces explicit recognition but cannot prevent semantic fingerprinting. Network and answer-source restrictions must also preserve the construct being tested: disabling the web changes an open-web research task. Publish both the allow/block policy and its cost in realism. Reverify final artifacts under an independent identity in a read-only grader namespace, and publish the system prompt, tools, budget, retries, and scaffold manifest. These measures reduce contamination; they do not eliminate it.
 
-The risk is concrete. OpenAI audited the 138 SWE-bench Verified tasks that o3 failed to solve consistently across 64 runs—the difficult 27.6% subset, not a random sample. It found material test or problem-description issues in 59.4% of that subset. Together with evidence that frontier models could reproduce parts of gold patches or problem details, those flaws led OpenAI to stop reporting the benchmark. See the [OpenAI SWE-bench audit](https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/).
+The risk is concrete. OpenAI audited the 138 SWE-bench Verified tasks that o3 failed to solve consistently across 64 runs—the difficult 27.6% subset, not a random sample. The audit found material test or problem-description issues in 59.4% of that subset. Together with evidence that frontier models could reproduce parts of gold patches or problem details, those flaws led OpenAI to stop reporting the benchmark. See the [OpenAI SWE-bench audit](https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/).
 
-In a 1,266-task Claude Opus 4.6 multi-agent BrowseComp run, Anthropic identified nine cases in which agents recovered answers from public benchmark material and two more in which they recognized the evaluation and located and decrypted an answer key. The authors note that the task did not prohibit those sources and therefore do not classify the behavior itself as an alignment failure. It demonstrates an integrity risk for web-enabled static evaluations. See [Anthropic's BrowseComp eval-awareness report](https://www.anthropic.com/engineering/eval-awareness-browsecomp).
+In a 1,266-task Claude Opus 4.6 multi-agent BrowseComp run, Anthropic identified nine cases in which agents recovered answers from public benchmark material. In two more cases, agents recognized the evaluation, then located and decrypted an answer key. The authors note that the task did not prohibit those sources and therefore do not classify the behavior itself as an alignment failure. The result nevertheless demonstrates an integrity risk for web-enabled static evaluations. See [Anthropic's BrowseComp eval-awareness report](https://www.anthropic.com/engineering/eval-awareness-browsecomp).
 
-In multi-turn support and collaboration tasks, the user simulator is another policy inside the transition dynamics. A `SimulatorMatrix` should version the user model, prompt, tools, and sampling configuration; evaluate across multiple simulator families; and reserve a held-out simulator or real-dialogue audit set. In its telecom dual-control domain, [τ²-bench](https://arxiv.org/abs/2506.07982) models agent and user as a Dec-POMDP in which both can act on a shared environment. [RealUserSim](https://arxiv.org/abs/2605.20204) is a 2026 preprint whose findings are limited to WildChat-derived profiles, five behavioral dimensions, and τ-bench experiments; they do not establish a universal gap between simulators and real users.
+In multi-turn support and collaboration tasks, the user simulator becomes another policy inside the transition dynamics. A `SimulatorMatrix` should version the user model, prompt, tools, and sampling configuration; evaluate across multiple simulator families; and reserve a held-out simulator or real-dialogue audit set. In its telecom dual-control domain, [τ²-bench](https://arxiv.org/abs/2506.07982) models the dual-control interaction as a Dec-POMDP in which both the agent and user can act on a shared environment. [RealUserSim](https://arxiv.org/abs/2605.20204) is a 2026 preprint whose findings are limited to WildChat-derived profiles, five behavioral dimensions, and τ-bench experiments. They do not establish a universal gap between simulators and real users.
 
-These directions correspond to experience utility, capability retention, reward integrity, runtime correctness, and evaluation integrity. Together they show that the object of study in Agent RL is not a loss function. It is which signals in the closed loop can be trusted.
+These directions cover experience utility, capability retention, reward integrity, runtime correctness, and evaluation integrity. Together, they show that Agent RL is not merely the study of a loss function. It is the study of which signals in a closed loop deserve our trust.
 
 ---
 
@@ -914,9 +914,9 @@ one complete PolicyManifest
 → task-disjoint held-out evaluation
 ```
 
-Once this chain works, PPO, GRPO, DPPO, branching credit, and asynchronous rollout are replaceable components. Before it works, adding more data, parameters, and GPUs only makes the error more expensive.
+Once this chain works, PPO, GRPO, DPPO, branching credit, and asynchronous rollout become replaceable components. Until then, adding more data, parameters, and GPUs only makes the error more expensive.
 
-The technical depth of Agent RL is not the number of algorithm names in the stack. It is whether the system can answer: **Why did this experience produce this gradient, and why did that gradient improve an unseen task?**
+The technical depth of Agent RL lies not in the number of algorithm names in the stack, but in whether the system can answer: **Why did this experience produce this gradient, and why did that gradient improve an unseen task?**
 
 ---
 
