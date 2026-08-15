@@ -32,15 +32,16 @@ OpenAI's Structured Outputs and function-calling mode guarantee that the model's
   "type": "object",
   "required": ["type"],
   "properties": {
-    "id":        { "type": "string" },
-    "type":      { "enum": ["Container","Text","Button","Image"] },
-    "props":     { "type": "object" },
-    "children":  { "type": "array", "items": { "$ref": "#" } }
+    "id": { "type": "string" },
+    "type": { "enum": ["Container", "Text", "Button", "Image"] },
+    "props": { "type": "object" },
+    "children": { "type": "array", "items": { "$ref": "#" } }
   }
 }
 ```
 
 This schema defines the core structure of our UI components. Each component has:
+
 - A unique identifier
 - A specific type from a controlled set
 - Custom properties
@@ -116,6 +117,7 @@ To implement a robust Generative UI system:
 4. **Validate Inputs**: Ensure all modifications conform to the schema
 
 For production use, consider:
+
 - Using uiSchema for layout-specific properties
 - Implementing framework-agnostic compilation with tools like Mitosis
 - Setting up analytics to track user interactions
@@ -130,4 +132,3 @@ For production use, consider:
 - [OpenAI Function Calling](https://platform.openai.com/docs/guides/function-calling)
 - [React JSON Schema Form - uiSchema](https://rjsf-team.github.io/react-jsonschema-form/docs/api-reference/uiSchema/)
 - [Mitosis - Build framework-agnostic components](https://mitosis.builder.io/)
-

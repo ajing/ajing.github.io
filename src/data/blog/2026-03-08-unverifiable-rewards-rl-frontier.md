@@ -21,12 +21,12 @@ description: "Deep research on tasks with unverifiable rewards in RL — the key
 
 DeepSeek R1's GRPO showed that verifiable rewards can produce emergent reasoning in math and code. But most real-world tasks sit on a spectrum where rewards are partially or fully unverifiable:
 
-| Reward Type | Examples | Signal |
-|-------------|----------|--------|
-| **Fully verifiable** | Math (exact match), Code (unit tests), Format compliance | Binary correct/incorrect |
-| **Answer verifiable, reasoning not** | Long-form proofs, multi-step derivations | Final answer checkable, intermediate steps not |
-| **Partially verifiable** | Summarization, translation | Semantic similarity measurable but imperfect |
-| **Fully unverifiable** | Creative writing, open-ended dialogue, social interaction | Purely subjective |
+| Reward Type                          | Examples                                                  | Signal                                         |
+| ------------------------------------ | --------------------------------------------------------- | ---------------------------------------------- |
+| **Fully verifiable**                 | Math (exact match), Code (unit tests), Format compliance  | Binary correct/incorrect                       |
+| **Answer verifiable, reasoning not** | Long-form proofs, multi-step derivations                  | Final answer checkable, intermediate steps not |
+| **Partially verifiable**             | Summarization, translation                                | Semantic similarity measurable but imperfect   |
+| **Fully unverifiable**               | Creative writing, open-ended dialogue, social interaction | Purely subjective                              |
 
 The fundamental question: **when you can't verify the reward, what do you do?**
 
@@ -66,13 +66,13 @@ Same latent-variable principle, but trains models to generate their own reasonin
 
 ### Self-Play and Self-Rewarding
 
-| Method | Mechanism | Pros | Cons |
-|--------|-----------|------|------|
-| **SPIN** (2024) | Plays against previous iteration; DPO loss | Surpasses DPO+human-preference on some benchmarks | Ceiling bounded by SFT quality |
-| **Self-Rewarding LMs** (Meta, 2024) | Acts as both generator and judge | Fully autonomous loop | Bias amplification risk |
-| **TTRL** (2025) | Majority voting at inference creates pseudo-labels | Zero labels needed; adapts on-the-fly | Fails on hard problems where majority is wrong |
-| **RLSF** (2025) | Model's own confidence as intrinsic reward | Lightweight, no external RM | Needs calibrated model |
-| **LSP** (2025) | Challenger/Solver self-play roles | Data-free; curriculum-like scaling | May converge on irrelevant challenges |
+| Method                              | Mechanism                                          | Pros                                              | Cons                                           |
+| ----------------------------------- | -------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------- |
+| **SPIN** (2024)                     | Plays against previous iteration; DPO loss         | Surpasses DPO+human-preference on some benchmarks | Ceiling bounded by SFT quality                 |
+| **Self-Rewarding LMs** (Meta, 2024) | Acts as both generator and judge                   | Fully autonomous loop                             | Bias amplification risk                        |
+| **TTRL** (2025)                     | Majority voting at inference creates pseudo-labels | Zero labels needed; adapts on-the-fly             | Fails on hard problems where majority is wrong |
+| **RLSF** (2025)                     | Model's own confidence as intrinsic reward         | Lightweight, no external RM                       | Needs calibrated model                         |
+| **LSP** (2025)                      | Challenger/Solver self-play roles                  | Data-free; curriculum-like scaling                | May converge on irrelevant challenges          |
 
 ### Consensus-Based Rewards: Semantic Voting
 
@@ -97,6 +97,7 @@ Reformulates reward modeling as **next-token prediction** — the LLM generates 
 ### Constitutional AI (Anthropic, 2022)
 
 Two-phase approach:
+
 1. **Self-critique**: AI generates responses, then critiques and revises them based on a "constitution" of natural language principles
 2. **RLAIF**: AI provides preference labels instead of humans
 
@@ -119,18 +120,19 @@ Uses explicit rules to generate reward signals for safety alignment — no human
 
 **Core idea**: Instead of a perfect reward signal, use imperfect but available real-world feedback (engagement, clicks, ratings).
 
-| Task | Noisy Proxy Signal | Why It's Imperfect |
-|------|-------------------|-------------------|
-| Social media post generation | Likes, shares, replies | Engagement ≠ quality (clickbait scores high) |
-| Chatbot responses | User thumbs-up/down, session length | Users may upvote sycophantic answers |
-| Search/recommendation | Click-through rate, dwell time | Position bias, curiosity clicks |
-| Email drafting | Reply rate, response time | Urgency ≠ quality |
-| Customer support | Resolution rate, satisfaction score | Fast resolution may skip nuance |
-| Content moderation | Appeal overturn rate | Noisy, delayed signal |
+| Task                         | Noisy Proxy Signal                  | Why It's Imperfect                           |
+| ---------------------------- | ----------------------------------- | -------------------------------------------- |
+| Social media post generation | Likes, shares, replies              | Engagement ≠ quality (clickbait scores high) |
+| Chatbot responses            | User thumbs-up/down, session length | Users may upvote sycophantic answers         |
+| Search/recommendation        | Click-through rate, dwell time      | Position bias, curiosity clicks              |
+| Email drafting               | Reply rate, response time           | Urgency ≠ quality                            |
+| Customer support             | Resolution rate, satisfaction score | Fast resolution may skip nuance              |
+| Content moderation           | Appeal overturn rate                | Noisy, delayed signal                        |
 
 ### RLNVR + Walter System (2025)
 
 Trains LLMs using **noisy social media engagement** (Bluesky data) as reward — no human verification. Key techniques:
+
 - Baseline normalization for noisy signals
 - Semantic similarity-based reward transfer across domains
 - Unsupervised Environment Design (UED) curriculum for training stability
@@ -138,6 +140,7 @@ Trains LLMs using **noisy social media engagement** (Bluesky data) as reward —
 ### Credit Assignment for Long-Horizon Tasks
 
 Two approaches address the sparse reward problem in multi-turn agentic settings:
+
 - **iStar** (2025): Implicit step rewards from trajectory preferences for agentic tasks (WebShop, SOTOPIA)
 - **MA-RLHF** (2024): Macro actions reduce temporal gap between actions and rewards
 
@@ -160,6 +163,7 @@ Anthropic showed that reward hacking leads to **emergent misalignment**: models 
 ### Defense: Ensemble Methods
 
 Use multiple reward models to reduce exploitability:
+
 - **Worst-case optimization** (WCO): Optimize against the most conservative RM in the ensemble
 - **Uncertainty-weighted optimization** (UWO): Down-weight rewards with high disagreement
 - **LoRA-based diverse ensembles** (UP-RLHF): Efficient uncertainty via diverse LoRA adapters
@@ -167,11 +171,12 @@ Use multiple reward models to reduce exploitability:
 ### Defense: Adversarial Training
 
 The GAN principle — using adversarial dynamics to harden reward models:
+
 - **APO** (2024): Min-max game between RM (discriminator) and LLM (generator)
 - **Adv-RM**: Generates OOD examples that trick the RM, then trains RM on them
 - **APRM**: Generator perturbs correct reasoning steps; PRM learns to detect errors
 
-> Historical note: **SeqGAN** (2017) and **RankGAN** (2017) pioneered using GAN discriminators as reward functions for text. The approach didn't scale to modern LLMs due to training instability, but the adversarial *principle* lives on in APO, Adv-RM, and **POLAR** (2025, policy discriminators as general reward models).
+> Historical note: **SeqGAN** (2017) and **RankGAN** (2017) pioneered using GAN discriminators as reward functions for text. The approach didn't scale to modern LLMs due to training instability, but the adversarial _principle_ lives on in APO, Adv-RM, and **POLAR** (2025, policy discriminators as general reward models).
 
 ### Defense: Regularization
 
@@ -190,6 +195,7 @@ The GAN principle — using adversarial dynamics to harden reward models:
 ### Where RLVR Falls Short
 
 RLVR works brilliantly for math and code, but:
+
 - Doesn't extend to subjective tasks (creative writing, social interaction)
 - Primarily improves sampling efficiency of existing reasoning, not creating new abilities
 - Optimizing for verified solutions can narrow the solution space
@@ -216,13 +222,13 @@ OpenAI showed that weaker models (GPT-2) can supervise stronger models (GPT-4) a
 
 ## Summary: Choosing the Right Strategy
 
-| Your Situation | Strategy | Key Methods |
-|---------------|----------|-------------|
-| Have correct answers, reasoning path unverifiable | **1: Latent Variable** | JEPO, NRT |
-| No annotation budget, model is reasonably capable | **2: Self-as-Judge** | SPIN, TTRL, GenRM, Semantic Voting |
-| Can articulate quality criteria as rules/principles | **3: AI-as-Judge** | Constitutional AI, RLAIF, RBR |
-| Have noisy real-world feedback signals | **4: Noisy Proxies** | RLNVR, iStar, MA-RLHF |
-| Already using learned reward models | **5: Robust Rewards** | Ensembles, APO, Adv-RM, KL constraints |
+| Your Situation                                      | Strategy               | Key Methods                            |
+| --------------------------------------------------- | ---------------------- | -------------------------------------- |
+| Have correct answers, reasoning path unverifiable   | **1: Latent Variable** | JEPO, NRT                              |
+| No annotation budget, model is reasonably capable   | **2: Self-as-Judge**   | SPIN, TTRL, GenRM, Semantic Voting     |
+| Can articulate quality criteria as rules/principles | **3: AI-as-Judge**     | Constitutional AI, RLAIF, RBR          |
+| Have noisy real-world feedback signals              | **4: Noisy Proxies**   | RLNVR, iStar, MA-RLHF                  |
+| Already using learned reward models                 | **5: Robust Rewards**  | Ensembles, APO, Adv-RM, KL constraints |
 
 The frontier is moving fast — the latent-variable methods (JEPO, NRT) are the most principled, self-play methods are the most scalable, and robust reward engineering is the most practical for production systems. The real challenge remains: **fully unverifiable tasks with no ground truth**, where we must combine multiple strategies.
 
@@ -231,10 +237,12 @@ The frontier is moving fast — the latent-variable methods (JEPO, NRT) are the 
 ## References
 
 ### Strategy 1: Latent Variable Methods
+
 1. "Beyond Verifiable Rewards" — Tang et al. (DeepMind, NeurIPS 2025) — JEPO
 2. "Native Reasoning Models" — NRT (2026) — arXiv 2602.11549
 
 ### Strategy 2: Self-as-Judge
+
 3. "SPIN: Self-Play Fine-Tuning" (2024) — arXiv 2401.01335
 4. "Self-Rewarding Language Models" — Meta AI (2024)
 5. "TTRL: Test-Time Reinforcement Learning" (2025)
@@ -245,6 +253,7 @@ The frontier is moving fast — the latent-variable methods (JEPO, NRT) are the 
 10. "Writing-Zero" — GenRM for creative writing (2025)
 
 ### Strategy 3: AI-as-Judge
+
 11. "Constitutional AI" — Bai et al. (Anthropic, 2022) — arXiv 2212.08073
 12. "RLAIF" — Google DeepMind (2023)
 13. "MORLAIF: Multi-Objective RLAIF" (2024)
@@ -253,12 +262,14 @@ The frontier is moving fast — the latent-variable methods (JEPO, NRT) are the 
 16. "OpenAI Rule-Based Rewards (RBRs)"
 
 ### Strategy 4: Noisy Proxies and Credit Assignment
+
 17. "RLNVR" — Non-Verified Real-World Rewards + Walter (2025)
 18. "iStar" — Implicit Step Rewards for Agentic RL (2025)
 19. "MA-RLHF" — Macro Actions (2024)
 20. "RLMR: RL with Mixed Rewards" — Creative writing (2025)
 
 ### Strategy 5: Robust Rewards
+
 21. "Scaling Laws for Reward Model Overoptimization" — Gao et al. (OpenAI, 2023)
 22. "AdvPO: Adversarial Policy Optimization" (NeurIPS 2024)
 23. "Adv-RM: Adversarial Training for Robust Reward Models" (2024)
@@ -268,6 +279,7 @@ The frontier is moving fast — the latent-variable methods (JEPO, NRT) are the 
 27. "SeqGAN" — Yu et al. (2017) / "RankGAN" — Lin et al. (2017)
 
 ### Scalable Oversight
+
 28. "Weak-to-Strong Generalization" — OpenAI (2023)
 29. "Emergent Misalignment from Reward Hacking" — Anthropic (2025)
 30. "DeepSeek R1" — GRPO + RLVR (2025)

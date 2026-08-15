@@ -13,6 +13,7 @@ description: "A practical engineering guide to RLHF implementation—covering PP
 ---
 
 > **Goal:** When you pick up an RLHF/reasoning/tool-calling training codebase, you should be able to quickly answer:
+>
 > - How is KL computed? Does it go in the reward or the loss?
 > - How are per-token / per-seq losses aggregated? What's the GRPO/Dr.GRPO debate about?
 > - What is the PPO value head fitting? Why the `0.5` in `0.5*(x-y)^2`?
@@ -70,6 +71,7 @@ token_logprobs = logprobs.gather(
 - `logprob`: The core quantity for building ratio / policy gradient in RL
 
 In practice, you'll use both:
+
 - SFT phase: CE/NLL
 - RL phase: logprob for PPO/GRPO per-token loss, plus **SFT-mix** to prevent degradation (see steering losses below)
 
@@ -172,11 +174,13 @@ The two most important points in GRPO:
 ### 4.1 What Are the Initial Dimensions of Rewards?
 
 If:
+
 - `B`: number of prompts
 - `G`: number of completions sampled per prompt
 - `L`: completion length (padded to uniform)
 
 Common storage formats:
+
 - `rewards`: `(B*G,)` one final reward per completion (e.g., answer correct/wrong)
 - Or `rewards_token`: `(B*G, L)` per-token reward (common when treating KL as per-token reward)
 
@@ -199,6 +203,7 @@ adv = (rewards - mu.repeat_interleave(G)) / (std.repeat_interleave(G) + 1e-4)  #
 ```
 
 When only one of G samples per prompt succeeds:
+
 - Reward distribution is extreme → `std` statistics are unstable
 - Normalization compresses that successful sample's "absolute value" into a "relative z-score," potentially causing **learning signal dilution or directional jitter** on some prompts
 
@@ -264,6 +269,7 @@ loss = -F.logsigmoid(beta * logits).mean()
 ### 5.2 What Is β (The "Fitting vs KL Balance")
 
 At the implementation level:
+
 - Larger β: More strongly pushes apart chosen vs rejected logprob margin (more aggressive preference fitting)
 - Smaller β: More conservative updates, staying closer to reference (equivalent to stronger KL constraint effect)
 
@@ -350,26 +356,26 @@ These terms exist not as "black magic" but to combat the same problem:
 
 ### 9.3 Common Symptoms → Common Causes
 
-| Symptom | Likely Cause |
-|---------|--------------|
-| Reward rises but usability drops | Over-optimization / judge bias / length gaming |
-| KL spikes | Learning rate too high, β/kl_coef too small, inconsistent reference update strategy |
-| GRPO unstable | Extreme within-group std, G too small, inappropriate normalization |
-| Tool-use hallucination | Trained on tool output as ground truth, tool result not in context but model learns to fabricate |
+| Symptom                          | Likely Cause                                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Reward rises but usability drops | Over-optimization / judge bias / length gaming                                                   |
+| KL spikes                        | Learning rate too high, β/kl_coef too small, inconsistent reference update strategy              |
+| GRPO unstable                    | Extreme within-group std, G too small, inappropriate normalization                               |
+| Tool-use hallucination           | Trained on tool output as ground truth, tool result not in context but model learns to fabricate |
 
 ---
 
 ## 10) Algorithm Comparison Table
 
-| Aspect | PPO | GRPO | DPO |
-|--------|-----|------|-----|
-| **Input** | Prompt + sampled completions + reward | Prompt + G completions/prompt + reward | Prompt + chosen/rejected pairs |
-| **Key Shape** | `(B, L)` per-token | `(B*G, L)` or `(B, G, L)` | `(B,)` pairwise |
-| **Advantage** | Per-token (GAE or MC) | Per-completion (bandit), broadcast | Implicit in log-ratio |
-| **KL Handling** | Fold into reward or add to loss | Usually add to loss | Implicit via reference |
-| **Value Head** | Yes (critic) | No | No |
-| **Key Hyperparams** | `eps`, `vf_coef`, `gamma`, `gae_lambda` | `G`, `beta`, normalization strategy | `beta` |
-| **Common Pitfalls** | Value head fitting, GAE computation | Group normalization instability | β tuning, reference drift |
+| Aspect              | PPO                                     | GRPO                                   | DPO                            |
+| ------------------- | --------------------------------------- | -------------------------------------- | ------------------------------ |
+| **Input**           | Prompt + sampled completions + reward   | Prompt + G completions/prompt + reward | Prompt + chosen/rejected pairs |
+| **Key Shape**       | `(B, L)` per-token                      | `(B*G, L)` or `(B, G, L)`              | `(B,)` pairwise                |
+| **Advantage**       | Per-token (GAE or MC)                   | Per-completion (bandit), broadcast     | Implicit in log-ratio          |
+| **KL Handling**     | Fold into reward or add to loss         | Usually add to loss                    | Implicit via reference         |
+| **Value Head**      | Yes (critic)                            | No                                     | No                             |
+| **Key Hyperparams** | `eps`, `vf_coef`, `gamma`, `gae_lambda` | `G`, `beta`, normalization strategy    | `beta`                         |
+| **Common Pitfalls** | Value head fitting, GAE computation     | Group normalization instability        | β tuning, reference drift      |
 
 ---
 
@@ -380,6 +386,7 @@ You can compress the "engineering core" of this entire topic into one sentence:
 > **Post-training isn't about choosing algorithm names—it's about choosing: reward/advantage definition, KL implementation and placement, and the statistical properties of loss aggregation and normalization.**
 
 When debugging or implementing any RLHF variant, always trace back to these three questions:
+
 1. What is my advantage/reward signal, and at what granularity?
 2. How and where is KL computed and applied?
 3. What are my masking, aggregation, and normalization choices doing to gradient statistics?

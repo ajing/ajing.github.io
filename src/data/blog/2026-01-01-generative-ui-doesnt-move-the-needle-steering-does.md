@@ -27,11 +27,13 @@ From my experience and observing the industry, generative UI implementations fal
 The most flexible approach: the LLM generates complete web pages or interactive widgets from scratch. Think of the rich, interactive reports you see in products like Perplexity's research reports or ChatGPT's data analysis outputs.
 
 **Pros:**
+
 - Maximum flexibility and expressiveness
 - Can create highly engaging, data-rich visualizations
 - Supports integration with maps, charts, audio, and interactive elements
 
 **Cons:**
+
 - High latency (generating thousands of tokens)
 - Inconsistent quality and styling
 - Security considerations with arbitrary code execution
@@ -53,6 +55,7 @@ A2UI represents the most mature thinking on this approach. Key design principles
 This architecture is now being adopted across Google products (Gemini Enterprise, Flutter's GenUI SDK) and has integrations with AG UI/CopilotKit. If you're building constrained widget composition, you'll likely end up with something similar to A2UI's architecture—it solves the right problems.
 
 **Pros:**
+
 - Faster than full generation
 - Consistent visual language
 - Security by design—no arbitrary code execution
@@ -60,6 +63,7 @@ This architecture is now being adopted across Google products (Gemini Enterprise
 - Cross-platform portability (same payload renders on web, mobile, desktop)
 
 **Cons:**
+
 - Limited to predefined components in the catalog
 - Can feel rigid compared to free-form generation
 - Requires upfront investment in component library design
@@ -69,11 +73,13 @@ This architecture is now being adopted across Google products (Gemini Enterprise
 The most latency-optimized approach: use LLMs during development to generate and refine templates offline (with as many agent passes, human reviews, and iterations as needed), then at runtime simply select the appropriate template based on user intent.
 
 **Pros:**
+
 - Lowest latency at serving time
 - Highest quality (templates are pre-validated)
 - Predictable user experience
 
 **Cons:**
+
 - No true "generation" at runtime
 - Limited to pre-anticipated use cases
 
@@ -85,17 +91,17 @@ Here's what I've observed: **runtime generation often doesn't benefit users as m
 
 ### For Information-Seeking Tasks
 
-Yes, an interactive visualization of bubble sort *can* help users understand the algorithm better than a text explanation. But in practice, users often find that a simple Python code snippet in a code block—which they can copy, modify, and run themselves—is more valuable. The "wow factor" of a generated animation wears off quickly, and users gravitate toward the most *useful* format, not the most *impressive* one.
+Yes, an interactive visualization of bubble sort _can_ help users understand the algorithm better than a text explanation. But in practice, users often find that a simple Python code snippet in a code block—which they can copy, modify, and run themselves—is more valuable. The "wow factor" of a generated animation wears off quickly, and users gravitate toward the most _useful_ format, not the most _impressive_ one.
 
-Research supports this observation. Studies on multimedia learning (Mayer, 2009) show that additional visual elements only help when they reduce cognitive load—extraneous visuals can actually *increase* cognitive load and hurt comprehension.
+Research supports this observation. Studies on multimedia learning (Mayer, 2009) show that additional visual elements only help when they reduce cognitive load—extraneous visuals can actually _increase_ cognitive load and hurt comprehension.
 
 ### For Widget-Based Interaction
 
 When we deployed constrained widget UIs, we expected users would prefer tapping buttons and interacting with cards over typing. What we found: **the generated widgets were rarely more helpful than well-formatted markdown text**.
 
-Why? Users can always refine their request through natural language. The flexibility of saying "actually, make it for next Tuesday instead" beats clicking through a date picker that the AI happened to generate. The widget becomes a *constraint* on the user journey ("you should pick from these three options") rather than an *enhancement*. This aligns with findings from Nielsen Norman Group's research on chatbot UX: users often prefer open-ended text input over constrained choices because it gives them more control over the conversation.
+Why? Users can always refine their request through natural language. The flexibility of saying "actually, make it for next Tuesday instead" beats clicking through a date picker that the AI happened to generate. The widget becomes a _constraint_ on the user journey ("you should pick from these three options") rather than an _enhancement_. This aligns with findings from Nielsen Norman Group's research on chatbot UX: users often prefer open-ended text input over constrained choices because it gives them more control over the conversation.
 
-To be fair, constraints aren't inherently bad. If you're building a gardening app, you probably *don't* want users asking about house renovation—constrained widgets can helpfully guide users toward supported workflows. But this is a product decision about scope, not a user experience win from generative UI. You could achieve the same guardrails with a well-designed traditional interface or prompt engineering on the backend.
+To be fair, constraints aren't inherently bad. If you're building a gardening app, you probably _don't_ want users asking about house renovation—constrained widgets can helpfully guide users toward supported workflows. But this is a product decision about scope, not a user experience win from generative UI. You could achieve the same guardrails with a well-designed traditional interface or prompt engineering on the backend.
 
 ### For Template-Based UIs
 
@@ -109,16 +115,17 @@ Users experience predictable, polished UI—and that's often exactly what they w
 
 ## What's Actually Valuable: Steering
 
-If we step back and ask *why* we even need UI beyond text, voice, and video, the answer isn't "to make things prettier." It's **to enable better steering of the AI**.
+If we step back and ask _why_ we even need UI beyond text, voice, and video, the answer isn't "to make things prettier." It's **to enable better steering of the AI**.
 
-Consider this scenario: An LLM processes your request through 15 reasoning steps. At step 7, it makes a subtle mistake—perhaps misinterpreting an ambiguity in your request. The final output is wrong, but you can't tell *where* it went wrong by reading the final answer.
+Consider this scenario: An LLM processes your request through 15 reasoning steps. At step 7, it makes a subtle mistake—perhaps misinterpreting an ambiguity in your request. The final output is wrong, but you can't tell _where_ it went wrong by reading the final answer.
 
 What you need is a way to:
+
 1. **Inspect intermediate steps** easily
 2. **Point to a specific step** and say "this is where you went wrong"
 3. **Redirect the model** from that point
 
-This is the kind of interaction that text alone struggles with. You want to click on step 7, highlight the problematic assumption, and tell the model to reconsider. This is *steering*—and it's where UI can genuinely add value.
+This is the kind of interaction that text alone struggles with. You want to click on step 7, highlight the problematic assumption, and tell the model to reconsider. This is _steering_—and it's where UI can genuinely add value.
 
 OpenAI's Canvas is actually a good example of steering-focused UI: you can select text, request specific changes, and iterate on portions of the output. Anthropic's Claude artifacts serve a similar purpose—letting you work with code or documents as objects you can manipulate, not just linear chat responses.
 
@@ -132,7 +139,7 @@ Based on this experience, I now apply a simple heuristic when evaluating generat
 
 If the answer is no—if the UI is purely cosmetic or just a fancier way to display information that text would convey equally well—then it's unlikely to deliver lasting user value, no matter how impressive the technology behind it.
 
-Examples of UI that *passes* the steering test:
+Examples of UI that _passes_ the steering test:
 
 - **Inline editing with selection** — Cursor's `Cmd+K` lets you select code and request targeted edits with natural language, keeping you in control of exactly what changes. OpenAI's Canvas does the same for writing: select text, request specific changes, and iterate on portions without regenerating everything.
 
@@ -146,7 +153,8 @@ Examples of UI that *passes* the steering test:
 
 - **Context reference UI** — Being able to quickly point the model to relevant files, documentation, or previous conversation turns. Cursor's `@` mentions and codebase indexing let you steer by saying "look at this file" rather than copy-pasting context manually.
 
-Examples of UI that *fails* the steering test:
+Examples of UI that _fails_ the steering test:
+
 - Fancy animated visualizations that look impressive but don't accept input
 - Widget carousels that constrain rather than expand user options
 - Beautiful reports that are essentially read-only
@@ -165,7 +173,7 @@ In the end, this isn't a technology question. It's a question about communicatio
 
 ## References
 
-- Mayer, R. E. (2009). *Multimedia Learning* (2nd ed.). Cambridge University Press.
+- Mayer, R. E. (2009). _Multimedia Learning_ (2nd ed.). Cambridge University Press.
 - Nielsen Norman Group. (2023). "Chatbots: How to Design Conversational UI"
 - OpenAI. (2024). "Introducing Canvas"
 - Vercel. (2024). "AI SDK: Generative UI"

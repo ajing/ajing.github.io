@@ -189,15 +189,15 @@ This also lines up with recent benchmark-authoring advice. The Terminal-Bench ta
 
 For coding agents, I like to start with facets that map to real harness responsibilities. A minimal set looks like this:
 
-| Facet | What It Tests |
-| --- | --- |
-| Code edit and test loop | Search, read, patch, run focused tests, avoid premature success |
-| Instruction hierarchy | Read and obey root/local instructions, avoid generated or forbidden files |
-| Permission and sandbox behavior | Request approval only when needed, respect denial, use fallback |
-| Hook and policy handling | Interpret hook failures, change patch strategy, avoid repeated failure |
-| MCP/tool discovery | Discover available tools before using them, handle missing or stale servers |
-| Context resume | Recover from previous session state, verify stale context, avoid replaying invalid work |
-| Git review hygiene | Inspect diffs, separate owned/unowned changes, do not touch unrelated files |
+| Facet                           | What It Tests                                                                           |
+| ------------------------------- | --------------------------------------------------------------------------------------- |
+| Code edit and test loop         | Search, read, patch, run focused tests, avoid premature success                         |
+| Instruction hierarchy           | Read and obey root/local instructions, avoid generated or forbidden files               |
+| Permission and sandbox behavior | Request approval only when needed, respect denial, use fallback                         |
+| Hook and policy handling        | Interpret hook failures, change patch strategy, avoid repeated failure                  |
+| MCP/tool discovery              | Discover available tools before using them, handle missing or stale servers             |
+| Context resume                  | Recover from previous session state, verify stale context, avoid replaying invalid work |
+| Git review hygiene              | Inspect diffs, separate owned/unowned changes, do not touch unrelated files             |
 
 Each facet should have a success path and a family of failure traps.
 
@@ -268,16 +268,16 @@ Prompt difficulty is about interpretation. Evaluation difficulty is about constr
 
 The stronger knobs are:
 
-| Knob | Example |
-| --- | --- |
-| Required observation | The agent must see `approval_required` before requesting approval |
-| Required recovery | A timeout must be retried once, then verified |
-| Required strategy change | A hook rejection must lead to a different patch, not a repeated patch |
-| Required verification | A stale record must be checked before customer-facing action |
-| Forbidden shortcut | Do not edit generated files even if they contain the visible bug |
-| State carryover | Resume a previous session but verify that the old result is still valid |
-| Ownership boundary | Do not revert unrelated user changes in the git diff |
-| Stop condition | After two identical non-retryable failures, report impossible instead of looping |
+| Knob                     | Example                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| Required observation     | The agent must see `approval_required` before requesting approval                |
+| Required recovery        | A timeout must be retried once, then verified                                    |
+| Required strategy change | A hook rejection must lead to a different patch, not a repeated patch            |
+| Required verification    | A stale record must be checked before customer-facing action                     |
+| Forbidden shortcut       | Do not edit generated files even if they contain the visible bug                 |
+| State carryover          | Resume a previous session but verify that the old result is still valid          |
+| Ownership boundary       | Do not revert unrelated user changes in the git diff                             |
+| Stop condition           | After two identical non-retryable failures, report impossible instead of looping |
 
 These are all deterministic. No LLM judge is required.
 
@@ -545,8 +545,8 @@ A trace event can be represented as:
   "role": "tool",
   "tool_call_id": "call_123",
   "tool": "run_tests",
-  "arguments": {"command": "npm test"},
-  "result": {"status": "passed"}
+  "arguments": { "command": "npm test" },
+  "result": { "status": "passed" }
 }
 ```
 

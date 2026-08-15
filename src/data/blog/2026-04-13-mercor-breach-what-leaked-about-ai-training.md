@@ -46,11 +46,11 @@ As Y Combinator president Garry Tan [put it](https://x.com/garrytan/status/20395
 
 The breach followed a cascading supply-chain attack:
 
-| Phase | Date | Target | Method |
-|-------|------|--------|--------|
-| 1 | Mar 19 | Trivy (security scanner) | Exploited `pull_request_target` in GitHub Actions, stole `aqua-bot` PAT, force-pushed malicious commits to 76 release tags |
-| 2 | Mar 24 | LiteLLM (AI proxy library, ~97M monthly downloads, present in 36% of cloud environments) | Used Trivy-stolen credentials to hijack PyPI publishing token; pushed malicious versions 1.82.7 and 1.82.8 (live for ~40 minutes) |
-| 3 | Mar 24+ | Mercor | Poisoned LiteLLM dependency landed in dev environment; malware swept SSH keys, AWS tokens, K8s secrets; exfiltrated data via Tailscale VPN to `models.litellm[.]cloud` |
+| Phase | Date    | Target                                                                                   | Method                                                                                                                                                                 |
+| ----- | ------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Mar 19  | Trivy (security scanner)                                                                 | Exploited `pull_request_target` in GitHub Actions, stole `aqua-bot` PAT, force-pushed malicious commits to 76 release tags                                             |
+| 2     | Mar 24  | LiteLLM (AI proxy library, ~97M monthly downloads, present in 36% of cloud environments) | Used Trivy-stolen credentials to hijack PyPI publishing token; pushed malicious versions 1.82.7 and 1.82.8 (live for ~40 minutes)                                      |
+| 3     | Mar 24+ | Mercor                                                                                   | Poisoned LiteLLM dependency landed in dev environment; malware swept SSH keys, AWS tokens, K8s secrets; exfiltrated data via Tailscale VPN to `models.litellm[.]cloud` |
 
 The malicious LiteLLM 1.82.8 used a `.pth` file — a Python path configuration file that executes automatically when the interpreter starts. No explicit import needed. The moment a developer opened an IDE or ran `pip`, the payload was already running.
 
@@ -58,14 +58,14 @@ The malicious LiteLLM 1.82.8 used a `.pth` file — a Python path configuration 
 
 ## What Was Stolen: The Full Inventory
 
-| Asset | Size | Contents |
-|-------|------|----------|
-| Production Database | 211 GB | 250+ Aurora MySQL tables — contractor PII, interview transcripts, client project configs |
-| Source Code | 939 GB | Complete GitHub org including `mercor-monorepo`, hardcoded API keys, Terraform configs |
-| Cloud Storage | ~3 TB | Video interviews, desktop screenshots, passport/ID scans, signed legal docs |
-| Airtable Export | Included | **84 workspaces, 1,055 JSONL files** — the actual annotation tasks, rubrics, model outputs, and human evaluations |
-| Slack Export | Included | Full enterprise Slack workspace + client-specific workspaces |
-| Tailscale VPN Data | Included | Internal network topology, device certificates |
+| Asset               | Size     | Contents                                                                                                          |
+| ------------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| Production Database | 211 GB   | 250+ Aurora MySQL tables — contractor PII, interview transcripts, client project configs                          |
+| Source Code         | 939 GB   | Complete GitHub org including `mercor-monorepo`, hardcoded API keys, Terraform configs                            |
+| Cloud Storage       | ~3 TB    | Video interviews, desktop screenshots, passport/ID scans, signed legal docs                                       |
+| Airtable Export     | Included | **84 workspaces, 1,055 JSONL files** — the actual annotation tasks, rubrics, model outputs, and human evaluations |
+| Slack Export        | Included | Full enterprise Slack workspace + client-specific workspaces                                                      |
+| Tailscale VPN Data  | Included | Internal network topology, device certificates                                                                    |
 
 The Airtable export is where the training methodology lives. Each workspace follows a standardized schema:
 
@@ -124,14 +124,14 @@ This is the same statistical framework used in chess Elo ratings, adapted for ra
 
 Anthropic's pipeline is organized around **structured preference comparisons**, consistent with their published Constitutional AI and RLHF research. Multiple `API_PREFERENCE` workspaces (including V2 and personal copies for individual team members) contain:
 
-| Table | Purpose |
-|-------|---------|
-| `PROMPTS` | Standardized input prompt collection |
-| `RESPONSES` | Multiple model outputs for the same prompt |
-| `ROLES` | Evaluator personas/perspectives to adopt |
-| `DOMAINS` | Domain categorization (technical, creative, safety, etc.) |
-| `PROMPT_TEMPLATES` | Reusable prompt templates |
-| `QA` | Quality assurance checklists |
+| Table              | Purpose                                                   |
+| ------------------ | --------------------------------------------------------- |
+| `PROMPTS`          | Standardized input prompt collection                      |
+| `RESPONSES`        | Multiple model outputs for the same prompt                |
+| `ROLES`            | Evaluator personas/perspectives to adopt                  |
+| `DOMAINS`          | Domain categorization (technical, creative, safety, etc.) |
+| `PROMPT_TEMPLATES` | Reusable prompt templates                                 |
+| `QA`               | Quality assurance checklists                              |
 
 **The `ROLES` table is interesting.** It suggests Anthropic asks evaluators to judge outputs from different perspectives — possibly related to their Constitutional AI approach, where principles are evaluated from multiple ethical/practical viewpoints.
 
@@ -153,22 +153,22 @@ Apple's exposure was arguably the most surprising — pre-release model outputs 
 
 The `APPLE_ENDPOINT_SANDBOX` workspace tested three model versions:
 
-| Model ID | Role |
-|----------|------|
-| `afm-text-083` | Text generation (earlier version) |
-| `afm-model-085` | Text generation (intermediate) |
-| `afm-model-086` | Orchestrator model |
+| Model ID        | Role                              |
+| --------------- | --------------------------------- |
+| `afm-text-083`  | Text generation (earlier version) |
+| `afm-model-085` | Text generation (intermediate)    |
+| `afm-model-086` | Orchestrator model                |
 
 Sampling parameters: `temperature=0.7`, `top_p=0.9` — relatively standard nucleus sampling, suggesting Apple prioritizes response diversity over determinism in their evaluation setup.
 
 **Four-dimensional evaluation matrix**:
 
-| Airtable Table | Evaluation Dimension |
-|----------------|---------------------|
-| `TEXT` | General text generation quality |
-| `DEEP_L` | Translation capability (English → Spanish) |
-| `TEXT_ORCHESTRATOR` | Routing/orchestration decisions |
-| `RUBRIC_AUTO_GEN` | Automated rubric generation |
+| Airtable Table      | Evaluation Dimension                       |
+| ------------------- | ------------------------------------------ |
+| `TEXT`              | General text generation quality            |
+| `DEEP_L`            | Translation capability (English → Spanish) |
+| `TEXT_ORCHESTRATOR` | Routing/orchestration decisions            |
+| `RUBRIC_AUTO_GEN`   | Automated rubric generation                |
 
 Two architectural insights emerge:
 
@@ -184,13 +184,13 @@ Amazon's methodology is distinctive in its focus on **evaluating reasoning quali
 
 **`AMAZON_LLM_COT_EVALUATION` workspace structure**:
 
-| Table | Purpose |
-|-------|---------|
-| `DOMAINS` | Evaluation categories (`math`, `stem`, etc.) |
-| `PHASE_1_TASKS` | Model A vs Model B with complete CoT traces |
-| `PHASE_1_REVIEWS` | Human reviews of CoT quality |
+| Table               | Purpose                                                   |
+| ------------------- | --------------------------------------------------------- |
+| `DOMAINS`           | Evaluation categories (`math`, `stem`, etc.)              |
+| `PHASE_1_TASKS`     | Model A vs Model B with complete CoT traces               |
+| `PHASE_1_REVIEWS`   | Human reviews of CoT quality                              |
 | `MODEL_A_STRENGTHS` | Structured recording of each model's reasoning advantages |
-| `TALENT` | Evaluator (domain expert) management |
+| `TALENT`            | Evaluator (domain expert) management                      |
 
 **What makes this different**: Most RLHF preference data captures "which response is better" as a holistic judgment. Amazon's pipeline decomposes this — evaluators assess the **reasoning chain itself**, not just the conclusion. Each task includes complete Chain-of-Thought traces, final responses, and preference judgments. The `MODEL_A_STRENGTHS` table suggests they're building a structured ontology of reasoning capabilities, not just accumulating preference labels.
 
@@ -254,6 +254,7 @@ Anthropic's data investment reflects a dual mandate: push capability (especially
 **1. Adversarial safety and alignment evaluation**
 
 Anthropic's February 2026 Risk Report [[18]](https://anthropic.com/feb-2026-risk-report) reveals their current threat model hierarchy:
+
 - **Sabotage**: Can the model undermine safety assessments or poison training data for future models?
 - **Reasoning faithfulness**: Does the model hide misaligned reasoning via steganography?
 - **Evaluation awareness**: Can the model detect when it's being tested and behave differently?
@@ -266,16 +267,17 @@ The `API_PREFERENCE` workspaces in the Mercor data — with their `ROLES` (evalu
 
 Claude Opus 4.6 (released February 2026) shows where Anthropic is pushing hardest [[20]](https://console.anthropic.com/docs/en/about-claude/models/whats-new-claude-4-6) [[21]](https://www.vellum.ai/blog/claude-opus-4-6-benchmarks):
 
-| Capability | Opus 4.5 → 4.6 | Improvement |
-|-----------|----------------|-------------|
-| ARC-AGI-2 | 37.6% → 68.8% | +83% |
-| BrowseComp | 67.8% → 84.0% | +24% |
-| OSWorld | 66.3% → 72.7% | +10% |
-| Terminal-Bench 2.0 | 59.8% → 65.4% | +9% |
+| Capability         | Opus 4.5 → 4.6 | Improvement |
+| ------------------ | -------------- | ----------- |
+| ARC-AGI-2          | 37.6% → 68.8%  | +83%        |
+| BrowseComp         | 67.8% → 84.0%  | +24%        |
+| OSWorld            | 66.3% → 72.7%  | +10%        |
+| Terminal-Bench 2.0 | 59.8% → 65.4%  | +9%         |
 
 The biggest gains are in **agentic and long-horizon tasks** — browsing, operating systems, terminal interaction. New features include **Agent Teams** (multiple agents in parallel), **context compaction** (enabling longer multi-step runs), and **programmatic tool calling** (agents writing code that calls tools, reducing latency) [[20]](https://console.anthropic.com/docs/en/about-claude/models/whats-new-claude-4-6).
 
 Training these capabilities requires data that current public benchmarks can't provide:
+
 - Multi-step task demonstrations with error recovery
 - Tool orchestration traces showing when to use which tool
 - Long-context interaction data (Opus 4.6 supports 1M token context)
@@ -295,13 +297,13 @@ This is essentially an **adversarial capability transfer strategy**: use human e
 
 Both labs' data strategies converge on several themes:
 
-| Trend | OpenAI Signal | Anthropic Signal |
-|-------|--------------|-----------------|
-| **Reasoning verification** | RL on chains of thought; Math Olympiad data; AIME rubrics | Reasoning faithfulness evaluation; steganography detection |
-| **Agentic capabilities** | "Agentic Code Final QC Audit"; o3 multi-tool reasoning | Agent Teams; computer use; Terminal-Bench gains |
-| **Self-improving evaluation** | GPT-5 as autograder; closed-loop data flywheel | Scalable oversight research; automated behavioral audits |
-| **Adversarial robustness** | SWE-bench contamination detection → SWE-bench Pro | Sabotage detection; evaluation awareness testing |
-| **Domain expert data** | Math Olympiad winners; coding experts at $95/hr | Constitutional AI annotators; red-team specialists |
+| Trend                         | OpenAI Signal                                             | Anthropic Signal                                           |
+| ----------------------------- | --------------------------------------------------------- | ---------------------------------------------------------- |
+| **Reasoning verification**    | RL on chains of thought; Math Olympiad data; AIME rubrics | Reasoning faithfulness evaluation; steganography detection |
+| **Agentic capabilities**      | "Agentic Code Final QC Audit"; o3 multi-tool reasoning    | Agent Teams; computer use; Terminal-Bench gains            |
+| **Self-improving evaluation** | GPT-5 as autograder; closed-loop data flywheel            | Scalable oversight research; automated behavioral audits   |
+| **Adversarial robustness**    | SWE-bench contamination detection → SWE-bench Pro         | Sabotage detection; evaluation awareness testing           |
+| **Domain expert data**        | Math Olympiad winners; coding experts at $95/hr           | Constitutional AI annotators; red-team specialists         |
 
 The common thread: **the easy data is exhausted**. Both labs are moving beyond generic internet text and crowdsourced preferences toward expert-produced data in domains where quality matters enormously and is hard to fake — mathematical reasoning, agentic code execution, safety-critical evaluation, and multi-step planning. Major AI labs each spend approximately **$1 billion annually** on human-generated training data [[24]](https://www.pin.com/blog/ai-labs-hiring-train-models), with specialist compensation ranging from $15/hr for entry-level annotators to $500+/hr for domain experts. The Mercor relationship was valuable precisely because Mercor could supply specialists (doctors, lawyers, competitive programmers) who could produce data at the frontier of model capabilities.
 
@@ -342,13 +344,13 @@ This has a practical implication: any competitor who obtains a single snapshot o
 
 `TALENT` tables appear in nearly every workspace. Contractors are routed by domain expertise:
 
-| Workspace | Domain | Specialist Type |
-|-----------|--------|-----------------|
-| `APEX_LEGAL` | Legal reasoning | Lawyers |
-| `BEAR_MEDICINE` | Medical annotation | Physicians, radiologists |
-| `APEX_FINANCE` | Financial analysis | Finance professionals |
-| `AIME_RUBRICS` | Mathematical reasoning | Math competition participants |
-| `ACADEMIC_REASONING_SFT` | Academic reasoning | Researchers |
+| Workspace                | Domain                 | Specialist Type               |
+| ------------------------ | ---------------------- | ----------------------------- |
+| `APEX_LEGAL`             | Legal reasoning        | Lawyers                       |
+| `BEAR_MEDICINE`          | Medical annotation     | Physicians, radiologists      |
+| `APEX_FINANCE`           | Financial analysis     | Finance professionals         |
+| `AIME_RUBRICS`           | Mathematical reasoning | Math competition participants |
+| `ACADEMIC_REASONING_SFT` | Academic reasoning     | Researchers                   |
 
 The `BEAR_MEDICINE` workspace has its own `DISCIPLINES`, `PODS` (team structures), `WRITER_DAILY_ACTIVITY`, and `REVIEWER_STATS` tables — a self-contained annotation operation with per-person productivity tracking.
 

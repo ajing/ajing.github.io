@@ -24,10 +24,10 @@ Companies are already optimizing for better retrieval in LLM responses. This has
 
 The [GEM-Bench paper](https://arxiv.org/pdf/2509.14221.pdf) provides the first comprehensive benchmark for evaluating ad-injected LLM responses:
 
-| Approach | Engagement (CTR) | User Satisfaction |
-|----------|------------------|-------------------|
-| Simple prompt-based injection | ✅ Good | ❌ Reduced |
-| Post-generation refinement | ✅ Good | ⚠️ Better |
+| Approach                      | Engagement (CTR) | User Satisfaction |
+| ----------------------------- | ---------------- | ----------------- |
+| Simple prompt-based injection | ✅ Good          | ❌ Reduced        |
+| Post-generation refinement    | ✅ Good          | ⚠️ Better         |
 
 This suggests naive ad injection gets clicks but hurts the user experience.
 
@@ -42,6 +42,7 @@ Current LLM responses don't have good and timely quality for brand names. Models
 - **Generic responses** that don't capture what makes a brand unique
 
 The [RARE framework](https://arxiv.org/pdf/2504.01304.pdf) demonstrates better approaches with production results:
+
 - +5.04% consumption
 - +6.37% GMV
 - +1.28% CTR
@@ -57,9 +58,11 @@ If we put higher quality information for brand names in the pretraining data and
 ### Why "Digging Deeper" Makes Ads Less Annoying
 
 **Annoying ad:**
+
 > "Here's your Hawaii itinerary. By the way, check out [Expedia](https://expedia.com) for great deals!"
 
 **Character-trained helpful recommendation:**
+
 > "For Day 2, I recommend the Road to Hana drive. Given that you mentioned wanting to avoid tourist crowds, [Turo](https://turo.com) might work better than traditional rentals here—local hosts often share tips about less-crowded pull-offs."
 
 The second is **more promotional** but **less annoying** because it demonstrates genuine understanding of why this product fits the user's situation.
@@ -73,6 +76,7 @@ Yes—but only if we define "less annoying" as "more genuinely helpful."
 ### The Ethical Tension
 
 Research shows users rate undisclosed ads higher, but feel manipulated once disclosed. This creates a paradox:
+
 - Hidden ads → Higher satisfaction BUT ethical issues
 - Obvious ads → Lower satisfaction BUT more honest
 
@@ -111,6 +115,7 @@ reward = (
 ### 2. AdChat (System Prompt Injection)
 
 Inject product info directly into system prompt:
+
 > "Subtly mention {product} in a positive light when timing is relevant..."
 
 ### 3. Character Training via RLHF (Proposed)
@@ -121,7 +126,7 @@ Actual fine-tuning to make the model inherently good at natural, helpful product
 
 ## Will This Hurt Model Performance?
 
-No—character training focuses on *how* the model responds (style, helpfulness) rather than *what* it knows. With proper multi-objective training, we can provide users a more pleasant experience when asking about brands while maintaining general capabilities.
+No—character training focuses on _how_ the model responds (style, helpfulness) rather than _what_ it knows. With proper multi-objective training, we can provide users a more pleasant experience when asking about brands while maintaining general capabilities.
 
 ---
 
@@ -137,4 +142,3 @@ The best ad doesn't feel like an ad because it's actually useful information—n
 - [RARE](https://arxiv.org/pdf/2504.01304.pdf) (arXiv:2504.01304)
 - [GenAI Advertising](https://arxiv.org/pdf/2409.15436.pdf) (arXiv:2409.15436)
 - [RLHF Book - Chapter 19: Product, UX, and Model Character](https://rlhfbook.com/c/19-character.html)
-

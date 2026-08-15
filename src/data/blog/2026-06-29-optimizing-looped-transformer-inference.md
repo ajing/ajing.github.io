@@ -355,21 +355,21 @@ runs/modal-downloads/nanochat_serving_benchmark_2000s_seeds012_20260630/nanochat
 
 The 600-step run is the cleaner early-training comparison:
 
-| Path | bpb mean +/- sd | byte acc | ms/pass | tokens/s | block calls |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| fixed_2x4 default | `3.7765 +/- 0.0113` | `0.2521 +/- 0.0004` | `45.133 +/- 0.733` | `363083 +/- 5850` | `8.0 +/- 0.0` |
-| router soft/default | `3.7903 +/- 0.0099` | `0.2505 +/- 0.0015` | `191.104 +/- 1.534` | `85737 +/- 687` | `16.0 +/- 0.0` |
-| router hard, t=0.5 | `3.7901 +/- 0.0099` | `0.2509 +/- 0.0014` | `98.600 +/- 1.782` | `166203 +/- 2997` | `8.0 +/- 0.0` |
-| router route-template replay, t=0.5 | exact same logits | exact same logits | `55.050 +/- 0.474` | `297636 +/- 2568` | `8.0 +/- 0.0` |
+| Path                                |     bpb mean +/- sd |            byte acc |             ms/pass |          tokens/s |    block calls |
+| ----------------------------------- | ------------------: | ------------------: | ------------------: | ----------------: | -------------: |
+| fixed_2x4 default                   | `3.7765 +/- 0.0113` | `0.2521 +/- 0.0004` |  `45.133 +/- 0.733` | `363083 +/- 5850` |  `8.0 +/- 0.0` |
+| router soft/default                 | `3.7903 +/- 0.0099` | `0.2505 +/- 0.0015` | `191.104 +/- 1.534` |   `85737 +/- 687` | `16.0 +/- 0.0` |
+| router hard, t=0.5                  | `3.7901 +/- 0.0099` | `0.2509 +/- 0.0014` |  `98.600 +/- 1.782` | `166203 +/- 2997` |  `8.0 +/- 0.0` |
+| router route-template replay, t=0.5 |   exact same logits |   exact same logits |  `55.050 +/- 0.474` | `297636 +/- 2568` |  `8.0 +/- 0.0` |
 
 The 2000-step run overfits the small sample, so I treat it as a serving-path stress test rather than a generalization result:
 
-| Path | bpb mean +/- sd | byte acc | ms/pass | tokens/s | block calls |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| fixed_2x4 default | `0.1502 +/- 0.0309` | `0.9799 +/- 0.0034` | `51.888 +/- 3.172` | `316567 +/- 19949` | `8.0 +/- 0.0` |
-| router soft/default | `0.2518 +/- 0.1174` | `0.9651 +/- 0.0170` | `219.760 +/- 16.352` | `74819 +/- 5352` | `16.0 +/- 0.0` |
-| router hard, t=0.6 | `0.2517 +/- 0.1173` | `0.9651 +/- 0.0171` | `111.114 +/- 4.453` | about `147K` | `8.0 +/- 0.0` |
-| router route-template replay, t=0.6 | exact same logits | exact same logits | `60.872 +/- 1.245` | about `269K` | `8.0 +/- 0.0` |
+| Path                                |     bpb mean +/- sd |            byte acc |              ms/pass |           tokens/s |    block calls |
+| ----------------------------------- | ------------------: | ------------------: | -------------------: | -----------------: | -------------: |
+| fixed_2x4 default                   | `0.1502 +/- 0.0309` | `0.9799 +/- 0.0034` |   `51.888 +/- 3.172` | `316567 +/- 19949` |  `8.0 +/- 0.0` |
+| router soft/default                 | `0.2518 +/- 0.1174` | `0.9651 +/- 0.0170` | `219.760 +/- 16.352` |   `74819 +/- 5352` | `16.0 +/- 0.0` |
+| router hard, t=0.6                  | `0.2517 +/- 0.1173` | `0.9651 +/- 0.0171` |  `111.114 +/- 4.453` |       about `147K` |  `8.0 +/- 0.0` |
+| router route-template replay, t=0.6 |   exact same logits |   exact same logits |   `60.872 +/- 1.245` |       about `269K` |  `8.0 +/- 0.0` |
 
 The important result is not that the router wins. It does not.
 
@@ -384,10 +384,10 @@ The important result is the split:
 At 2000 steps, the router final stats explain the collapse:
 
 | Seed | last eval acc | final exit mass | route entropy | router path NLL |
-| ---: | ---: | ---: | ---: | ---: |
-| `0` | `0.9693` | `0.9864` | `0.0112` | `0.0022` |
-| `1` | `0.9418` | `0.9813` | `0.0157` | `0.0039` |
-| `2` | `0.9751` | `0.9931` | `0.0088` | `0.0016` |
+| ---: | ------------: | --------------: | ------------: | --------------: |
+|  `0` |      `0.9693` |        `0.9864` |      `0.0112` |        `0.0022` |
+|  `1` |      `0.9418` |        `0.9813` |      `0.0157` |        `0.0039` |
+|  `2` |      `0.9751` |        `0.9931` |      `0.0088` |        `0.0016` |
 
 So the current router behaves like a learned fixed full-depth route, not like an input-adaptive routing policy. That is a strong negative result, and a useful one. The systems optimization is real, but the model still needs a better router objective or a template-bank design before the inference path can beat a fixed loop.
 
@@ -528,11 +528,11 @@ The current evidence is enough to justify the optimization direction. It is not 
 
 Three things are still missing:
 
-| Missing evidence                              | Why it matters                                                                        | Current status                                                      |
-| --------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| GPU decode latency with real KV cache         | CPU microbenchmarks can overstate or understate the serving win                       | A10G route-template replay wins; Python KV microbench is not enough |
+| Missing evidence                              | Why it matters                                                                        | Current status                                                       |
+| --------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| GPU decode latency with real KV cache         | CPU microbenchmarks can overstate or understate the serving win                       | A10G route-template replay wins; Python KV microbench is not enough  |
 | Route-template diversity under varied prompts | Template batching only works if many requests share a small number of route templates | Real nanochat run still collapses to one template: `0,1,0,1,0,1,0,1` |
-| Accuracy/latency Pareto across thresholds     | A router candidate should not be chosen by accuracy alone                             | Current router does not beat fixed loop on quality/latency Pareto   |
+| Accuracy/latency Pareto across thresholds     | A router candidate should not be chosen by accuracy alone                             | Current router does not beat fixed loop on quality/latency Pareto    |
 
 The most important missing measurement is:
 

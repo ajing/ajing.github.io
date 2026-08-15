@@ -18,7 +18,7 @@ Early versions of the Transformer employ fixed sinusoidal positional encodings, 
 
 Subsequent work on large-language models popularized relative position encodings such as Rotary Positional Embedding (RoPE). RoPE expresses positions as rotations in complex space, capturing relative offsets and scaling gracefully to very long contexts.
 
-In most Transformer-based recommender-system papers, positional information is still supplied through a *learned* embedding lookup. This introduces extra parameters and allows the model to learn position-specific biases, but it may fail to generalize to positions that are rarely or never observed during training.
+In most Transformer-based recommender-system papers, positional information is still supplied through a _learned_ embedding lookup. This introduces extra parameters and allows the model to learn position-specific biases, but it may fail to generalize to positions that are rarely or never observed during training.
 
 ### RoPE Experiments
 
@@ -68,12 +68,12 @@ user_norm = torch.norm(user_values, p=2, dim=-1).mean()
 loss += lambda * torch.clamp(user_norm - self.l2_cap_tau, min=0.0) ** 2
 ```
 
-| Configuration | val_recall@10 | L2 Norm |
-|---------------|---------------|---------|
-| Baseline (no penalty) | 0.9152 | 338.6 |
-| L2 penalty = 0.0001 | 0.9138 | 281.2 |
-| L2 penalty = 0.0005 | 0.9034 | 166.5 |
-| Hinge (τ=180, λ=0.001) | 0.9114 | 171.5 |
+| Configuration          | val_recall@10 | L2 Norm |
+| ---------------------- | ------------- | ------- |
+| Baseline (no penalty)  | 0.9152        | 338.6   |
+| L2 penalty = 0.0001    | 0.9138        | 281.2   |
+| L2 penalty = 0.0005    | 0.9034        | 166.5   |
+| Hinge (τ=180, λ=0.001) | 0.9114        | 171.5   |
 
 **Recommendation:** A non-hinge penalty with `l2_penalty=0.0001` matches baseline recall while curbing norm growth.
 
@@ -88,8 +88,8 @@ Temporal information is critical for user interest modeling. A common approach i
 **HybridTimestampEncoding**: Half of the embedding dimensions encode the absolute timestamp, while the other half encode relative time information.
 
 Results:
+
 - Validation loss: 4.6956 (vs 4.6960 baseline) — 0.009% improvement
 - Recall@10: 0.6998 (vs 0.6975 baseline) — 0.3% improvement
 
 While the gains are modest, they are consistent—relative timing information provides reliable improvement.
-

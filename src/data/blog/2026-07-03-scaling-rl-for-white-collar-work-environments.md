@@ -71,14 +71,14 @@ White-collar RL needs hybrid environments: partly executable, partly policy-cons
 
 A useful RL environment for an LLM agent is not just a prompt. It is a packaged world:
 
-| Component | Question it answers | White-collar example |
-|---|---|---|
-| Task distribution | What kind of work is sampled? | invoice reconciliation, CRM cleanup, data extraction |
-| State/backend | What world does the agent operate on? | spreadsheets, SQLite DBs, browser pages, ticket queues |
-| Action grammar | How can the agent act? | tool calls, SQL, browser clicks, sheet edits, document edits |
-| Harness | Who executes actions and returns observations? | browser runner, Python sandbox, spreadsheet engine |
-| Verifier/reward | How do we know whether the work succeeded? | cell checks, DB diffs, policy checks, rubric scores |
-| Split discipline | How do we avoid memorization? | unseen templates, unseen websites, unseen company policies |
+| Component         | Question it answers                            | White-collar example                                         |
+| ----------------- | ---------------------------------------------- | ------------------------------------------------------------ |
+| Task distribution | What kind of work is sampled?                  | invoice reconciliation, CRM cleanup, data extraction         |
+| State/backend     | What world does the agent operate on?          | spreadsheets, SQLite DBs, browser pages, ticket queues       |
+| Action grammar    | How can the agent act?                         | tool calls, SQL, browser clicks, sheet edits, document edits |
+| Harness           | Who executes actions and returns observations? | browser runner, Python sandbox, spreadsheet engine           |
+| Verifier/reward   | How do we know whether the work succeeded?     | cell checks, DB diffs, policy checks, rubric scores          |
+| Split discipline  | How do we avoid memorization?                  | unseen templates, unseen websites, unseen company policies   |
 
 This is why environment infrastructure matters. Prime Intellect's [verifiers](https://github.com/PrimeIntellect-ai/verifiers) frames environments around datasets, harnesses, and reward functions. NVIDIA [NeMo Gym](https://docs.nvidia.com/nemo/gym/about) defines an environment as the complete system an agent interacts with, including dataset, harness, verifier, and state. OpenPipe [ART](https://github.com/OpenPipe/ART) and Microsoft [Agent Lightning](https://microsoft.github.io/agent-lightning/latest/) point in the same direction from the training side: RL systems need a way to collect trajectories from real multi-step agent execution.
 
@@ -96,29 +96,29 @@ Spreadsheets, slide decks, and documents are important, but they are only the ar
 
 Most white-collar workflows combine five layers:
 
-| Layer | Examples | Why it matters for RL |
-|---|---|---|
-| Office artifacts | spreadsheets, docs, slide decks, PDFs | concrete outputs, partial deterministic verification |
-| Systems of record | CRM, ERP, ticketing, HRIS, finance systems | business state changes, permissions, no-collateral-damage checks |
-| Communication | email, chat, meetings, customer conversations | multi-turn interaction, missing information, social constraints |
-| Research and browsing | vendor pages, policies, public web, internal wiki | source grounding, extraction, contradiction handling |
-| Judgment and policy | approvals, risk rules, prioritization, escalation | reward is partly rule-based and partly preference-based |
+| Layer                 | Examples                                          | Why it matters for RL                                            |
+| --------------------- | ------------------------------------------------- | ---------------------------------------------------------------- |
+| Office artifacts      | spreadsheets, docs, slide decks, PDFs             | concrete outputs, partial deterministic verification             |
+| Systems of record     | CRM, ERP, ticketing, HRIS, finance systems        | business state changes, permissions, no-collateral-damage checks |
+| Communication         | email, chat, meetings, customer conversations     | multi-turn interaction, missing information, social constraints  |
+| Research and browsing | vendor pages, policies, public web, internal wiki | source grounding, extraction, contradiction handling             |
+| Judgment and policy   | approvals, risk rules, prioritization, escalation | reward is partly rule-based and partly preference-based          |
 
 So the goal is not to say "Excel + PowerPoint = white-collar work." The goal is to use office artifacts as the easiest entry point into a larger environment distribution. A spreadsheet task often touches a CRM export, a manager's email, a metric definition, and a final deck. A support task may end in a note, but the real work is changing state in a policy-constrained system.
 
 Here is a practical taxonomy:
 
-| Work type | State | Actions | Verifier |
-|---|---|---|---|
-| Spreadsheet cleanup | `.xlsx` workbook, CSVs | formulas, Python, sheet edits | cell equality, schema checks, aggregate checks |
-| Data extraction | websites, PDFs, docs | browser, OCR, parsing, CSV writing | field accuracy, source coverage, citation checks |
-| BI/dashboard work | database, metric spec | SQL, Python, chart/report generation | metric equality, visual presence, rubric |
-| Customer support ops | user, order, policy, tools | conversation plus API calls | final DB state plus policy compliance |
-| CRM/admin cleanup | accounts, contacts, notes | CRUD tools, dedupe, classification | DB diff, no-collateral-damage checks |
-| Procurement/vendor research | web, vendor docs, scoring rubric | search, extract, compare, summarize | citation accuracy, table completeness, rubric |
-| E-commerce operations | catalog, inventory, orders | update records, generate copy, check stock | state diff, constraint checks |
-| Document workflows | contracts, memos, templates | edit docs, redline, summarize | required clauses, formatting, citation checks |
-| Marketing/content ops | brief, brand guide, CMS stub | draft, revise, schedule | rule checks plus judge/human preference |
+| Work type                   | State                            | Actions                                    | Verifier                                         |
+| --------------------------- | -------------------------------- | ------------------------------------------ | ------------------------------------------------ |
+| Spreadsheet cleanup         | `.xlsx` workbook, CSVs           | formulas, Python, sheet edits              | cell equality, schema checks, aggregate checks   |
+| Data extraction             | websites, PDFs, docs             | browser, OCR, parsing, CSV writing         | field accuracy, source coverage, citation checks |
+| BI/dashboard work           | database, metric spec            | SQL, Python, chart/report generation       | metric equality, visual presence, rubric         |
+| Customer support ops        | user, order, policy, tools       | conversation plus API calls                | final DB state plus policy compliance            |
+| CRM/admin cleanup           | accounts, contacts, notes        | CRUD tools, dedupe, classification         | DB diff, no-collateral-damage checks             |
+| Procurement/vendor research | web, vendor docs, scoring rubric | search, extract, compare, summarize        | citation accuracy, table completeness, rubric    |
+| E-commerce operations       | catalog, inventory, orders       | update records, generate copy, check stock | state diff, constraint checks                    |
+| Document workflows          | contracts, memos, templates      | edit docs, redline, summarize              | required clauses, formatting, citation checks    |
+| Marketing/content ops       | brief, brand guide, CMS stub     | draft, revise, schedule                    | rule checks plus judge/human preference          |
 
 The right abstraction is not "can the model answer the question?" It is "can the model move the environment from an initial state to an acceptable final state without violating constraints?"
 
@@ -353,15 +353,15 @@ This matters because many white-collar jobs are not just "produce artifact." The
 
 The central mistake is to demand one reward type for every task. White-collar work needs layered verification.
 
-| Layer | Example | Reliability |
-|---|---|---|
-| Exact state check | DB row updated, CSV schema valid | high |
-| Numerical tolerance | revenue total within 0.5 percent | high |
-| Programmatic invariant | no duplicate active accounts | high |
-| Source-grounding check | every claim has a cited URL | medium |
-| Policy automaton | refund allowed only under conditions | medium-high |
-| LLM rubric | summary is clear and actionable | medium |
-| Human preference | report is useful to a manager | high value, expensive |
+| Layer                  | Example                              | Reliability           |
+| ---------------------- | ------------------------------------ | --------------------- |
+| Exact state check      | DB row updated, CSV schema valid     | high                  |
+| Numerical tolerance    | revenue total within 0.5 percent     | high                  |
+| Programmatic invariant | no duplicate active accounts         | high                  |
+| Source-grounding check | every claim has a cited URL          | medium                |
+| Policy automaton       | refund allowed only under conditions | medium-high           |
+| LLM rubric             | summary is clear and actionable      | medium                |
+| Human preference       | report is useful to a manager        | high value, expensive |
 
 The goal is not to eliminate judge models or humans. The goal is to reserve them for the parts that cannot be checked by code.
 

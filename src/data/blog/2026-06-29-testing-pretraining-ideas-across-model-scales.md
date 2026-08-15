@@ -29,11 +29,11 @@ The core idea:
 
 ![IsoFLOP scaling-law monitor for small and medium pretraining runs](/images/pretraining/isoflop-scaling-law-monitor.svg "IsoFLOP scaling-law monitor")
 
-*This is a synthetic monitoring template, but the visual grammar is borrowed from real scaling-law practice: log-scale loss-vs-FLOPs fits, residual checks, and Chinchilla-style IsoFLOP sweeps. Move forward when the fitted curve and the IsoFLOP valleys stay smooth. Stop when residuals jump, the valley moves erratically, or a larger batch produces worse loss at the same compute.*
+_This is a synthetic monitoring template, but the visual grammar is borrowed from real scaling-law practice: log-scale loss-vs-FLOPs fits, residual checks, and Chinchilla-style IsoFLOP sweeps. Move forward when the fitted curve and the IsoFLOP valleys stay smooth. Stop when residuals jump, the valley moves erratically, or a larger batch produces worse loss at the same compute._
 
 ![Small-scale go/no-go scatter for pretraining ideas](/images/pretraining/small-scale-go-no-go-scatter.svg "Small-scale go/no-go scatter")
 
-*A small proxy result should be treated as a decision surface. Move forward only when the gain is large enough and the transfer evidence is clean enough.*
+_A small proxy result should be treated as a decision surface. Move forward only when the gain is large enough and the transfer evidence is clean enough._
 
 ## 1. Why small models are useful at all
 
@@ -194,7 +194,7 @@ The final run is still risky, but it should not be a blind bet.
 
 ![A pretraining gain surviving, fading, or reversing across model scales](/images/pretraining/gain-survival-across-scales.svg "Gain survival across model scales")
 
-*The green line is the pattern you want: the intervention keeps beating the baseline as model size increases. The yellow line needs more evidence. The red line is a classic small-model trap.*
+_The green line is the pattern you want: the intervention keeps beating the baseline as model size increases. The yellow line needs more evidence. The red line is a classic small-model trap._
 
 ## 5. Two budget styles: isoFLOP and fixed-token
 
@@ -353,7 +353,7 @@ This tells you whether the gain is broad or whether you are trading away one cap
 
 ![Validation gain versus downstream regression scatter](/images/pretraining/downstream-regression-scatter.svg "Validation gain versus downstream regression")
 
-*A recipe can improve average validation loss while breaking a target domain. That is not a scale-up candidate until the regression is understood.*
+_A recipe can improve average validation loss while breaking a target domain. That is not a scale-up candidate until the regression is understood._
 
 ### Memorization and contamination checks
 
@@ -473,13 +473,13 @@ At minimum:
 
 A useful experiment matrix looks like this:
 
-| Scale | Params | Tokens | Purpose | Candidate count |
-|---|---:|---:|---|---:|
-| Smoke | 10M-50M | 1B-5B | Catch pipeline breakage | Many |
-| Small proxy | 100M-300M | 10B-30B | Fast recipe search | 10-50 |
-| Medium proxy | 400M-1B | 30B-150B | Confirm scale transfer | 3-10 |
-| Large proxy | 3B-7B | 100B-1T | Pre-final confirmation | 1-3 |
-| Final | 7B+ | target budget | Expensive production run | 1 |
+| Scale        |    Params |        Tokens | Purpose                  | Candidate count |
+| ------------ | --------: | ------------: | ------------------------ | --------------: |
+| Smoke        |   10M-50M |         1B-5B | Catch pipeline breakage  |            Many |
+| Small proxy  | 100M-300M |       10B-30B | Fast recipe search       |           10-50 |
+| Medium proxy |   400M-1B |      30B-150B | Confirm scale transfer   |            3-10 |
+| Large proxy  |     3B-7B |       100B-1T | Pre-final confirmation   |             1-3 |
+| Final        |       7B+ | target budget | Expensive production run |               1 |
 
 The exact sizes depend on budget. The important part is not the specific numbers. It is the shape:
 

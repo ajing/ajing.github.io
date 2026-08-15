@@ -1,7 +1,7 @@
 import { SITE } from "@/config";
 import { SOCIALS } from "@/constants";
 
-export const sameAsLinks = SOCIALS.map(social => social.href);
+export const sameAsLinks = SOCIALS.map((social) => social.href);
 
 interface ItemListEntry {
   name: string;
@@ -39,7 +39,9 @@ export function websiteStructuredData(url: string) {
   };
 }
 
-export function breadcrumbStructuredData(items: { name: string; url: string }[]) {
+export function breadcrumbStructuredData(
+  items: { name: string; url: string }[],
+) {
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",

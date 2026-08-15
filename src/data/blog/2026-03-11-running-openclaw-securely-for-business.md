@@ -19,15 +19,15 @@ description: "OpenClaw is the fastest-growing AI agent, but can you use it to ru
 
 ## What Is OpenClaw?
 
-OpenClaw is an open-source autonomous AI agent that runs locally on your machine. It connects LLMs (Claude, GPT, DeepSeek) to your files, messaging apps, APIs, and shell — enabling it to actually *do things*, not just answer questions.
+OpenClaw is an open-source autonomous AI agent that runs locally on your machine. It connects LLMs (Claude, GPT, DeepSeek) to your files, messaging apps, APIs, and shell — enabling it to actually _do things_, not just answer questions.
 
-| Attribute | Detail |
-|---|---|
-| **Architecture** | Persistent Node.js service, local gateway |
-| **Capabilities** | Shell commands, file I/O, web automation, email, calendar, messaging |
-| **Extensibility** | "Skills" from ClawHub marketplace |
-| **Model Support** | Model-agnostic (Claude, GPT, DeepSeek, local models) |
-| **Origin** | Created by Peter Steinberger (now at OpenAI); managed by independent foundation |
+| Attribute         | Detail                                                                          |
+| ----------------- | ------------------------------------------------------------------------------- |
+| **Architecture**  | Persistent Node.js service, local gateway                                       |
+| **Capabilities**  | Shell commands, file I/O, web automation, email, calendar, messaging            |
+| **Extensibility** | "Skills" from ClawHub marketplace                                               |
+| **Model Support** | Model-agnostic (Claude, GPT, DeepSeek, local models)                            |
+| **Origin**        | Created by Peter Steinberger (now at OpenAI); managed by independent foundation |
 
 The promise is compelling: a personal AI employee that handles your inbox, writes code, manages your calendar, and even makes purchases. But with great power comes great attack surface.
 
@@ -67,13 +67,13 @@ Even OpenAI's CISO calls it "an unsolved security problem." Anthropic reports Cl
 
 The key insight: **not all automation is equally dangerous.** Classify your agent's actions:
 
-| Safe (fully automated) | Risky (auto + logged) | Dangerous (needs your OK) |
-|---|---|---|
-| Read files & web pages | Send emails/messages | Access passwords/API keys |
-| Summarize & draft text | Create/edit files | Big purchases (>$20) |
-| Search & answer questions | Schedule events | Delete important data |
-| Write & run code (sandboxed) | Research & add to cart | |
-| Compare prices, find deals | Small auto-purchases (≤$20) | |
+| Safe (fully automated)       | Risky (auto + logged)       | Dangerous (needs your OK) |
+| ---------------------------- | --------------------------- | ------------------------- |
+| Read files & web pages       | Send emails/messages        | Access passwords/API keys |
+| Summarize & draft text       | Create/edit files           | Big purchases (>$20)      |
+| Search & answer questions    | Schedule events             | Delete important data     |
+| Write & run code (sandboxed) | Research & add to cart      |                           |
+| Compare prices, find deals   | Small auto-purchases (≤$20) |                           |
 
 **~90% of the useful automation is in the "Safe" column.** You keep all of it.
 
@@ -122,21 +122,21 @@ ClawSec monitors for tampering with your agent's `SOUL.md` and `IDENTITY.md` fil
 
 **But ClawSec alone is not enough.** It doesn't detect prompt injection, doesn't audit skills before installation, and doesn't monitor for active threats. You also want:
 
-| Tool | What It Covers |
-|---|---|
-| **[SecureClaw](https://github.com)** | 55 automated audit + hardening checks, OWASP/MITRE alignment |
-| **[openclaw-security-monitor](https://github.com)** | Real-time threat detection (ClawHavoc, AMOS stealer, memory poisoning) |
+| Tool                                                    | What It Covers                                                             |
+| ------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **[SecureClaw](https://github.com)**                    | 55 automated audit + hardening checks, OWASP/MITRE alignment               |
+| **[openclaw-security-monitor](https://github.com)**     | Real-time threat detection (ClawHavoc, AMOS stealer, memory poisoning)     |
 | **[LLM Guard](https://github.com/protectai/llm-guard)** | Input/output scanning for prompt injection (15 input + 20 output scanners) |
 
 ### Layer 4: Strong Model Selection
 
 Use the strongest reasoning model you can afford. Injection resistance scales with model capability:
 
-| Model | Agentic Injection Resistance |
-|---|---|
-| Claude Sonnet 4.5 | 94% (with detection enabled) |
-| GPT-5.3 | Strong (trained to refuse malicious requests) |
-| DeepSeek V3 | Weaker injection resistance (cheaper, trade-off) |
+| Model             | Agentic Injection Resistance                     |
+| ----------------- | ------------------------------------------------ |
+| Claude Sonnet 4.5 | 94% (with detection enabled)                     |
+| GPT-5.3           | Strong (trained to refuse malicious requests)    |
+| DeepSeek V3       | Weaker injection resistance (cheaper, trade-off) |
 
 ### Layer 5: Financial Guardrails
 
@@ -162,17 +162,17 @@ Test your defenses monthly with:
 
 If you're considering the OpenAI Pro tier ($200/mo) with Codex, here's how the security models compare:
 
-| Dimension | OpenAI Codex | OpenClaw |
-|---|---|---|
-| **Sandbox** | Cloud containers, no internet access during tasks, sealed environment | Docker + built-in sandbox (you set it up yourself) |
-| **Who manages security** | OpenAI | You |
-| **Prompt injection defense** | Model-level (trained to refuse), sealed sandbox | Manual: LLM Guard + ClawSec + model choice |
-| **Skill/plugin risk** | OpenAI-controlled ecosystem | ClawHub (public, malicious skills found) |
-| **Scope** | Software engineering + coding tasks | Everything (email, calendar, files, messaging, purchases, shell) |
-| **Data privacy** | Data goes through OpenAI's cloud | Fully local (except LLM API calls) |
-| **Cost** | $200/mo flat | Free + LLM API costs ($3-200/mo depending on model) |
+| Dimension                    | OpenAI Codex                                                          | OpenClaw                                                         |
+| ---------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **Sandbox**                  | Cloud containers, no internet access during tasks, sealed environment | Docker + built-in sandbox (you set it up yourself)               |
+| **Who manages security**     | OpenAI                                                                | You                                                              |
+| **Prompt injection defense** | Model-level (trained to refuse), sealed sandbox                       | Manual: LLM Guard + ClawSec + model choice                       |
+| **Skill/plugin risk**        | OpenAI-controlled ecosystem                                           | ClawHub (public, malicious skills found)                         |
+| **Scope**                    | Software engineering + coding tasks                                   | Everything (email, calendar, files, messaging, purchases, shell) |
+| **Data privacy**             | Data goes through OpenAI's cloud                                      | Fully local (except LLM API calls)                               |
+| **Cost**                     | $200/mo flat                                                          | Free + LLM API costs ($3-200/mo depending on model)              |
 
-**The honest comparison:** Codex is *more secure by default* for coding tasks — OpenAI handles the sandboxing, and the containers have no internet access. But Codex is mainly a coding agent. OpenClaw does *everything else* (messaging, scheduling, purchases, file management).
+**The honest comparison:** Codex is _more secure by default_ for coding tasks — OpenAI handles the sandboxing, and the containers have no internet access. But Codex is mainly a coding agent. OpenClaw does _everything else_ (messaging, scheduling, purchases, file management).
 
 ### The Hybrid Approach (Best of Both Worlds)
 
@@ -182,13 +182,13 @@ Use **Codex for coding tasks** (secure cloud sandbox, OpenAI manages infrastruct
 
 The $200/mo Pro tier may be more than you need. Alternatives:
 
-| Approach | Monthly Cost | Trade-off |
-|---|---|---|
-| **OpenAI Pro ($200)** | $200 | Full Codex + unlimited ChatGPT Pro |
-| **OpenAI Plus ($20) + API** | $20 + usage | ChatGPT Plus for chat; API for Codex-mini at $0.25/M input tokens |
-| **OpenClaw + DeepSeek API** | ~$3-10/mo | 10-50x cheaper than GPT; weaker injection resistance |
-| **OpenClaw + local model (Ollama)** | $0 (electricity only) | Free but needs 16GB+ RAM; weakest injection resistance |
-| **OpenClaw + Claude API** | ~$50-200/mo | Best injection resistance (94%); moderate cost |
+| Approach                            | Monthly Cost          | Trade-off                                                         |
+| ----------------------------------- | --------------------- | ----------------------------------------------------------------- |
+| **OpenAI Pro ($200)**               | $200                  | Full Codex + unlimited ChatGPT Pro                                |
+| **OpenAI Plus ($20) + API**         | $20 + usage           | ChatGPT Plus for chat; API for Codex-mini at $0.25/M input tokens |
+| **OpenClaw + DeepSeek API**         | ~$3-10/mo             | 10-50x cheaper than GPT; weaker injection resistance              |
+| **OpenClaw + local model (Ollama)** | $0 (electricity only) | Free but needs 16GB+ RAM; weakest injection resistance            |
+| **OpenClaw + Claude API**           | ~$50-200/mo           | Best injection resistance (94%); moderate cost                    |
 
 **Recommended for a budget-conscious solo operator:**
 
@@ -230,6 +230,7 @@ Remember: SOUL.md rules are speed bumps, not walls. Prompt injection can bypass 
 ## Weekend Setup Checklist
 
 ### Day 1: Foundation
+
 - [ ] Install Docker on your old computer
 - [ ] Run OpenClaw in Docker with security flags (see above)
 - [ ] Enable sandbox mode (`agents.defaults.sandbox.mode all`)
@@ -237,6 +238,7 @@ Remember: SOUL.md rules are speed bumps, not walls. Prompt injection can bypass 
 - [ ] Configure your SOUL.md security rules
 
 ### Day 2: Defense Layers
+
 - [ ] Install ClawSec (`openclaw install prompt-security/clawsec`)
 - [ ] Set up a virtual/prepaid card for agent purchases
 - [ ] Store API keys in `.env` with `chmod 600`
@@ -244,6 +246,7 @@ Remember: SOUL.md rules are speed bumps, not walls. Prompt injection can bypass 
 - [ ] Run `openclaw security audit --deep --fix`
 
 ### Ongoing (5 min/week)
+
 - [ ] Glance at logs daily (2 minutes)
 - [ ] Update weekly: `docker pull openclaw/openclaw:latest`
 - [ ] Rotate auth tokens monthly

@@ -15,8 +15,8 @@ description: "Exploring how LLMs can dynamically generate user interfaces that a
 **Imagine if your app's interface could literally design itself on the fly.** Instead of fixed screens and layouts, the UI adapts in real time to what the user needs—guided by conversation context and structured data, powered by a large language model (LLM). This is the vision behind **generative UI**: letting an AI "go beyond text and generate UI," creating a more engaging, AI-native user experience. In a generative UI, the LLM isn't just chatting; it's also deciding how to present information (e.g., as a chart, form, or map) and even which interactive controls to show next.
 
 **Why is this powerful?** Traditional chatbots rely on text or pre-defined buttons, but text isn't always the best interface. As one developer described Google's next-gen Gemini AI:  
-*"Gemini can use its brains to decide if it would be better to use a more productive UI than text. When it decides to do this it uses Flutter to create the UI."*  
-  
+_"Gemini can use its brains to decide if it would be better to use a more productive UI than text. When it decides to do this it uses Flutter to create the UI."_
+
 In other words, if showing a custom widget or screen helps the user more than a wordy answer, the AI can generate that UI on the spot. Flutter—with its flexible, declarative UI framework—serves as an ideal canvas for this kind of dynamic interface.
 
 ---
@@ -37,7 +37,7 @@ Another scenario: an AI assistant in a flight booking app. Suppose you ask, "Wha
 
 > **Figure 2:** Example of an AI-generated flight status card (BA142). The assistant displays structured information along with interactive follow-up options, rendered via Flutter's engine.
 
-In this vision, the UI evolves as the conversation progresses. Early on, it might be mostly text; later, as the AI gathers more structured info, it introduces relevant widgets—a chart for finances, a map for travel directions, or a form for further details. The UI is *just-in-time generated* to suit the user's needs.
+In this vision, the UI evolves as the conversation progresses. Early on, it might be mostly text; later, as the AI gathers more structured info, it introduces relevant widgets—a chart for finances, a map for travel directions, or a form for further details. The UI is _just-in-time generated_ to suit the user's needs.
 
 ---
 
@@ -191,15 +191,15 @@ For developers, this means harnessing AI as both a backend tool and a co-designe
 
 ## References
 
-1. **Vercel AI SDK Documentation – Generative User Interfaces**  
-2. **Medium (Tech Vibes) – Designing AI-Generated UI with Flutter and GPT Models**  
-3. **Reddit (r/FlutterDev) – Discussion on Google Gemini using Flutter for AI-generated UIs**  
-4. **HuggingFace Blog – LLM Chatbots 3.0: Merging LLMs with Dynamic UI Elements**  
-5. **Jason Bejot – Designing LLM Interfaces: Claude's Side Panels for Long Responses**  
-6. **Brasch (Medium) – Context-Seeking Dynamic GUI for LLMs**  
-7. **Sanoop Das (Medium) – Dynamic UI Generation in Flutter via JSON**  
-8. **a16z – How Generative AI is Remaking UI/UX Design**  
-9. **ArXiv – CrowdGenUI: Enhancing LLM-Based UI Generation with User Preferences**  
-10. **ArXiv/CHI '24 – GazePointAR: Multimodal VA with Gaze and Gestures + LLM**  
-11. **DhiWise Blog – Declarative vs. Imperative UI in Flutter**  
+1. **Vercel AI SDK Documentation – Generative User Interfaces**
+2. **Medium (Tech Vibes) – Designing AI-Generated UI with Flutter and GPT Models**
+3. **Reddit (r/FlutterDev) – Discussion on Google Gemini using Flutter for AI-generated UIs**
+4. **HuggingFace Blog – LLM Chatbots 3.0: Merging LLMs with Dynamic UI Elements**
+5. **Jason Bejot – Designing LLM Interfaces: Claude's Side Panels for Long Responses**
+6. **Brasch (Medium) – Context-Seeking Dynamic GUI for LLMs**
+7. **Sanoop Das (Medium) – Dynamic UI Generation in Flutter via JSON**
+8. **a16z – How Generative AI is Remaking UI/UX Design**
+9. **ArXiv – CrowdGenUI: Enhancing LLM-Based UI Generation with User Preferences**
+10. **ArXiv/CHI '24 – GazePointAR: Multimodal VA with Gaze and Gestures + LLM**
+11. **DhiWise Blog – Declarative vs. Imperative UI in Flutter**
 12. **LinkedIn (Ashish Chaudhary) – Bespoke: LLM-Generated Just-in-Time Interfaces (Google Research)**

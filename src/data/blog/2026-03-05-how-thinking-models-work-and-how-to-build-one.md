@@ -18,6 +18,7 @@ The biggest shift in LLM capability since GPT-4 hasn't been a new architecture o
 Models like OpenAI o1/o3, DeepSeek-R1, and Claude 3.7 Sonnet with extended thinking don't just predict the next token faster or with more parameters. They allocate variable compute at inference time — spending more steps on harder problems and fewer on easy ones. The result: dramatic improvements on math, coding, science, and multi-step reasoning tasks that previous models plateaued on.
 
 This post covers three questions:
+
 1. **How do thinking models work?** — the inference-time mechanism
 2. **How do you build one?** — the training pipeline from SFT to RL
 3. **What data do you need?** — the types, sources, and design of training data
@@ -50,30 +51,30 @@ The thinking trace is **not just a prompt engineering trick**. It's a fundamenta
 
 A common misconception is that reasoning is purely a post-training phenomenon. In reality, reasoning capability is developed across **all three stages** of the model lifecycle:
 
-| Stage | What Happens | Role in Reasoning |
-|-------|-------------|-------------------|
-| **Pretraining** | Model learns from trillions of tokens including textbooks, proofs, code, scientific papers | Builds latent reasoning circuits — the model learns logical patterns, mathematical operations, and step-by-step derivation styles from data that *already contains reasoning* |
-| **Post-Training (SFT + RL)** | Supervised fine-tuning on reasoning traces + RL with outcome rewards | **Shapes and amplifies** reasoning into a structured, reliable behavior. Teaches the `<thinking>` format, backtracking, self-verification |
-| **Inference Time** | Chain-of-thought prompting, best-of-N sampling, tree search | Elicits and scales reasoning at serving time — even base models can reason with proper prompting |
+| Stage                        | What Happens                                                                               | Role in Reasoning                                                                                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pretraining**              | Model learns from trillions of tokens including textbooks, proofs, code, scientific papers | Builds latent reasoning circuits — the model learns logical patterns, mathematical operations, and step-by-step derivation styles from data that _already contains reasoning_ |
+| **Post-Training (SFT + RL)** | Supervised fine-tuning on reasoning traces + RL with outcome rewards                       | **Shapes and amplifies** reasoning into a structured, reliable behavior. Teaches the `<thinking>` format, backtracking, self-verification                                     |
+| **Inference Time**           | Chain-of-thought prompting, best-of-N sampling, tree search                                | Elicits and scales reasoning at serving time — even base models can reason with proper prompting                                                                              |
 
-**Pretraining lays the foundation.** A base model pretrained on high-quality data (math textbooks, code repositories, scientific literature) already has latent reasoning capabilities. This is why chain-of-thought prompting works on base models at all — the reasoning patterns are *already learned*, just not reliably activated. Models pretrained on more reasoning-rich corpora (code, formal proofs, step-by-step solutions) show stronger reasoning baselines before any post-training.
+**Pretraining lays the foundation.** A base model pretrained on high-quality data (math textbooks, code repositories, scientific literature) already has latent reasoning capabilities. This is why chain-of-thought prompting works on base models at all — the reasoning patterns are _already learned_, just not reliably activated. Models pretrained on more reasoning-rich corpora (code, formal proofs, step-by-step solutions) show stronger reasoning baselines before any post-training.
 
-**Post-training shapes and amplifies.** What SFT + RL adds is not reasoning *ability* from scratch, but rather: (1) a structured format (`<thinking>` blocks) to reliably surface reasoning, (2) self-correction and backtracking behaviors trained via RL reward signals, and (3) adaptive depth — knowing when to think deeply vs. briefly.
+**Post-training shapes and amplifies.** What SFT + RL adds is not reasoning _ability_ from scratch, but rather: (1) a structured format (`<thinking>` blocks) to reliably surface reasoning, (2) self-correction and backtracking behaviors trained via RL reward signals, and (3) adaptive depth — knowing when to think deeply vs. briefly.
 
 **Inference-time techniques unlock more.** Even after training, prompting strategies (few-shot CoT, self-consistency via majority voting) and search methods (best-of-N, MCTS with process reward models) further improve reasoning by exploring more of the solution space at serve time.
 
-> **The practical implication:** If you're building a thinking model, don't ignore pretraining data composition. Including more mathematical derivations, annotated code, and structured problem-solving in the pretraining mix gives post-training a much stronger foundation to build on. Teams that treat reasoning as *only* a post-training problem leave significant capability on the table.
+> **The practical implication:** If you're building a thinking model, don't ignore pretraining data composition. Including more mathematical derivations, annotated code, and structured problem-solving in the pretraining mix gives post-training a much stronger foundation to build on. Teams that treat reasoning as _only_ a post-training problem leave significant capability on the table.
 
 ### Standard LLM vs. Thinking Model
 
-| Aspect | Standard LLM | Thinking Model |
-|--------|-------------|----------------|
-| **Inference** | Single-pass token generation | Extended reasoning → then answer |
-| **Compute allocation** | Fixed per token | Variable — more thinking for harder problems |
-| **Error correction** | Limited (autoregressive, can't "go back") | Can backtrack, try alternatives within the thinking trace |
-| **Training signal** | Next-token prediction + RLHF | Reasoning-rich pretraining + SFT on traces + RL with outcome rewards |
-| **Latency** | Lower | Higher (more tokens generated) |
-| **Strengths** | Fluency, knowledge recall, simple tasks | Multi-step reasoning, math, coding, planning |
+| Aspect                 | Standard LLM                              | Thinking Model                                                       |
+| ---------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
+| **Inference**          | Single-pass token generation              | Extended reasoning → then answer                                     |
+| **Compute allocation** | Fixed per token                           | Variable — more thinking for harder problems                         |
+| **Error correction**   | Limited (autoregressive, can't "go back") | Can backtrack, try alternatives within the thinking trace            |
+| **Training signal**    | Next-token prediction + RLHF              | Reasoning-rich pretraining + SFT on traces + RL with outcome rewards |
+| **Latency**            | Lower                                     | Higher (more tokens generated)                                       |
+| **Strengths**          | Fluency, knowledge recall, simple tasks   | Multi-step reasoning, math, coding, planning                         |
 
 ### The Core Insight: Test-Time Compute Scaling
 
@@ -148,6 +149,7 @@ So the answer is: there are no positive integers n with this property.
 ```
 
 Notice the key cognitive patterns:
+
 1. **Setting up equations** (structured approach)
 2. **Algebraic manipulation** (trying a path)
 3. **Getting stuck and backtracking** ("Wait — let me reconsider")
@@ -183,7 +185,7 @@ Thinking Model
 
 ### Stage 1: Cold-Start SFT — Seeding the Reasoning Format
 
-**Goal:** Teach the model to *produce* reasoning traces in the right format.
+**Goal:** Teach the model to _produce_ reasoning traces in the right format.
 
 A pretrained base model doesn't naturally generate `<thinking>` blocks with step-by-step reasoning. The cold-start SFT stage fine-tunes on a small set of high-quality reasoning demonstrations to bootstrap this behavior.
 
@@ -198,12 +200,12 @@ A pretrained base model doesn't naturally generate `<thinking>` blocks with step
 
 **Key design choices:**
 
-| Decision | Common Approach | Why |
-|----------|----------------|-----|
-| Data size | 1K–10K examples | Small but high quality; just enough to establish format |
-| Source | Expert-written or distilled from a stronger model | Quality over quantity at this stage |
-| Format tokens | `<thinking>`, `<answer>` or similar delimiters | Gives the model a clear structure to generate |
-| Reasoning style | Verbose, step-by-step, with self-correction | Establish the *type* of reasoning the model should produce |
+| Decision        | Common Approach                                   | Why                                                        |
+| --------------- | ------------------------------------------------- | ---------------------------------------------------------- |
+| Data size       | 1K–10K examples                                   | Small but high quality; just enough to establish format    |
+| Source          | Expert-written or distilled from a stronger model | Quality over quantity at this stage                        |
+| Format tokens   | `<thinking>`, `<answer>` or similar delimiters    | Gives the model a clear structure to generate              |
+| Reasoning style | Verbose, step-by-step, with self-correction       | Establish the _type_ of reasoning the model should produce |
 
 > **DeepSeek-R1's approach:** They collected thousands of CoT examples using few-shot prompting with a long-CoT format. These included reflection and verification behaviors — patterns like "Let me verify," "Wait, that's wrong," and "I'll try another approach." The cold-start data explicitly models these cognitive patterns.
 
@@ -211,7 +213,7 @@ A pretrained base model doesn't naturally generate `<thinking>` blocks with step
 
 **Goal:** Scale and improve reasoning quality via reinforcement learning.
 
-This is the critical stage. After cold-start SFT gives the model the *format*, RL gives it the *substance*. The model learns that better reasoning → better answers → higher rewards.
+This is the critical stage. After cold-start SFT gives the model the _format_, RL gives it the _substance_. The model learns that better reasoning → better answers → higher rewards.
 
 **The RL setup:**
 
@@ -219,13 +221,13 @@ This is the critical stage. After cold-start SFT gives the model the *format*, R
 # Simplified GRPO training loop for thinking models
 for batch in training_data:
     prompts = batch["prompts"]  # math/code/reasoning problems
-    
+
     # Sample G completions per prompt (with thinking traces)
     completions = []
     for prompt in prompts:
         group = [model.generate(prompt, temperature=0.7) for _ in range(G)]
         completions.append(group)
-    
+
     # Outcome-based reward: did the final answer match?
     rewards = []
     for prompt, group in zip(prompts, completions):
@@ -236,20 +238,20 @@ for batch in training_data:
             reward += format_reward(completion)  # small bonus for proper formatting
             group_rewards.append(reward)
         rewards.append(group_rewards)
-    
+
     # GRPO update: within-group advantage normalization
     update_policy(model, completions, rewards)
 ```
 
 **Why outcome-based rewards work so well here:**
 
-The beauty of this approach is that **the reward function doesn't specify *how* to think** — only whether the final answer is correct. The model discovers effective reasoning strategies on its own. This is why behaviors like backtracking, self-verification, and exploring multiple paths emerge spontaneously — they're selected for because they lead to correct answers.
+The beauty of this approach is that **the reward function doesn't specify _how_ to think** — only whether the final answer is correct. The model discovers effective reasoning strategies on its own. This is why behaviors like backtracking, self-verification, and exploring multiple paths emerge spontaneously — they're selected for because they lead to correct answers.
 
-| Reward Component | Signal | Purpose |
-|-----------------|--------|---------|
-| **Correctness reward** | 1.0 if answer matches ground truth, 0.0 otherwise | Primary driver of reasoning quality |
-| **Format reward** | Small bonus for proper `<thinking>...</thinking>` structure | Maintain structured output |
-| **Length penalty** (optional) | Penalize excessively long thinking traces | Prevent reward hacking via verbosity |
+| Reward Component              | Signal                                                      | Purpose                              |
+| ----------------------------- | ----------------------------------------------------------- | ------------------------------------ |
+| **Correctness reward**        | 1.0 if answer matches ground truth, 0.0 otherwise           | Primary driver of reasoning quality  |
+| **Format reward**             | Small bonus for proper `<thinking>...</thinking>` structure | Maintain structured output           |
+| **Length penalty** (optional) | Penalize excessively long thinking traces                   | Prevent reward hacking via verbosity |
 
 > **What DeepSeek-R1 observed:** During RL training, the model spontaneously learned to allocate more thinking tokens to harder problems. On easy arithmetic, the thinking trace might be 50 tokens; on AIME problems, it could exceed 10,000 tokens. This **adaptive compute allocation** was not explicitly trained — it emerged from the reward signal.
 
@@ -272,19 +274,19 @@ curated_data = []
 for prompt in training_prompts:
     candidates = [model.generate(prompt) for _ in range(N)]  # N = 16-64
     correct = [c for c in candidates if verify(extract_answer(c))]
-    
+
     if correct:
         # Select best trace: balance quality, clarity, and length
         best = select_best_trace(correct, criteria=[
             "correctness",
-            "reasoning_clarity", 
+            "reasoning_clarity",
             "minimal_redundancy",
             "appropriate_length"
         ])
         curated_data.append({"prompt": prompt, "response": best})
 ```
 
-This creates a high-quality SFT dataset *from the model's own successful reasoning*, which is then used for another round of fine-tuning. The result: the model maintains the reasoning capability from RL but with cleaner, more consistent output.
+This creates a high-quality SFT dataset _from the model's own successful reasoning_, which is then used for another round of fine-tuning. The result: the model maintains the reasoning capability from RL but with cleaner, more consistent output.
 
 ### Stage 4: RL Alignment — Human Preferences and Safety
 
@@ -311,12 +313,12 @@ The four subsections below **mirror the training pipeline order**: cold-start SF
 
 **Purpose:** Teach the model the format and style of extended reasoning.
 
-| Data Source | Description | Strength | Weakness |
-|-------------|------------|----------|----------|
-| **Human-written CoT** | Experts write detailed step-by-step solutions | Highest quality reasoning patterns | Expensive, doesn't scale |
-| **Distillation from stronger models** | Prompt GPT-4 / Claude to "think step by step" and capture traces | Scalable, high quality | Ceiling bounded by teacher model |
-| **Few-shot elicitation** | Use few-shot examples to elicit CoT from the base model itself | Self-consistent style | Lower quality than external distillation |
-| **Existing datasets with solutions** | Math competition solutions, coding editorial, scientific derivations | Naturally high quality, diverse | Requires reformatting into thinking-trace format |
+| Data Source                           | Description                                                          | Strength                           | Weakness                                         |
+| ------------------------------------- | -------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------ |
+| **Human-written CoT**                 | Experts write detailed step-by-step solutions                        | Highest quality reasoning patterns | Expensive, doesn't scale                         |
+| **Distillation from stronger models** | Prompt GPT-4 / Claude to "think step by step" and capture traces     | Scalable, high quality             | Ceiling bounded by teacher model                 |
+| **Few-shot elicitation**              | Use few-shot examples to elicit CoT from the base model itself       | Self-consistent style              | Lower quality than external distillation         |
+| **Existing datasets with solutions**  | Math competition solutions, coding editorial, scientific derivations | Naturally high quality, diverse    | Requires reformatting into thinking-trace format |
 
 **Key quality criteria for cold-start data:**
 
@@ -326,7 +328,7 @@ The four subsections below **mirror the training pipeline order**: cold-start SF
 4. **Variable difficulty** — from simple arithmetic to competition-level problems
 5. **Diverse domains** — math, code, logic, science, common-sense reasoning
 
-> **Practical tip from DeepSeek-R1:** Their cold-start data included explicit markers for cognitive transitions: "Let me think about this differently," "Wait, I made an error," "To verify, I'll..." These markers helped the model learn *when* to apply these strategies, not just that they exist.
+> **Practical tip from DeepSeek-R1:** Their cold-start data included explicit markers for cognitive transitions: "Let me think about this differently," "Wait, I made an error," "To verify, I'll..." These markers helped the model learn _when_ to apply these strategies, not just that they exist.
 
 ### 4.2 RL Training Data: Problems with Verifiable Answers
 
@@ -334,17 +336,17 @@ The four subsections below **mirror the training pipeline order**: cold-start SF
 
 This is the most critical data requirement: **you need large quantities of problems where correctness can be automatically verified.** Human judgment doesn't scale for RL — you need millions of reward signal evaluations.
 
-| Domain | Data Source | Verification Method | Scale Available |
-|--------|-----------|-------------------|----------------|
-| **Math** | GSM8K, MATH, AIME, competition archives, synthetic problems | Exact numerical match | 100K–1M+ (with augmentation) |
-| **Code** | HumanEval, MBPP, LeetCode, CodeContests, SWE-bench | Unit test execution | 50K–500K |
-| **Logic puzzles** | Formal logic, constraint satisfaction, game solving | Formal verification / rule checking | 10K–100K |
-| **Science** | Physics / chemistry problems with numerical answers | Exact match / tolerance check | 10K–50K |
-| **Formal math** | Lean, Isabelle, Coq theorem proving | Proof checker | 10K–100K |
+| Domain            | Data Source                                                 | Verification Method                 | Scale Available              |
+| ----------------- | ----------------------------------------------------------- | ----------------------------------- | ---------------------------- |
+| **Math**          | GSM8K, MATH, AIME, competition archives, synthetic problems | Exact numerical match               | 100K–1M+ (with augmentation) |
+| **Code**          | HumanEval, MBPP, LeetCode, CodeContests, SWE-bench          | Unit test execution                 | 50K–500K                     |
+| **Logic puzzles** | Formal logic, constraint satisfaction, game solving         | Formal verification / rule checking | 10K–100K                     |
+| **Science**       | Physics / chemistry problems with numerical answers         | Exact match / tolerance check       | 10K–50K                      |
+| **Formal math**   | Lean, Isabelle, Coq theorem proving                         | Proof checker                       | 10K–100K                     |
 
 **Scaling RL training data with synthetic generation:**
 
-The bottleneck is usually not model capability but *problem supply*. Techniques to scale:
+The bottleneck is usually not model capability but _problem supply_. Techniques to scale:
 
 ```python
 # Example: Synthetic math problem generation
@@ -366,11 +368,11 @@ def generate_math_problems(template, difficulty_range, n_problems):
 
 **The difficulty curriculum matters:**
 
-| Training Phase | Problem Difficulty | Rationale |
-|---------------|-------------------|-----------|
-| Early RL | Easy–medium (>50% solve rate) | Model needs positive reward signal to learn |
-| Mid RL | Medium–hard (20–50% solve rate) | Push the frontier of reasoning capability |
-| Late RL | Hard (5–20% solve rate) | Develop sophisticated multi-step strategies |
+| Training Phase | Problem Difficulty              | Rationale                                   |
+| -------------- | ------------------------------- | ------------------------------------------- |
+| Early RL       | Easy–medium (>50% solve rate)   | Model needs positive reward signal to learn |
+| Mid RL         | Medium–hard (20–50% solve rate) | Push the frontier of reasoning capability   |
+| Late RL        | Hard (5–20% solve rate)         | Develop sophisticated multi-step strategies |
 
 If problems are too hard too early, the model gets near-zero reward and learns nothing. If problems are too easy throughout, the model never develops deep reasoning. **Curriculum design is as important as the RL algorithm.**
 
@@ -388,12 +390,12 @@ This data comes from the model itself — you don't need external annotation. Th
 
 **What makes a "best" trace among correct ones?**
 
-| Criterion | How to Measure | Why It Matters |
-|-----------|---------------|----------------|
-| **Conciseness** | Token count | Shorter correct traces are more efficient |
-| **Logical flow** | LLM judge or heuristics | Clear reasoning → better downstream SFT signal |
-| **Minimal backtracking** | Count "wait"/"actually" patterns | Some backtracking is good; excessive is wasteful |
-| **Verification presence** | Regex/LLM check for "let me verify" | Self-verification → more reliable reasoning |
+| Criterion                 | How to Measure                      | Why It Matters                                   |
+| ------------------------- | ----------------------------------- | ------------------------------------------------ |
+| **Conciseness**           | Token count                         | Shorter correct traces are more efficient        |
+| **Logical flow**          | LLM judge or heuristics             | Clear reasoning → better downstream SFT signal   |
+| **Minimal backtracking**  | Count "wait"/"actually" patterns    | Some backtracking is good; excessive is wasteful |
+| **Verification presence** | Regex/LLM check for "let me verify" | Self-verification → more reliable reasoning      |
 
 ### 4.4 Alignment Data: Preference Pairs for Reasoning
 
@@ -416,7 +418,7 @@ Prompt: "What's 2 + 2?"
 
 Response A (rejected — overthinking):
 <thinking>
-Let me carefully consider this arithmetic problem. 
+Let me carefully consider this arithmetic problem.
 2 + 2 means I need to add the integer 2 to itself.
 In the natural numbers, addition is defined recursively...
 [500 tokens of unnecessary reasoning]
@@ -440,7 +442,7 @@ Assume √2 = p/q where p, q are integers with no common factors.
 Then 2 = p²/q², so p² = 2q².
 This means p² is even, so p must be even. Let p = 2k.
 Then (2k)² = 2q², so 4k² = 2q², so q² = 2k².
-This means q is also even — contradicting our assumption 
+This means q is also even — contradicting our assumption
 that p and q have no common factors.
 Therefore √2 is irrational.
 </thinking>
@@ -450,12 +452,12 @@ Therefore √2 is irrational.
 
 ### 4.5 Data Taxonomy Summary
 
-| Stage | Data Type | Volume | Key Property | Source |
-|-------|-----------|--------|-------------|--------|
-| Cold-Start SFT | Reasoning demonstrations | 1K–10K | High quality, explicit reasoning patterns | Expert-written, distilled, existing solutions |
-| RL Training | Problems with verifiable answers | 100K–1M+ | Auto-verifiable correctness | Math datasets, code problems, synthetic generation |
-| Rejection Sampling | Self-generated successful traces | 100K–500K | Best-of-N from model's own output | Automated pipeline (no human annotation) |
-| Alignment | Preference pairs with reasoning | 10K–100K | Human judgment on answer + trace quality | Human annotators |
+| Stage              | Data Type                        | Volume    | Key Property                              | Source                                             |
+| ------------------ | -------------------------------- | --------- | ----------------------------------------- | -------------------------------------------------- |
+| Cold-Start SFT     | Reasoning demonstrations         | 1K–10K    | High quality, explicit reasoning patterns | Expert-written, distilled, existing solutions      |
+| RL Training        | Problems with verifiable answers | 100K–1M+  | Auto-verifiable correctness               | Math datasets, code problems, synthetic generation |
+| Rejection Sampling | Self-generated successful traces | 100K–500K | Best-of-N from model's own output         | Automated pipeline (no human annotation)           |
+| Alignment          | Preference pairs with reasoning  | 10K–100K  | Human judgment on answer + trace quality  | Human annotators                                   |
 
 ---
 
@@ -463,11 +465,11 @@ Therefore √2 is irrational.
 
 ### To Show or Hide the Thinking Trace?
 
-| Option | Pros | Cons |
-|--------|------|------|
-| **Always hidden** (o1) | Cleaner UX, protects IP | Users can't verify reasoning, harder to debug |
-| **Always shown** (DeepSeek-R1) | Transparent, educational, debuggable | Verbose, may confuse non-technical users |
-| **User-controlled toggle** (Claude 3.7) | Best of both worlds | More complex UX, users must understand the option |
+| Option                                  | Pros                                 | Cons                                              |
+| --------------------------------------- | ------------------------------------ | ------------------------------------------------- |
+| **Always hidden** (o1)                  | Cleaner UX, protects IP              | Users can't verify reasoning, harder to debug     |
+| **Always shown** (DeepSeek-R1)          | Transparent, educational, debuggable | Verbose, may confuse non-technical users          |
+| **User-controlled toggle** (Claude 3.7) | Best of both worlds                  | More complex UX, users must understand the option |
 
 ### Budget Forcing: Controlling Thinking Length
 
@@ -529,26 +531,31 @@ Small Thinking Model (7B-14B)
 ## References
 
 ### Thinking Models
+
 1. **OpenAI o1** — "Learning to Reason with LLMs" (2024) — First major thinking model release
 2. **DeepSeek-R1** — Guo et al., 2025 — Open-source thinking model with detailed training methodology
 3. **QwQ** — Qwen Team, 2024 — Open-weight thinking model
 
 ### Test-Time Compute Scaling
+
 4. **Scaling LLM Test-Time Compute Optimally** — Snell et al., 2024 — Foundational work on inference-time scaling laws
 5. **Let's Verify Step by Step** — Lightman et al., 2023 — Process reward models for math reasoning
 
 ### RL for Reasoning
+
 6. **DeepSeekMath** — Shao et al., 2024 — GRPO for mathematical reasoning
 7. **Star** — Zelikman et al., 2022 — Self-Taught Reasoner: bootstrapping reasoning via rationalization
 8. **ReST** — Gulcehre et al., 2023 — Reinforced Self-Training for language models
 9. **STILL-2** — Slow Thinking with LLMs, 2024 — Training recipe analysis for thinking models
 
 ### Chain-of-Thought and Reasoning
+
 10. **Chain-of-Thought Prompting** — Wei et al., 2022 — The foundational prompting technique
 11. **Self-Consistency** — Wang et al., 2023 — Sampling multiple reasoning paths and majority voting
 12. **Tree of Thoughts** — Yao et al., 2023 — Deliberate problem solving with LLMs
 
 ### Post-Training Foundations
+
 13. **PPO** — Schulman et al., 2017 — Proximal Policy Optimization
 14. **GRPO** — Group Relative Policy Optimization (used in DeepSeek-R1 and DeepSeekMath)
 15. **DPO** — Rafailov et al., 2023 — Direct Preference Optimization
