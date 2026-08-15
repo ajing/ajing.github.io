@@ -1,7 +1,7 @@
 ---
 author: Jing Lu
 pubDatetime: 2026-08-14T19:35:03-07:00
-title: "从一次工具调用到一次策略更新：Agent RL 的可复现最小闭环"
+title: "From Tool Calls to Policy Updates: A Reproducible Agent RL Stack"
 featured: true
 draft: false
 tags:
@@ -12,26 +12,26 @@ tags:
   - Post Training
   - Systems
   - Evaluation
-description: "一份可复现的 Agent RL 技术蓝图：环境 snapshot、verifier、credit assignment、三类 policy、generator–trainer async、partial rollout，以及可运行的 smoke test。"
+description: "A reproducible blueprint for Agent RL: environment snapshots, verifier contracts, credit assignment, three-policy semantics, asynchronous generation and training, partial rollouts, and runnable smoke tests."
 ---
 
-> Agent RL 真正困难的地方，不是选 PPO 还是 GRPO，而是证明一段环境交互如何变成了可信的梯度。
+> The hard part of Agent RL is not choosing PPO over GRPO. It is proving that an environment interaction became a trustworthy gradient.
 
-副标题：**三份 contract、一个因果测试，以及一套可以从单机 smoke 开始搭建的 reference implementation。**
+**Three contracts, one causal test, and a reference implementation that starts with a single-machine smoke run.**
 
-很多 Agent RL 介绍都会从算法名开始：PPO、GRPO、RLOO、DAPO。这样很容易把一个系统问题写成 loss function 综述。
+Most introductions to Agent RL begin with algorithm names: PPO, GRPO, RLOO, DAPO. That framing turns a systems problem into a survey of loss functions.
 
-但如果一条 trajectory 最终得了 1 分，我们仍然要回答五个问题：
+Suppose a trajectory receives reward 1. We still need to answer five questions:
 
-1. Agent 改变的究竟是哪一个环境状态？
-2. 这个 1 分来自独立 verifier，还是 agent 自己声称“完成了”？
-3. 成功应该归因于哪一个 turn、tool call 或 token？
-4. 这些动作究竟由哪个 `π_beh` 采样，它与当前被更新的 `π_train` 相差多远？
-5. 比较 checkpoints 时，prompt、tools、memory、sampler 和执行 scaffold 是否保持不变？
+1. Which environment state did the agent actually change?
+2. Did an independent verifier assign the reward, or did the agent merely claim success?
+3. Which turn, tool call, or token deserves credit?
+4. Which `π_beh` sampled the actions, and how far is it from the `π_train` being updated?
+5. When comparing checkpoints, did the prompt, tools, memory, sampler, and execution scaffold remain fixed?
 
-任何一个问题答不清，训练曲线都可能上涨，但我们不知道模型学到了什么。
+If any answer is missing, the training curve can rise while the learned behavior remains unknown.
 
-本文不做一份 Agent RL 百科。我只搭一个最小、可运行、可审计的闭环：
+This article is not an Agent RL encyclopedia. It builds one minimal, runnable, auditable loop:
 
 ```text
 Task sampler → resettable environment → agent rollout
@@ -39,72 +39,70 @@ Task sampler → resettable environment → agent rollout
 held-out eval ← policy update ← credit ← verifier
 ```
 
-全文使用同一套 reference implementation。读完后，你应该可以把 terminal、browser 或 API agent 接进来，先跑通一个小规模实验，再决定是否需要更复杂的 credit assignment 和分布式系统。
+The same reference implementation runs throughout the article. You should be able to connect a terminal, browser, or API agent; execute a small experiment; and only then decide whether you need more sophisticated credit assignment or distributed infrastructure.
 
-整个系统可以压缩成三份合同：
+The system reduces to three contracts:
 
-- **Transition Contract**：环境里到底发生了什么？
-- **Verification Contract**：终态为什么应该得到这个 reward？
-- **Update Contract**：这个 reward 如何对应到 action token 和 policy update？
+- **Transition Contract:** What happened in the environment?
+- **Verification Contract:** Why does the terminal state deserve this reward?
+- **Update Contract:** How does that reward map to action tokens and a policy update?
 
----
+## 1. Define the training object: an agent is a POMDP policy
 
-## 1. 先确定训练对象：Agent 是一个 POMDP policy
+The key difference between an agent and single-turn RLVR is that an action changes the world observed later.
 
-Agent 与普通单轮 RLVR 的关键差别，是动作会改变后续可见的世界。
-
-一条轨迹可以写成：
+A trajectory is:
 
 ```text
 τ = (o₀, a₀, o₁, a₁, …, o_T)
 ```
 
-真实状态 `s_t` 通常不可完全观察：数据库里可能有 agent 没读到的值，GUI 可能落后于磁盘，用户意图也可能只被部分表达。因此 policy 实际依赖的是历史：
+The true state `s_t` is usually only partially observable. A database can contain values the agent has not read; a GUI can lag behind disk; and the user's intent may be only partially specified. The policy therefore conditions on history:
 
 ```text
 πθ(a_t | h_t),  h_t = (o_≤t, a_<t)
 ```
 
-这更接近 [POMDP](https://people.csail.mit.edu/lpk/papers/aij98-pomdp.pdf)。一次 LLM call 还可以被视为一个持续时间不固定的 macro action，因此长程 agent 往往也带有 SMDP/options 的味道。
+This is naturally a [POMDP](https://people.csail.mit.edu/lpk/papers/aij98-pomdp.pdf). An LLM call can also be viewed as a variable-duration macro action, so long-horizon agents often have an SMDP or options flavor.
 
-### 最重要的工程选择：动作粒度
+### The first engineering choice: action granularity
 
-对 tool-using agent，环境层的动作通常是整个 tool call：
+At the environment layer, a tool-using agent usually emits one complete tool call:
 
 ```json
 { "kind": "tool", "name": "read_file", "args": { "path": "src/app.py" } }
 ```
 
-但 policy gradient 最终落在生成这段动作的 token 上：
+The policy gradient, however, lands on the action tokens:
 
 ```text
 log πθ(a_t | h_t)
 = Σ_{k ∈ action_mask_t} log πθ(y_{t,k} | h_t, y_{t,<k})
 ```
 
-`tool result`、system prompt、用户文本和其他 agent 的输出不是当前 policy 的动作，必须从 loss 中 mask 掉。否则模型会被训练去“预测环境返回了什么”，而不是学习应该做什么。
+Tool results, system prompts, user text, and other agents' outputs are not actions of the current policy and must be masked out of the loss. Otherwise the model is trained to predict what the environment returned rather than what it should do.
 
-安全也不宜全部塞进一个可相互抵消的 scalar：
+Safety should not be compressed into one scalar whose terms can cancel:
 
 ```text
 maximize   E[R_task]
 subject to E[C_unsafe] ≤ d
 ```
 
-严重越权、grader tampering 和不可逆副作用更适合作为 hard gate 或 constrained objective，而不是允许它们被高 task reward 抵消。
+Severe authorization violations, grader tampering, and irreversible side effects belong behind hard gates or constrained objectives, not in a scalar that high task reward can offset.
 
-### Policy boundary：训练的不是一个裸 checkpoint
+### The policy boundary is larger than a checkpoint
 
-对 Agent，真正被部署和评测的 policy 不只是模型参数：
+For an agent, the deployed and evaluated policy is not just its weights:
 
 ```text
 Π = (weights, system prompt, chat template, tool schemas,
      parser/canonicalizer, memory/compactor, retry/budget, sampler)
 ```
 
-只改 system prompt、多轮 history propagation 或 tool-call template，就可能显著改变结果；因此把 scaffold 变化算成“模型能力提升”是混淆。[一项系统研究 tool-calling evaluation pipeline 的工作](https://arxiv.org/abs/2606.00135)也显示，seed、system prompt、多轮模板和 history propagation 都会改变评测表现。
+Changing only the system prompt, history propagation, or tool-call template can change results substantially. Attributing such gains to model capability is therefore a confounding error. A [systematic study of tool-calling evaluation pipelines](https://arxiv.org/abs/2606.00135) likewise finds sensitivity to seeds, system prompts, multi-turn templates, and history propagation.
 
-最小实现应增加一个不可变的 `PolicyManifest`：
+The minimum implementation needs an immutable `PolicyManifest`:
 
 ```yaml
 policy_version: ckpt-0007
@@ -121,13 +119,13 @@ step_budget: 8
 sampler: { temperature: 1.0, top_p: 1.0, top_k: null }
 ```
 
-所有 rollout、update 和 eval 都引用这个 manifest，而不是只写一个 checkpoint name。最小敏感性测试也要成对进行：固定权重只换 scaffold，测量 pipeline variance；固定 scaffold 比较 checkpoints，才把差异归到训练更新。
+Every rollout, update, and evaluation should reference this manifest rather than a checkpoint name alone. Run a paired sensitivity test: hold weights fixed and vary the scaffold to measure pipeline variance; then hold the scaffold fixed across checkpoints so differences can be attributed to training updates.
 
 ---
 
-## 2. Transition Contract：Environment 不是 prompt wrapper
+## 2. Transition Contract: an environment is not a prompt wrapper
 
-一个能训练的环境至少需要四个能力：精确 reset、执行 typed action、导出权威状态、独立验证结果。如果要做局部 credit，还需要 snapshot/restore。
+A trainable environment needs at least four capabilities: exact reset, typed-action execution, authoritative-state export, and independent outcome verification. Local credit assignment additionally requires snapshot and restore.
 
 ```python
 from dataclasses import dataclass
@@ -170,72 +168,72 @@ class Verifier(Protocol):
     def score(self, task_id: str, final_state: bytes) -> dict[str, float]: ...
 ```
 
-`Verifier` 被刻意放在 `AgentEnv` 外面。Agent 可以观察环境，但不能控制最终评分进程。Scorer、hidden tests 和 reference artifacts 应由独立身份重新 provision 到 immutable、read-only、agent 无写权限的 namespace，再对最终 artifact 复验；不能相信 agent 自己跑出的 `pytest passed`。一个新的 rootless container 可以是实现层，但它本身不是完整安全边界；高风险任意代码仍需更强隔离和最小权限。
+`Verifier` is deliberately separate from `AgentEnv`. The agent may observe the environment but must not control the scoring process. Reprovision scorers, hidden tests, and reference artifacts under an independent identity in an immutable, read-only namespace the agent cannot write, then verify the final artifact there. Do not trust the agent's own `pytest passed` message. A fresh rootless container is an implementation layer, not a complete security boundary; high-risk arbitrary code execution still needs stronger isolation and least privilege.
 
-### Snapshot 是状态契约，不只是“保存一下”
+### A snapshot is a state contract, not just a saved image
 
-最基础的 outcome-RL 只要求每个 episode 能从同一初始状态 reset；但只要需要精确复现、故障恢复或 turn-level branching，snapshot 就会变成 environment 的一等公民。至少要区分三类：
+Outcome-only RL requires every episode to reset reproducibly to its task-specific initial state. Precise replay, fault recovery, and turn-level branching make snapshots first-class environment objects. At minimum, distinguish three kinds:
 
-| Snapshot                     | 创建位置                           | 用途                                                                   |
-| ---------------------------- | ---------------------------------- | ---------------------------------------------------------------------- |
-| **Base / reset snapshot**    | task 初始化完成、policy 尚未动作时 | 让 sibling rollouts 共享完全相同的起点                                 |
-| **Branch snapshot**          | 某个动作生成之前                   | 从同一个 `(h_t, s_t)` fork 多个 continuation，估计局部反事实 advantage |
-| **Sealed terminal snapshot** | episode 结束后                     | 封存后交给独立 verifier，保留最终状态和副作用证据；不再暴露给 agent    |
+| Snapshot                     | Created                                           | Purpose                                                                                                          |
+| ---------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Base / reset snapshot**    | After task initialization, before the policy acts | Give sibling rollouts exactly the same starting point                                                            |
+| **Branch snapshot**          | Immediately before an action is generated         | Fork continuations from the same `(h_t, s_t)` to estimate a local counterfactual advantage                       |
+| **Sealed terminal snapshot** | After the episode ends                            | Preserve terminal state and side-effect evidence for an independent verifier; never expose it to the agent again |
 
-Snapshot fidelity 的硬性测试不是“restore 没报错”，而是：
+The hard test for snapshot fidelity is not “restore returned without an error.” It is:
 
 ```text
 restore(S_t); replay(a_t, …, a_n)
-    ⇒ 相同 observations、state hashes、terminal reward
+    ⇒ identical observations, state hashes, and terminal reward
 
-fork(S_t, seed=i) 与 fork(S_t, seed=j)
-    ⇒ 写入互相隔离，且都不能污染 S_t
+fork(S_t, branch_id=i) and fork(S_t, branch_id=j)
+    ⇒ writes remain isolated and neither branch can mutate S_t
 ```
 
-一个有效 snapshot 至少要覆盖四层状态：
+A valid snapshot must cover at least four layers:
 
-1. **可变世界状态**：filesystem、database、browser cookies/local storage、应用 buffer、tool cache，以及 agent 写入的外部 memory；
-2. **熵源**：environment RNG、mock clock、队列顺序和可控服务响应；如果依赖真实互联网或共享 SaaS，就只能声称 partial replay，除非使用 simulator 或 record/replay；
-3. **provenance**：task、parent snapshot、environment image、schema/version 和 content hash；
-4. **Agent prefix**：world snapshot 并不包含 `h_t`。做 branch 时还必须保存 exact context tokens、retrieval/memory state、behavior-policy version 和 sampling config。
+1. **Mutable world state:** filesystem, database, browser cookies and local storage, application buffers, tool caches, and external memory written by the agent.
+2. **Entropy sources:** environment RNG, mock clock, queue ordering, and controllable service responses. With the live internet or shared SaaS, claim only partial replay unless the environment uses simulation or record/replay.
+3. **Provenance:** task, parent snapshot, environment image, schema/version, and content hash.
+4. **Agent prefix:** a world snapshot does not contain `h_t`. A branch also needs exact context tokens, retrieval and memory state, behavior-policy version, and sampling configuration.
 
-因此真正的 branch point 不是一个裸 `snapshot_id`，而是：
+The real branch point is therefore not a bare `snapshot_id`:
 
 ```text
 B_t = (snapshot_ref, context_token_ids, memory_ref,
        behavior_policy_version, sampling_config)
 ```
 
-不同环境的实现方式不同：
+Implementations differ by environment:
 
-| 环境                    | 最小 snapshot backend                                                          | 常见缺口                                              |
-| ----------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| Python state machine    | canonical JSON/MessagePack + content hash；branch 使用 copy-on-write           | 隐藏的 global RNG、mutable singleton                  |
-| Stateful API / database | 每 episode 独立 DB/schema + transaction/savepoint 或逻辑 dump                  | 外部 job、cache、共享账户没有一起回滚                 |
-| Terminal / container    | immutable base image + 独立 writable overlay；必要时先 quiesce 再做应用级 dump | filesystem layer 不包含 RAM、socket 和未 flush buffer |
-| Browser / GUI           | server DB + browser profile + cookies/local storage + fixed clock              | screenshot 或 DOM 不是权威状态                        |
-| OS / 长驻进程           | VM/microVM memory snapshot，或退回应用级 checkpoint                            | 恢复成本高，外部设备和网络仍可能漂移                  |
+| Environment             | Minimal snapshot backend                                                                                       | Common gap                                                          |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Python state machine    | Canonical JSON/MessagePack plus a content hash; copy-on-write branches                                         | Hidden global RNG or mutable singletons                             |
+| Stateful API / database | An isolated database or schema per episode, plus transaction/savepoint or logical dump                         | External jobs, caches, or shared accounts do not roll back          |
+| Terminal / container    | Immutable base image plus an isolated writable overlay; quiesce and take an application-level dump when needed | A filesystem layer omits RAM, sockets, and unflushed buffers        |
+| Browser / GUI           | Server database plus browser profile, cookies/local storage, and a fixed clock                                 | A screenshot or DOM is not authoritative state                      |
+| OS / resident process   | VM or microVM memory snapshot, otherwise an application-level checkpoint                                       | Restore is expensive; devices and external networks can still drift |
 
-[OSWorld](https://arxiv.org/abs/2404.07972) 为任务提供初始状态配置与 execution-based evaluator，[AppWorld](https://arxiv.org/abs/2407.18901) 用状态单测检查目标和 collateral damage；它们说明为什么“可见页面相同”不足以定义相同状态。后文的 [BPO](https://arxiv.org/abs/2607.14171) 则直接利用中间 snapshot 和 sibling forks 做局部 credit，但它仍是 2026 年的新工作。
+[OSWorld](https://arxiv.org/abs/2404.07972) provides initial-state setup and execution-based evaluators. [AppWorld](https://arxiv.org/abs/2407.18901) uses state-based tests for both task goals and collateral damage. Both illustrate why “the page looks the same” is not a state-equivalence criterion. [BPO](https://arxiv.org/abs/2607.14171) uses intermediate snapshots and sibling forks for local credit, but remains a 2026 preprint.
 
-### 可以直接使用的 component
+### Components you can use directly
 
-| 层                   | 最小实现                                      | 需要扩展时                                                         |
-| -------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
-| Terminal / code 环境 | Python adapter + Docker + `pytest`/state diff | Terminal-Bench 风格 container tasks                                |
-| Stateful API         | 内存数据库 + typed tools                      | [τ-bench](https://arxiv.org/abs/2406.12045) / ToolSandbox 风格环境 |
-| Web / GUI            | 本地固定版本网站 + browser driver             | WebArena / OSWorld 风格 evaluator                                  |
-| Snapshot substrate   | canonical state + content-addressed manifest  | per-episode DB、copy-on-write overlay、必要时 VM snapshot          |
-| Eval harness         | 独立身份 + read-only grader namespace         | [UK AISI Inspect](https://inspect.aisi.org.uk/)                    |
-| 高风险执行           | rootless container、无宿主 secrets、默认无网  | gVisor / microVM、episode-scoped credentials                       |
+| Layer                       | Minimal implementation                                      | When you need more                                                             |
+| --------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Terminal / code environment | Python adapter + Docker + `pytest` or state diff            | Terminal-Bench-style container tasks                                           |
+| Stateful API                | In-memory database + typed tools                            | [τ-bench](https://arxiv.org/abs/2406.12045)- or ToolSandbox-style environments |
+| Web / GUI                   | Version-pinned local website + browser driver               | WebArena- or OSWorld-style evaluator                                           |
+| Snapshot substrate          | Canonical state + content-addressed manifest                | Per-episode databases, copy-on-write overlays, or VM snapshots                 |
+| Evaluation harness          | Independent identity + read-only grader namespace           | [UK AISI Inspect](https://inspect.aisi.org.uk/)                                |
+| High-risk execution         | Rootless container, no host secrets, network off by default | gVisor or microVM, plus episode-scoped credentials                             |
 
-环境最容易被忽略的不是 API，而是 **state authority**。磁盘、应用 buffer 和 rendered GUI 可能同时不同步；“屏幕看起来对”并不等于持久状态正确。每次 mutation 和 completion 最好绑定 state version，并在版本漂移时 fail closed。
+The most neglected environment property is **state authority**. Disk, an application buffer, and the rendered GUI can disagree. “It looks correct on screen” does not prove that persistent state is correct. Bind every mutation and completion claim to a state version, and fail closed when the version has drifted.
 
 ---
 
-## 3. Transition Contract：Rollout 必须能重建梯度
+## 3. Transition Contract: a rollout must be sufficient to reconstruct the gradient
 
-下面这个 JSONL schema 比“保存 prompt 和 response”更接近一个可训练的数据契约：
+The following JSONL record is closer to a trainable data contract than merely storing a prompt and response:
 
 ```json
 {
@@ -274,39 +272,39 @@ B_t = (snapshot_ref, context_token_ids, memory_ref,
 }
 ```
 
-五条规则不能省：
+Five rules are non-negotiable:
 
-1. 保存生成时的 **exact token IDs 和实际 sampler 的 behavior logprobs**；如果做过 temperature/top-p/top-k 变换，最好同时保存 raw-model logprobs。事后重新 tokenize 可能因 chat template、BPE 或 tool-call render 不同而改变序列。
-2. 每条 trajectory 固定一个 `behavior_policy_version`。初版系统不要在 episode 中途热更新权重。
-3. infra error、timeout 和环境启动失败单独记录，不能静默当成 reward=0。
-4. 保存 observation 原文或不可变对象引用，仅有模型“总结后的 observation”不足以重放。
-5. branch rollout 必须记录 parent run、branch point 和 snapshot manifest；只有 snapshot、没有相同的 agent prefix，不能算从同一决策状态出发。
+1. Store the **exact token IDs and behavior log probabilities of the distribution that actually sampled them**. If temperature, top-p, or top-k transformed the distribution, also retain raw-model log probabilities when possible. Retokenizing later can change the sequence because the chat template, BPE revision, or tool-call rendering changed.
+2. Pin one `behavior_policy_version` for the entire trajectory. Do not hot-swap weights halfway through an episode in the first implementation.
+3. Record infrastructure errors, timeouts, and environment startup failures separately. Never turn them silently into reward 0.
+4. Preserve the raw observation or an immutable object reference. A model-generated summary is not sufficient for replay.
+5. For a branch rollout, record its parent run, branch point, and snapshot manifest. The same snapshot without the same agent prefix is not the same decision state.
 
-还要区分两种“可复现”：给定已记录 actions，**environment replay** 必须恢复相同 observation、state hash 和 reward；重新运行 GPU sampling 得到逐 token 完全相同的轨迹，则可能受 kernel 和 inference engine 影响，不应被当作跨平台硬条件。Invalid action 应消耗一个明确的 step、返回结构化错误且不产生未声明副作用，不能由 harness 悄悄替模型修好。
+There are two distinct reproducibility claims. Given recorded actions, **environment replay** should recover the same observations, state hashes, and reward. Re-running GPU sampling need not produce a token-identical trajectory across kernels and inference engines, so do not make that a cross-platform requirement. An invalid action should consume a declared step, return a structured error, and produce no undeclared side effects; the harness must not silently repair it for the model.
 
-初始实现可以同步运行：冻结 checkpoint，完成整批 rollout，再做一次 update。等同步闭环正确后再引入异步。否则 throughput 上升的同时，trajectory 可能来自旧 policy，`π_beh` 与当前 `πθ` 的差距会变成隐藏的 off-policy bias。
+Start synchronously: freeze a checkpoint, finish a complete rollout batch, then perform exactly one optimizer step. Introduce asynchrony only after this loop is correct. Otherwise asynchrony can make trajectories stale, and the distance between `π_beh` and the current `πθ` becomes hidden off-policy bias.
 
-小规模可用 Hugging Face generation；需要吞吐时用 [vLLM](https://arxiv.org/abs/2309.06180) 或 [SGLang](https://arxiv.org/abs/2312.07104)。但无论使用哪个 server，都要确认 API 能返回真实 token IDs/logprobs，而不是只返回重新编码后的文本。
+Hugging Face generation is sufficient at small scale. For throughput, use [vLLM](https://arxiv.org/abs/2309.06180) or [SGLang](https://arxiv.org/abs/2312.07104). In either case, verify that the server returns the true sampled token IDs and log probabilities rather than text that is retokenized after generation.
 
 ---
 
-## 4. Verification Contract：Reward 的上限由 verifier 决定
+## 4. Verification Contract: reward is bounded by verifier quality
 
-Agent RL 最危险的 bug，是一个错误 artifact 被打成高分。它不只污染一个评测样本，还会产生方向错误的梯度。
+The most dangerous Agent RL bug is assigning high reward to an incorrect artifact. It does not merely corrupt one evaluation example; it produces a gradient in the wrong direction.
 
-Verifier 可以按下面的顺序组合：
+Compose verifiers in this order:
 
 ```text
-权威状态检查 / hidden tests / compiler
-                 ↓ hard gate
-规则与 policy invariants
-                 ↓
-独立 semantic judge（只处理剩余开放语义）
-                 ↓
-高风险样本的人类审计
+authoritative state check / hidden tests / compiler
+                         ↓ hard gate
+rules and policy invariants
+                         ↓
+independent semantic judge for residual open-ended semantics
+                         ↓
+human audit of high-risk samples
 ```
 
-一个实用的 score 不应只返回 `reward: 1`：
+A useful score should return more than `reward: 1`:
 
 ```python
 score = {
@@ -327,46 +325,46 @@ constraint_cost = (
 )
 ```
 
-先保留 reward vector，再决定哪些项进入 objective。Tampering 会让测量本身失效，应隔离并停止使用这条样本；policy violation 和 collateral damage 则进入 hard constraint 或单独的 constraint cost。这样可以画 safety–utility frontier，而不是事后猜测总 reward 为什么变化。
+Preserve a reward vector before deciding which terms enter the objective. Tampering invalidates the measurement itself, so quarantine the sample. Policy violations and collateral damage belong in hard constraints or a separate constraint cost. This makes it possible to plot a safety–utility frontier instead of guessing why a composite reward moved.
 
-在具有代表性、由人类或更强外部程序裁决的 audit set 上，Verifier 至少要估计两种错误：
+On a representative audit set adjudicated by humans or a stronger external program, estimate at least two verifier errors:
 
-- false positive：错误结果被接受，容易把错误行为写进 policy；
-- false negative：正确结果被拒绝，主要浪费有效 experience，也可能让策略变得过度保守。
+- **False positive:** an incorrect result is accepted and can write the wrong behavior into the policy.
+- **False negative:** a correct result is rejected, wasting useful experience and potentially making the policy overly conservative.
 
-单独追求低 false positive 并不是免费午餐。Hybrid verifier 可能通过更保守来降低误接收，因此要同时报告 FP、FN、分母与置信区间；只有 verifier 输出可解释概率时才报告 ECE/Brier，只有存在多个 verifier 时才报告 disagreement。Deterministic compiler 或 hidden test 不应被硬套概率 calibration。[Reward-model overoptimization](https://arxiv.org/abs/2210.10760) 也说明，持续优化 proxy reward 可能让 proxy 与真实质量逐渐分离。
+Low false-positive rate is not free. A hybrid verifier may reject more correct outputs simply because it is conservative. Report FP, FN, denominators, and confidence intervals together. Report ECE or Brier score only when the verifier emits interpretable probabilities, and disagreement only when multiple verifiers exist. Do not force probability calibration onto a deterministic compiler or hidden test. In its studied settings, [reward-model overoptimization](https://arxiv.org/abs/2210.10760) also shows that optimizing a proxy can progressively separate proxy reward from true quality; it is not a direct estimate of Agent-verifier error rates.
 
 ---
 
-## 5. Update Contract：GRPO 解决了 baseline，不等于解决长程归因
+## 5. Update Contract: GRPO removes a critic, not the long-horizon attribution problem
 
-假设同一个 task、同一个初始状态、同一个 behavior `PolicyManifest` 产生 `G` 条 sibling trajectories。最简单的 critic-free estimator 是 RLOO：
+Suppose the same task, initial state, and behavior `PolicyManifest` produce `G` sibling trajectories. The simplest critic-free estimator is RLOO:
 
 ```text
 A_i = R_i - (1 / (G - 1)) Σ_{j ≠ i} R_j
 ```
 
-[RLOO](https://aclanthology.org/2024.acl-long.662/) 用其他 samples 的平均 reward 作为第 `i` 条轨迹的 baseline。GRPO 常使用组内标准化：
+[RLOO](https://aclanthology.org/2024.acl-long.662/) uses the mean reward of the other samples as the baseline for trajectory `i`. GRPO commonly normalizes within a group:
 
 ```text
 A_i = (R_i - mean(R₁:G)) / (std(R₁:G) + ε)
 ```
 
-它们都省去了独立 critic，适合 outcome verifier 强、episode 较短、能为同一 task 采样多个结果的场景。[DeepSeekMath](https://arxiv.org/abs/2402.03300) 是 GRPO 的主要公开来源。
+Both avoid a separate critic. They fit settings with a strong outcome verifier, relatively short episodes, and multiple samples from the same task. [DeepSeekMath](https://arxiv.org/abs/2402.03300) is the primary public source for GRPO.
 
-Group 必须由同一 task、同一初始 environment seed 和同一 behavior `PolicyManifest` 构成；不能把难度完全不同的任务混在一起做 reward normalization，再把相对 task 难度误当成 action quality。
+A group must share the task, initial environment seed, and behavior `PolicyManifest`. Do not normalize rewards across unrelated task difficulties and mistake relative task difficulty for action quality.
 
-如果 siblings 在给定 task/checkpoint 后条件独立、单条轨迹成功概率是 `p`，Bernoulli reward 的整个 group 没有相对信号的概率是：
+If siblings are conditionally independent given the task and checkpoint, and a trajectory succeeds with probability `p`, the probability that a Bernoulli-reward group has no relative signal is:
 
 ```text
 P(zero variance) = p^G + (1-p)^G
 ```
 
-任务太容易时全部成功，太难时全部失败；两端都没有 group-relative gradient。这说明 task sampling 确实是 RL estimator 的一部分。但 **有 reward variance 只代表能产生梯度，不代表这批 experience 会改善 held-out capability**。
+Easy tasks yield all successes; tasks that are too hard yield all failures. Neither supplies a group-relative gradient. Task sampling is therefore part of the RL estimator. But **reward variance means only that a batch can produce a gradient; it does not mean the experience will improve held-out capability.**
 
-### Optimization unit：token、turn 和 trajectory 不是同一个目标
+### Optimization unit: token, turn, and trajectory are different objectives
 
-如果研究目标是 expected episode return，score-function 项是 `A_i Σ_t log π(a_i,t|h_i,t)`，只能除以与该样本实际长度无关的常数而不改变这个 estimand。下面三个看起来只差一个 `mean` 的目标，实际优化的却是不同的长度加权分布：
+If the estimand is expected episode return, the score-function term is `A_i Σ_t log π(a_i,t|h_i,t)`. Dividing it by a constant that depends on the sampled trajectory length changes the estimand. The following objectives differ by only a `mean`, yet weight the length distribution differently:
 
 ```text
 L_episode  = (1/B) Σ_i Σ_t ℓ_i,t
@@ -374,69 +372,69 @@ L_len_norm = (1/B) Σ_i [(1/T_i) Σ_t ℓ_i,t]
 L_token    = (1/Σ_i T_i) Σ_i Σ_t ℓ_i,t
 ```
 
-`L_episode` 对应 episode-return policy-gradient baseline；`L_len_norm` 让每条 trajectory 的总标量权重近似相同，因此长轨迹的单 token 系数更小；`L_token` 则按本批实际 token 总数形成 ratio estimator。把多轮轨迹拆成 turn samples 后再求均值，还会再次改变每条 episode 的权重。后两者可以是有意降低方差或控制长度的 surrogate，但不能再宣称与原始 expected-return estimand 相同。
+`L_episode` is the episode-return policy-gradient objective. `L_len_norm` gives each trajectory approximately equal total scalar weight and therefore gives each token in a long trajectory a smaller coefficient. `L_token` forms a ratio estimator using the batch's realized token count. Splitting a multi-turn trajectory into turn samples and averaging changes episode weights again. The latter two may be deliberate variance- or length-control surrogates, but they are not the original expected-return estimand.
 
-GRPO 的 `/std(R_group)` 也不是无害的数值稳定技巧：它会按组内 reward scale 重新加权 task groups，接近零但非零的方差尤其敏感。[Dr.GRPO](https://arxiv.org/abs/2503.20783) 正是从 group-std 与 response-length normalization 的偏差出发修改目标；[STEPO](https://arxiv.org/abs/2607.09773) 则在多轮场景显式约束 turn-level credit mass。后者是 2026 年的新方法，应作为 ablation 候选而不是默认最佳实践。
+Dividing by `std(R_group)` is not merely a numerical stabilization trick either: it reweights task groups by within-group reward scale and becomes especially sensitive near zero variance. [Dr.GRPO](https://arxiv.org/abs/2503.20783) modifies the objective in response to group-standard-deviation and response-length normalization bias. [STEPO](https://arxiv.org/abs/2607.09773) explicitly constrains turn-level credit mass in multi-turn settings. STEPO is a 2026 method and belongs in an ablation, not as a default best practice.
 
-最小 `LossReducer` 对照是：
+The minimal `LossReducer` comparison is:
 
 ```yaml
 reduction: episode_sum # vs length_normalized vs token_mean vs turn_mass_conserving
 group_reward_scale: none # vs std
 ```
 
-除最终 success 外，还要按 success/failure、trajectory length、turn count 和 task family 报告每条 episode 的 gradient mass；否则 reward 上升可能只是优化器开始偏爱某一长度区间。
+In addition to final success, report per-episode gradient mass by success/failure, trajectory length, turn count, and task family. Otherwise reward can rise simply because the optimizer learned to favor one length band.
 
-### Dense score 不等于 causal credit
+### A dense score is not causal credit
 
-如果同一个 `A_i` 被广播给 trajectory 中所有 action tokens，我们只知道“这条轨迹整体比 siblings 好”，并不知道哪个 tool call 真正造成了成功。一个前面偶然有效的探索动作和后面无关的冗长输出会得到同样符号的 credit。类似地，给每一步一个 dense score 也不自动产生 causal credit：step score 可能只是与最终成功相关，而不是该动作改变了成功概率。
+Broadcasting one `A_i` to every action token says only that the trajectory outperformed its siblings. It does not identify the tool call that caused success. An early exploratory action that mattered and a late, irrelevant verbose action receive the same sign. A score at every step does not solve the problem automatically either: a step score can correlate with success without the action changing the probability of success.
 
-### 什么时候升级 credit estimator
+### When to upgrade the credit estimator
 
-| 观测到的问题                    | 更合适的技术                                                        | 代价/假设                                 |
-| ------------------------------- | ------------------------------------------------------------------- | ----------------------------------------- |
-| 短任务、强 outcome verifier     | RLOO / GRPO                                                         | trajectory-level credit 较粗              |
-| 有可信 step reward              | PPO + critic + [GAE](https://arxiv.org/abs/1506.02438)              | critic 计算与偏差                         |
-| 只需在 turns 间重分配总 credit  | STEPO 式 mass redistribution                                        | 改变权重，不识别反事实因果                |
-| 同一状态在轨迹中重复出现        | [GiGPO](https://arxiv.org/abs/2505.10978) 式 anchor-state grouping  | 需要可靠 state matching                   |
-| 有冻结 reference 和已知目标答案 | [TRACE](https://arxiv.org/abs/2607.13988) 式 tool-boundary TD proxy | proxy quality 依赖 reference；2026 新证据 |
-| 环境可以 snapshot/restore       | [BPO](https://arxiv.org/abs/2607.14171) 式 sibling branches         | fork 成本与 restore fidelity；2026 新证据 |
-| 轨迹跨越 context window         | segment critic / compaction + cross-segment credit                  | summary 可能丢失充分状态                  |
+| Observed problem                            | Better technique                                                       | Cost or assumption                                          |
+| ------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Short task with a strong outcome verifier   | RLOO / GRPO                                                            | Coarse trajectory-level credit                              |
+| Trustworthy step reward exists              | PPO + critic + [GAE](https://arxiv.org/abs/1506.02438)                 | Critic cost and bias                                        |
+| Only redistribute total credit across turns | STEPO-style mass redistribution                                        | Reweights turns; does not identify counterfactual causality |
+| The same state recurs within a trajectory   | [GiGPO](https://arxiv.org/abs/2505.10978)-style anchor-state grouping  | Requires reliable state matching                            |
+| Frozen reference and known target answer    | [TRACE](https://arxiv.org/abs/2607.13988)-style tool-boundary TD proxy | Depends on reference quality; 2026 evidence                 |
+| Environment supports snapshot and restore   | [BPO](https://arxiv.org/abs/2607.14171)-style sibling branches         | Fork cost and restore fidelity; 2026 evidence               |
+| Trajectory crosses the context window       | Segment critic or compaction with cross-segment credit                 | A summary can lose sufficient state                         |
 
-对于 snapshotable 环境，可以在同一个状态 `s_t` fork `K` 个动作并 rollout 到结束：
+In a snapshotable environment, fork `K` actions from the same state `s_t` and roll each continuation to termination:
 
 ```text
 S_t = env.snapshot();  H_t = exact_agent_prefix()
 
 for k in 1..K:
-    env_k = env.fork(S_t, branch_id=str(k))   # 继承相同 env RNG state
+    env_k = env.fork(S_t, branch_id=str(k))   # same env RNG state
     τ_t,k = rollout(env_k, prefix=H_t, policy=π_beh,
                     policy_sampling_seed=k)
 
 A_t,k = G_t,k - (1 / (K - 1)) Σ_{j ≠ k} G_t,j
 ```
 
-因为 sibling continuations 共享同一个世界状态和 agent prefix，这个比较比从不同初始轨迹减均值更接近局部反事实。`branch_id` 只负责隔离写入，不能偷偷改变 environment randomness；探索差异来自 policy sampling。实际实现还必须给每个 branch 相同的 remaining-step/token budget，并验证 branch isolation；否则“更高 return”可能只是某一支获得了更多计算。它也只在 snapshot 真实、环境随机性被控制时成立，不是任意开放环境中的万能因果识别。
+Because sibling continuations share both world state and agent prefix, this comparison is closer to a local counterfactual than subtracting rewards from unrelated initial trajectories. `branch_id` isolates writes; it must not silently alter environment randomness. Exploration differences should come only from policy sampling. Every branch needs the same remaining step and token budgets, plus an isolation test, or higher return may merely reflect more compute. The argument also relies on faithful snapshots and controlled environment randomness; it is not universal causal identification for open environments.
 
-无论选择哪一种 `CreditEngine`，都应增加一个小规模因果审计：在固定 snapshot 上删除、替换或重新采样被赋予高 credit 的 action，测量 terminal return delta，并报告 estimated credit 与 intervention delta 的 rank correlation。它不能证明全局最优，但能排除“漂亮的 dense score 与真实作用完全无关”。同时始终保留 outcome-only arm，避免 process reward 自己成为新的可攻击 proxy。
+Whatever the `CreditEngine`, add a small causal audit. At a fixed snapshot, delete, replace, or resample actions assigned high credit; measure the change in terminal return; and report rank correlation between estimated credit and intervention delta. This cannot prove global optimality, but it can reject a dense score that is unrelated to action effect. Keep an outcome-only arm so the process reward does not become a new attackable proxy.
 
-一个重要区分是：DAPO/DPPO 主要改善 sampling、loss aggregation 或 trust region；它们不会自动回答“哪个 turn 导致成功”。[DAPO](https://arxiv.org/abs/2503.14476) 的 dynamic sampling 可以减少零方差 group，[DPPO](https://arxiv.org/abs/2602.04879)（2026 preprint）用更直接的 KL/TV divergence 估计约束更新；credit assignment 仍需单独设计。
+DAPO and DPPO mostly change sampling, aggregation, or trust-region control. They do not answer which turn caused success. [DAPO](https://arxiv.org/abs/2503.14476) uses dynamic sampling to reduce zero-variance groups. [DPPO](https://arxiv.org/abs/2602.04879), a 2026 preprint, constrains updates using more direct KL/TV divergence estimates. Credit assignment remains a separate design decision.
 
 ---
 
-## 6. Update Contract：把 estimator、objective 和系统分开
+## 6. Update Contract: separate the estimator, objective, and system
 
-### 先写清楚三个 policy
+### Name the three policies
 
-一个可靠的实现不能把所有旧模型都叫作 `old_policy`：
+A reliable implementation cannot call every previous model `old_policy`:
 
-| 符号     | 角色                                     | 必须保存什么                                                   |
-| -------- | ---------------------------------------- | -------------------------------------------------------------- |
-| `π_beh`  | 真正产生 action 的 behavior distribution | generator build、完整 sampler/grammar、逐 action-token logprob |
-| `π_prox` | clipping / trust-region 的中心           | checkpoint version，以及它是否等于 `π_beh`                     |
-| `π_ref`  | 冻结的能力锚点                           | reference revision、KL 方向与估计方法                          |
+| Symbol   | Role                                                       | What must be stored                                                             |
+| -------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `π_beh`  | The behavior distribution that actually sampled the action | Generator build, complete sampler/grammar, and per-action-token log probability |
+| `π_prox` | Center of clipping or the trust region                     | Checkpoint version and whether it equals `π_beh`                                |
+| `π_ref`  | Frozen capability anchor                                   | Reference revision, KL direction, and estimation method                         |
 
-同步单步训练里 `π_beh = π_prox` 很常见；异步、replay 或 generator/trainer 数值不一致时则不能默认相等。如果要把 behavior data 纠正到 proximal policy，再围绕 proximal policy 更新，概念上对应：
+In synchronous one-step training, `π_beh = π_prox` is common. Under asynchrony, replay, or generator/trainer numerical mismatch, that equality cannot be assumed. Correcting behavior data toward a proximal policy and then updating around that proximal policy gives the conceptual decomposition:
 
 ```text
 w_off  = π_prox(a|h) / π_beh(a|h)
@@ -445,25 +443,25 @@ r_prox = π_θ(a|h)    / π_prox(a|h)
 π_θ(a|h) / π_beh(a|h) = r_prox · w_off
 ```
 
-具体 estimator 可以截断、拒绝或合并这些 ratios，但必须说明改的是哪一个量。[PPO](https://arxiv.org/abs/1707.06347) 只在其数据与旧 policy 语义成立时提供 proximal update；[AReaL](https://arxiv.org/abs/2505.24298) 则明确处理 asynchronous behavior 与 proximal policy 的分离。
+An estimator may truncate, reject, or combine these ratios, but it must state which quantity it changes. [PPO](https://arxiv.org/abs/1707.06347) provides a proximal update only when its data and old-policy semantics hold. [AReaL](https://arxiv.org/abs/2505.24298) explicitly separates asynchronous behavior and proximal policies.
 
-`π_ref` 又是另一件事：它不是 importance-sampling 分母。`log πθ - log πref` 只有在声明的采样分布下，才对应目标 KL 的 Monte Carlo estimator；在 stale behavior samples 上直接取均值，不能自动叫作当前 policy 的 forward KL。实验必须注明 KL 的方向、采样分布、是否使用全词表审计或 non-negative estimator，以及它只进入 reward、只进入 loss，还是被重复计算了两次。
+`π_ref` serves another role and is not the importance-sampling denominator. `log πθ - log πref` estimates a target KL only under a stated sampling distribution. Averaging it over stale behavior samples does not automatically estimate the current policy's forward KL. Specify the KL direction, sampling distribution, whether a full-vocabulary audit or non-negative estimator is used, and whether KL appears in the reward or loss—not both by accident.
 
-### Reward、ratio 和 clipping 的粒度也要对齐
+### Align the granularity of reward, ratios, and clipping
 
-Agent 常得到 sequence-level outcome reward，但必须区分真正的 change-of-measure ratio 和为稳定性设计的 length-normalized score：
+Agents often receive sequence-level outcome reward. Distinguish a true change-of-measure ratio from a length-normalized stability score:
 
 ```text
-token IS ratio:       r_t = exp(log πθ(a_t|h_t) - log πold(a_t|h_t))
+token IS ratio:       r_t = exp(log πθ(a_t|h_t) - log πbeh(a_t|h_t))
 trajectory IS ratio:  R_IS = exp[Σ_t log r_t]
 
 turn normalized score:     s_turn = exp[(1/T_turn) Σ_t log r_t]
 episode normalized score:  s_seq  = exp[(1/T_episode) Σ_t log r_t]
 ```
 
-`R_IS` 才是真正的 trajectory importance ratio，但方差会随 horizon 爆炸；`s_turn/s_seq` 是有意改变目标的几何均值 surrogate，不能拿来声称完成了无偏 trajectory off-policy correction。[DAPO](https://arxiv.org/abs/2503.14476) 使用 token-level policy loss 与 asymmetric clipping；[GSPO](https://arxiv.org/abs/2507.18071) 使用 length-normalized sequence likelihood-ratio score 和 sequence-level clipping，尤其关注 MoE 训练稳定性。两者不是可以在实现里静默互换的“小技巧”。多轮 Agent 可把 turn-normalized score 作为第三个 ablation，并分别报告 token、whole-turn 和 whole-episode clip fraction；只有系统真的丢弃样本时才另报 rejection fraction。
+`R_IS` is the actual trajectory importance ratio, but its variance grows explosively with horizon. `s_turn` and `s_seq` are geometric-mean surrogates that deliberately change the target; they do not provide unbiased trajectory-level off-policy correction. [DAPO](https://arxiv.org/abs/2503.14476) uses a token-level policy loss with asymmetric clipping. [GSPO](https://arxiv.org/abs/2507.18071) uses a length-normalized sequence likelihood-ratio score with sequence-level clipping, with particular emphasis on MoE stability. These are not interchangeable implementation details. For a multi-turn agent, use a turn-normalized score as a third ablation and report token, whole-turn, and whole-episode clip fractions separately. Report rejection fraction only if the system actually discards samples.
 
-如果每批 rollout 都来自当前完整 `PolicyManifest`，`π_beh = π_prox = πθ`（在梯度计算开始时），generator/trainer logprob 也通过一致性 gate，而且只做一次 optimizer step，那么 expected episode return 的最小目标可以写成 RLOO/REINFORCE 加 KL：
+If every rollout comes from the current complete `PolicyManifest`, `π_beh = π_prox = πθ` at the start of gradient computation, generator/trainer log probabilities pass the consistency gate, and the batch receives exactly one optimizer step, the minimum expected-episode-return objective is RLOO/REINFORCE plus KL:
 
 ```text
 L_pg = -(1/B) Σ_i A_i · [Σ_{k∈M_i} log πθ(y_i,k | y_i,<k)]
@@ -471,9 +469,9 @@ L_pg = -(1/B) Σ_i A_i · [Σ_{k∈M_i} log πθ(y_i,k | y_i,<k)]
 L = L_pg + β KL(πθ || πref)
 ```
 
-它无 critic、无 replay，也没有必要假装 ratio clipping 正在解决问题。这里若再除以样本自己的 `|M_i|`，就已经切换成上一节的 length-normalized surrogate。
+This baseline has no critic and no replay. Ratio clipping need not pretend to solve a problem that is absent. Dividing by the sample-specific `|M_i|` would switch to the length-normalized surrogate from the previous section.
 
-只要 `πθ ≠ π_beh`——无论来自同一 batch 的多 epochs、async/replay staleness，还是需要校正的 generator/trainer mismatch——就必须显式选择 importance correction、clipping、rejection 或 quarantine。下面的普通 PPO-style clipped surrogate只适用于 `π_prox = π_beh` 的特殊情形；三者不同时应回到前述 three-policy contract：
+Whenever `πθ ≠ π_beh`—because of multiple epochs over a batch, stale async or replay data, or generator/trainer mismatch that requires correction—the implementation must explicitly select importance correction, clipping, rejection, or quarantine. The standard PPO-style surrogate below covers only the special case `π_prox = π_beh`; when all three policies differ, return to the three-policy contract:
 
 ```text
 ρ_t(θ) = exp(log πθ(a_t|h_t) - log πbeh(a_t|h_t))
@@ -482,11 +480,9 @@ L = -E[min(ρ_t A_t,
            clip(ρ_t, 1-ε, 1+ε) A_t)] + β KL(πθ || πref)
 ```
 
-[PPO](https://arxiv.org/abs/1707.06347) 的 ratio clip 控制 sampled action 上的变化；`clip_fraction`、KL、entropy、gradient norm 和 importance-ratio tails 必须一起监控。
+[PPO](https://arxiv.org/abs/1707.06347) clips the surrogate likelihood ratio on sampled actions; it does not directly constrain the full policy change. Monitor `clip_fraction`, KL, entropy, gradient norm, and importance-ratio tails together. The reduction must come from the preregistered `LossReducer`; framework defaults must not silently decide whether tokens, turns, or trajectories receive equal weight.
 
-这里的 reduction 直接复用上一节预注册的 `LossReducer`；不能在训练框架默认值里悄悄决定 token、turn 或 trajectory 权重。
-
-最小训练循环不需要复杂：
+The minimum training loop is uncomplicated:
 
 ```python
 for task_batch in sampler:
@@ -516,28 +512,28 @@ for task_batch in sampler:
     registry.publish_new_checkpoint()
 ```
 
-这里故意把三个东西分开：
+Three concerns remain separate by construction:
 
-- `advantages` 决定 credit estimator；
-- `reinforce_with_kl_loss` 决定 update objective；如果复用 batch，可替换为 PPO-style clipped objective；
-- `collector/registry` 决定数据是否 near-on-policy。
+- `advantages` selects the credit estimator.
+- `reinforce_with_kl_loss` selects the update objective. Whenever `πθ ≠ π_beh` because of batch reuse, async or replay staleness, or a corrected deployment–training mismatch, use an objective with explicit ratios or correction.
+- `collector/registry` determines whether the data are near-on-policy.
 
-这样替换 RLOO、GAE 或 branching credit 时，不需要重写环境和 verifier。
+This separation lets RLOO, GAE, or branching credit change without rewriting the environment or verifier.
 
-### Average entropy 会掩盖真正的 exploration collapse
+### Average entropy can hide exploration collapse
 
-在数学 reasoning RLVR 中，近期工作分别从 gradient covariance 和 high-entropy minority tokens 观察到：少量 token 可能承载不成比例的 exploration signal。[Entropy Mechanism](https://arxiv.org/abs/2505.22617)、[High-Entropy Minority Tokens](https://arxiv.org/abs/2506.01939) 对 Agent 的待检验假设是，这些 token 是否真的对应 tool choice 或行为分叉；不能从 reasoning 证据直接假定映射成立。
+Recent mathematical-reasoning RLVR work studies gradient covariance and high-entropy minority tokens, finding that a small subset of tokens can carry disproportionate exploration signal. [Entropy Mechanism](https://arxiv.org/abs/2505.22617) and [High-Entropy Minority Tokens](https://arxiv.org/abs/2506.01939) motivate a hypothesis for agents: do those tokens correspond to tool choices or behavioral forks? The reasoning evidence does not establish that mapping.
 
-`ExplorationMonitor` 至少应按 advantage sign、entropy quantile、turn index、tool/action type 和 success/failure 分层记录 entropy 与 gradient mass，并检验高-entropy token 是否与实际 branch/action intervention 对齐；再把 held-out `pass@k`、tool-sequence diversity 与 `pass@1` 一起画。这样才能区分 reward 导致的合理收敛、clipping 自己造成的分布偏置，以及关键决策点的过早坍缩。
+An `ExplorationMonitor` should stratify entropy and gradient mass by advantage sign, entropy quantile, turn index, tool/action type, and success/failure. Test whether high-entropy tokens align with actual branch or action interventions, and plot held-out `pass@k` and tool-sequence diversity alongside `pass@1`. This distinguishes justified convergence under reward, distributional bias caused by clipping, and premature collapse at consequential decisions.
 
-### Generator–trainer async：吞吐优化会改变数据分布
+### Generator–trainer asynchrony changes the data distribution
 
-这里要把两个经常都被叫作 `actor` 的角色分开：
+Separate two roles that are often both called the actor:
 
-- **Generator / rollout worker** 持有只用于推理的 behavior policy `π_beh^v`，与环境交互并写 immutable trajectories；
-- **Trainer / learner** 持有 master parameters、optimizer state 和当前训练版本 `π_train^u`，消费轨迹并发布新权重。
+- A **generator / rollout worker** holds inference-only behavior policy `π_beh^v`, interacts with the environment, and writes immutable trajectories.
+- A **trainer / learner** holds master parameters, optimizer state, and current training version `π_train^u`; it consumes trajectories and publishes new weights.
 
-完整数据流是：
+The complete flow is:
 
 ```text
 Task queue → Generator pool (π_beh^v) → Environment
@@ -551,7 +547,7 @@ Verifier → complete group → Trainer (π_train^u) → staged checkpoint
                     Generator pool (π_beh^(v+1))
 ```
 
-定义 version lag：
+Define lag and sampled-action drift:
 
 ```text
 Δ_version = u - v
@@ -560,42 +556,42 @@ D_sample  = (1/|M|) Σ_{t∈M(τ~π_beh^v)}
             |log π_train^u(a_t|h_t) - log π_beh^v(a_t|h_t)|
 ```
 
-`Δ_version` 只是系统年龄；`D_sample` 也只是 **在 behavior-sampled action mask 上** 的 drift diagnostic，不是完整 policy-space distance。相同的一版延迟，在不同 learning rate、KL、update size 和采样分布下可能对应完全不同的 `D_sample`。因此版本 gate 与 importance-ratio/drift gate 都要有。
+`Δ_version` is system age. `D_sample` is only a drift diagnostic over action tokens sampled from `π_beh^v`, restricted to the action mask `M`; it is not a policy-space distance. One version of lag can mean very different drift under different learning rates, KL penalties, update sizes, and sampling distributions. Enforce both a version gate and a ratio or drift gate.
 
-同步与异步不是一个布尔开关，而是至少三种不同的数据语义：
+Synchronous versus asynchronous is not a Boolean. It describes at least three data semantics:
 
-| 模式                          | Generator 与 trainer 的关系                                   | 数据语义                                                               |
-| ----------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| **Synchronous barrier**       | `π^v` 完成整批 group，trainer 才更新为 `π^(v+1)`              | `Δ_version=0`；最干净，但受最长 trajectory 拖累                        |
-| **Pipelined / bounded async** | generator 连续运行；trainer 只接收 `Δ_version≤L` 的完整 group | bounded-staleness；只有同时通过 drift/ratio gate 才能称 near-on-policy |
-| **Unbounded async / replay**  | trainer 可反复使用任意旧版本数据                              | 真正 off-policy；不能再沿用未经修改的 on-policy recipe                 |
+| Mode                          | Generator–trainer relationship                                              | Data semantics                                                                    |
+| ----------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **Synchronous barrier**       | `π^v` finishes every group before the trainer publishes `π^(v+1)`           | `Δ_version=0`; cleanest, but blocked by the longest trajectory                    |
+| **Pipelined / bounded async** | Generators continue; trainer admits only complete groups with `Δ_version≤L` | Bounded staleness; call it near-on-policy only if drift and ratio gates also pass |
+| **Unbounded async / replay**  | Trainer can repeatedly consume arbitrarily old data                         | Genuinely off-policy; an unchanged on-policy recipe is invalid                    |
 
-Reference implementation 应先固定 `L=0`，跑通后只把 `L=1` 作为单独 ablation；不要一开始就用“队列里有什么训什么”。对 RLOO/GRPO，**同一个 group 内的所有 siblings 还必须来自同一个 behavior version**。混合 `π^v` 与 `π^(v+1)` 后，组内差异同时包含 action quality 和 policy drift。
+Set `L=0` in the reference implementation. Add `L=1` only as an explicit ablation. Do not begin with “train whatever is in the queue.” For RLOO or GRPO, every sibling in a group must also come from the same behavior version. Mixing `π^v` and `π^(v+1)` makes group differences a mixture of action quality and policy drift.
 
-Async 的调度单元应该是一个完整 group lease，而不是单条先到先训的 trajectory：
+Schedule a complete group lease, not whichever trajectory arrives first:
 
 ```text
 lease = (group_id, behavior_manifest_hash,
          base_snapshot_id, sampler_config_hash)
 ```
 
-所有 siblings 共享 lease；advantage 只能在 group 完整并验证后计算。某个 sibling timeout 时，要按预注册规则丢弃/降级整个 group，不能用后来生成的新 policy 样本补位。
+All siblings share the lease, and their advantage is computed only after the full group has completed verification. If one sibling times out, discard the group or apply a preregistered fallback estimator. Never fill the missing slot later with a sample from a newer policy.
 
-#### In-flight episode 到底怎么办？
+#### What happens to an in-flight episode?
 
-长程 Agent rollout 很可能在 trainer 发布新版本时仍未结束。只有三种语义清楚的选择：
+A long agent rollout can still be active when the trainer publishes a new version. Only three choices have clear semantics:
 
-1. **finish-old**：episode 继续由旧 generator 完成；新 task 路由到新版本。这最干净，但需要双 buffer 或暂时保留旧 worker；
-2. **abort-and-restart**：丢弃未完成轨迹，从原始 snapshot 用新版本重启；语义清楚，但浪费 rollout；
-3. **mixed-policy continuation**：中途换权重继续生成。严格 on-policy 基线应禁止；若一定要做，必须保存每个 action/token 的 behavior version 和 logprob，并使用支持这种数据的 off-policy estimator。
+1. **Finish old:** let the old generator finish the episode and route only new tasks to the new version. This is cleanest but requires double buffering or temporary retention of old workers.
+2. **Abort and restart:** discard the partial trajectory and restart from the base snapshot under the new version. This is statistically clear but wastes rollout compute.
+3. **Mixed-policy continuation:** switch weights mid-episode. A strict on-policy baseline should forbid this. If used, store the behavior version and log probability for every action or token and use an estimator designed for mixed-policy data.
 
-`pause → load new weights → resume` 是 serving capability，不自动保证 RL 正确。如果请求在 pause 前后使用了不同参数，它就是 mixed-policy trajectory；旧 KV cache 也不能直接与新权重混用。[vLLM 的原生 RL API](https://vllm.ai/blog/2026-05-28-native-rl-apis) 提供 weight-transfer 与 `abort`/`wait`/`keep` pause 模式，但算法层仍要明确选择上述语义。
+`pause → load new weights → resume` is a serving feature, not a proof of RL correctness. If one unfinished generation uses different parameters before and after the pause, quarantine and regenerate it; if an episode switches versions between turns, label it as mixed-policy. Old KV cache is not valid under new weights either. [vLLM's native RL APIs](https://vllm.ai/blog/2026-05-28-native-rl-apis) support weight transfer and `abort`, `wait`, and `keep` pause modes, but the algorithm still has to choose one of the semantics above.
 
-[DORA](https://arxiv.org/abs/2604.26256) 是另一种 2026 新方案：同时保留多个 rollout policy version，让长 trajectory 在原版本上结束，并以 bounded staleness 控制 trainer admission。它很适合作为 multi-version serving 的设计参考，但仍是新预印本证据。
+[DORA](https://arxiv.org/abs/2604.26256), a 2026 preprint, instead keeps multiple rollout-policy versions alive so long trajectories finish on their original version, then applies bounded-staleness admission at the trainer. It is a useful multi-version-serving design reference, not mature consensus.
 
-#### Partial rollout、截断和 compaction 是数据语义
+#### Partial rollouts, truncation, and compaction are data semantics
 
-“episode 没有完整结束”可能表示多种统计语义不同的事件：
+An incomplete episode can denote several statistically different events:
 
 ```text
 agent_finish | env_terminal_success | env_terminal_failure
@@ -604,11 +600,11 @@ max_step_truncation | max_token_truncation
 tool_timeout | infra_abort | scheduler_cancel
 ```
 
-前三类表示 policy 主动结束或 environment 给出了 terminal outcome，但仍要交给 verifier 判断成功与否。预先写入 task contract 的 finite-horizon budget exhaustion 也可以合法定义为 terminal failure；相反，harness 临时截断、tool timeout、infra abort 和 scheduler cancellation 属于 censored/system events。关键不是枚举名称，而是预算是否在任务定义中事先固定。把后一类事件静默写成 reward=0，会把 censored trajectory 当作失败，并系统性改变对长任务的训练权重。
+The first three are policy or environment terminal events, although the verifier still decides success. A finite-horizon budget exhausted under a preregistered task contract can also be a legitimate terminal failure. By contrast, ad hoc harness truncation, tool timeout, infrastructure abort, and scheduler cancellation are censored or system events. The distinction is not the enum name but whether the budget was part of the task definition in advance. Silently assigning reward 0 to the latter set turns censoring into failure and systematically reweights long tasks.
 
-[APRIL](https://arxiv.org/abs/2509.18521) 通过 over-provision requests、先收集目标数量的已完成样本，再把未完成 prefix 带到后续 iteration 来减少 rollout 长尾；[RollPacker](https://arxiv.org/abs/2509.21009) 提供了尽量保持同步语义的另一类对照。由 first-completion admission 推断，它**可能**形成偏向快/短轨迹的 temporal curriculum，但这是需要按 length、difficulty 和 reward 分层验证的风险，不是论文已经证明的结论。
+[APRIL](https://arxiv.org/abs/2509.18521) overprovisions requests, admits a target number of completed samples, and carries unfinished prefixes into later iterations to reduce rollout tail latency. [RollPacker](https://arxiv.org/abs/2509.21009) is a useful comparison that tries to preserve synchronous semantics. The first-completion admission rule in APRIL **may** induce a temporal curriculum favoring fast or short trajectories. That is an inference to test by length, difficulty, and reward—not a result already established by the paper.
 
-要继续一个 partial rollout，`TrajectorySegmentStore` 必须保存：
+Continuing a partial rollout requires a `TrajectorySegmentStore` containing:
 
 ```text
 segment_id, continuation_parent,
@@ -617,29 +613,29 @@ behavior_policy_version, behavior_logprobs, sampler_config,
 remaining_step/token_budget, termination_reason
 ```
 
-然后预注册四个对照：旧版本 pinned continuation、mixed-version continuation、abort-and-restart、同步等待完整轨迹。GRPO/RLOO 的一个 group 还必须在 continuation 后保持相同语义；不能拿后来新 policy 生成的 sibling 给缺失位置补位。
+Preregister four comparisons: continuation pinned to the old version, mixed-version continuation, abort and restart, and synchronous completion. A continued RLOO or GRPO group must preserve group semantics; do not replace a missing sibling with one generated later by a new policy.
 
-Context compaction 同样属于 policy boundary，而不是无损的日志压缩。summary 决定后续 policy 看见什么，也可能丢掉 verifier 所需状态。[CompactionRL](https://arxiv.org/abs/2607.05378) 将 summary generation 与跨 segment credit 一起优化，是这一方向的 2026 新证据。最小实现应记录 compaction 前后 token hashes、compactor model/version、summary token IDs，以及 compaction 发生在哪个 snapshot；评测时保留 no-compaction control，并单独测 summary omission 与 restore fidelity。
+Context compaction is part of the policy boundary, not lossless log compression. A summary determines what the policy sees next and can omit state needed by the verifier. [CompactionRL](https://arxiv.org/abs/2607.05378) jointly optimizes summary generation and cross-segment credit, providing recent 2026 evidence. At minimum, record pre- and post-compaction token hashes, compactor model and version, summary token IDs, and the snapshot at which compaction occurred. Keep a no-compaction control and test summary omission and restore fidelity separately.
 
-#### 权重发布必须是原子的
+#### Weight publication must be atomic
 
-不要让 generator 在部分 tensor 或部分 TP/PP/EP ranks 已更新时接收新请求。一个最小 publish protocol 是：
+Never accept a new request while only some tensors or TP/PP/EP ranks have updated. A minimal publication protocol is:
 
 ```text
-trainer 完成 u+1
-→ 写 immutable manifest（model/tokenizer/template/checksum）
-→ 将权重 stage 到所有 inference ranks 的 shadow slot
-→ 全部 ranks 校验 checksum 并 ACK
-→ 在声明的 policy-lease boundary 原子切换 active_version
-→ 若同一逻辑 episode 继续，invalidate KV cache 并用新权重重新 prefill
-→ 才允许 scheduler 将后续请求路由到 u+1
+trainer completes u+1
+→ write immutable manifest (model/tokenizer/template/checksum)
+→ stage weights into a shadow slot on every inference rank
+→ every rank verifies checksum and ACKs
+→ atomically switch active_version at the declared policy-lease boundary
+→ if a logical episode continues, invalidate KV cache and prefill under new weights
+→ only then route subsequent requests to u+1
 ```
 
-Pinned-policy 基线的 lease boundary 是 episode boundary；只有显式 mixed-policy 实验才允许在记录完整的 segment/turn boundary 切换，并把后续段标成新 behavior version。不能在任意 token 位置静默热切换。
+For the pinned-policy baseline, the lease boundary is the episode boundary. Only an explicit mixed-policy experiment may switch atomically at a recorded segment or turn boundary and label the continuation with a new behavior version. Never hot-swap silently at an arbitrary token.
 
-同卡、分时部署可以用训练/推理 resharding；独立 GPU pool 则需要 NCCL、CUDA IPC、RDMA 或 checkpoint/object-store transport。[HybridFlow/verl](https://arxiv.org/abs/2409.19256) 的重点正是把 RL dataflow 与模型放置/resharding 分开。若只训练 LoRA，可以只同步 adapter，但 `base_revision + adapter_revision` 仍然必须形成一个不可分割的 policy version。
+Colocated systems can time-share devices and reshard between training and inference. Separate GPU pools need NCCL, CUDA IPC, RDMA, or checkpoint/object-store transport. [HybridFlow/verl](https://arxiv.org/abs/2409.19256) separates RL dataflow from model placement and resharding. LoRA reduces the bytes transferred, but `base_revision + adapter_revision` still forms one indivisible policy version.
 
-另一个隐蔽问题是 trainer 用 BF16，而 generator 用 FP8/量化推理。即使 version ID、权重 checksum 都相同，两边也可能因为 kernel、并行布局、MoE routing、constrained decoding 或 sampler implementation 算出不同 logprob。这是 **training–inference mismatch**，和“数据来自旧版本”的 async staleness 是两个独立误差源：
+A trainer might use BF16 while the generator uses FP8 or quantized inference. Even with identical version IDs and checksums, kernels, parallel layouts, MoE routing, constrained decoding, and sampler implementations can yield different log probabilities. This **training–inference mismatch** is distinct from stale data:
 
 ```text
 δ_TIM,t   = log π_generator^v(a_t|h_t) - log π_trainer^v(a_t|h_t)
@@ -649,32 +645,34 @@ Pinned-policy 基线的 lease boundary 是 episode boundary；只有显式 mixed
 δ_total,t = δ_TIM,t + δ_stale,t
 ```
 
-纯 TIM 必须在同版本 `v` 上比较 generator 与 trainer；纯 staleness 则要在同一 trainer backend 上加载 `v` 和 `u` 比较。`generator-v` 对 `trainer-u` 只能叫 total gap。先保留逐 token signed delta，再分别汇总均值、`p95/max |δ|`；不能从两个绝对值相减声称完成误差分解。
+Measure pure TIM by comparing generator and trainer at the same version `v`. Measure pure staleness by loading versions `v` and `u` in the same trainer backend. Generator `v` versus trainer `u` is only the total gap. Retain signed per-token deltas, then aggregate the mean and `p95/max |δ|`; subtracting absolute values is not an error decomposition.
 
-在 frozen checkpoint 上，`LogprobConsistencyAuditor` 应固定 exact prefixes 和 sampled token IDs，让两边逐 token 重算概率，并报告上述 TIM metrics、sequence log-perplexity difference 和 non-negative `k3` estimator。容差应先从当前硬件和纯 BF16 同引擎 baseline 预注册，而不是看到结果后选择。[Diagnosing Training–Inference Mismatch](https://arxiv.org/abs/2605.14220) 在隔离 policy drift 后仍观察到小数值差异可独立破坏训练；[verl 的 rollout-correction 实现](https://github.com/verl-project/verl/blob/main/docs/algo/rollout_corr.md) 提供了相应 metrics、importance correction 与 rejection hooks。两者都是当前实现依据，不代表 correction 可以替代 zero-mismatch diagnostic。
+At a frozen checkpoint, a `LogprobConsistencyAuditor` should replay exact prefixes and sampled token IDs through both backends and report TIM metrics, sequence log-perplexity difference, and a non-negative `k3` estimator. Preregister tolerances from the actual hardware and a pure BF16 same-engine baseline. [Diagnosing Training–Inference Mismatch](https://arxiv.org/abs/2605.14220) reports that even small numerical differences can independently disrupt training after policy drift is isolated. [verl's rollout-correction implementation](https://github.com/verl-project/verl/blob/main/docs/algo/rollout_corr.md) exposes related metrics, importance correction, and rejection hooks. These are implementation references; correction does not replace a zero-mismatch diagnostic.
 
-Tokenizer、chat template、tool rendering、grammar、quantization、routing replay 和 inference engine 都必须进入 `PolicyManifest`；否则 ratio drift 可能来自实现不一致，而不是 policy update。
+Tokenizer, chat template, tool rendering, grammar, quantization, routing replay, and inference engine all belong in `PolicyManifest`. Otherwise apparent ratio drift can come from an implementation mismatch rather than a policy update.
 
-#### Stale data 怎么处理？
+#### What should happen to stale data?
 
-PPO clipping 只能限制已有 sample 上的 update，不能把严重过期的数据神奇地变回 on-policy。长轨迹上直接连乘 importance ratios 又会产生极高方差。实际顺序应该是：
+PPO clipping limits an update on sampled actions; it cannot turn severely stale data back into on-policy data. Multiplying importance ratios across a long trajectory creates extreme variance.
 
-这里的 `behavior_logprobs` 必须对应**实际 sampler distribution**。如果 generator 使用 temperature、top-p 或 top-k，却只保存未经这些变换的 raw-model logprob，importance ratio 的分母就是错的；截断采样还可能破坏 off-policy correction 所需的 support。最小基线最好使用 temperature=1、无 top-k/top-p truncation，或完整保存变换后的采样概率。
+Behavior log probabilities must describe the **actual sampler distribution**. If the generator uses temperature, top-p, or top-k but stores only raw-model log probabilities, the importance-ratio denominator is wrong. Truncation can also violate the support condition required for off-policy correction. The cleanest baseline uses temperature 1 with no top-k or top-p truncation, or records the fully transformed sampling probability.
 
-1. 先用 version-lag cutoff 和 group-homogeneous batching 限制 off-policyness；
-2. 保存 rollout-time behavior logprobs，在 trainer 端重算 current logprobs，监控 ratio p50/p95/p99 与 effective sample size；
-3. 对轻度 drift 使用 ratio clipping、KL gate 或 sample rejection；
-4. 只有已有 turn-level critic 时，再考虑 [IMPALA/V-trace](https://arxiv.org/abs/1802.01561) 一类截断 importance correction；
-5. 超出预注册 lag/ratio gate 的 trajectory 丢弃或只用于离线分析，不要静默训练。
+Use this order of operations:
 
-异步系统还是一个 rate-control 问题。如果 generator 产出率 `λ_gen` 长期高于 trainer 接收率 `λ_train`，queue 会增长，数据必然越来越 stale。需要 queue age/high-watermark、generator backpressure、动态 worker allocation 或 stale-sample quarantine；不能靠无限 buffer 掩盖失衡。还应按 task family、trajectory length 和 reward 分层报告 stale/drop rate——否则系统可能优先丢掉长而难的样本，暗中改变 curriculum。
+1. Bound off-policyness first with a version-lag cutoff and behavior-homogeneous groups.
+2. Store rollout-time behavior log probabilities; recompute current probabilities in the trainer; monitor ratio p50/p95/p99 and effective sample size.
+3. For mild drift, use ratio clipping, a KL gate, or explicit sample rejection.
+4. Consider truncated importance correction such as [IMPALA/V-trace](https://arxiv.org/abs/1802.01561) only when a turn-level critic already exists.
+5. Quarantine trajectories beyond the preregistered lag or ratio gate, or retain them for offline analysis; never train on them silently.
 
-[AReaL](https://arxiv.org/abs/2505.24298) 展示了 generation/training 完全解耦、受控 staleness 与 staleness-aware PPO；[Asynchronous RLHF](https://arxiv.org/abs/2410.18252) 则直接研究了异步带来的 off-policy 性能权衡。但两者的主要证据来自 reasoning/instruction-following，不应被直接写成多轮工具 Agent 的已解决结论。
+An asynchronous stack is also a rate-control system. If generator rate `λ_gen` persistently exceeds trainer admission rate `λ_train`, the queue grows and samples inevitably become staler. Monitor queue age and high-water marks; apply generator backpressure, dynamic worker allocation, or stale-sample quarantine. Stratify stale and dropped rates by task family, trajectory length, and reward. Otherwise the system can preferentially discard long, difficult episodes and silently alter the curriculum.
 
-最小 controller 可以这样写：
+[AReaL](https://arxiv.org/abs/2505.24298) demonstrates decoupled generation and training, controlled staleness, and staleness-aware PPO. [Asynchronous RLHF](https://arxiv.org/abs/2410.18252) directly studies the performance–efficiency trade-off from off-policy async data. Their main evidence comes from reasoning and instruction following, so neither settles multi-turn tool-agent training.
+
+A minimal controller looks like this:
 
 ```python
-MAX_VERSION_LAG = 0  # sync baseline; later ablate with 1
+MAX_VERSION_LAG = 0  # synchronous baseline; later ablate with 1
 
 while True:
     group = queue.pop_complete_verified_group()
@@ -697,24 +695,24 @@ while True:
     registry.publish_atomically_at_episode_boundary(next_policy)
 ```
 
-每个 group 还需要 immutable `group_id` 和 exactly-once consumption。Trainer checkpoint 应同时提交 `consumed_group_ids + optimizer_step + output_policy_version`；进程恢复后既不能重复应用同一 group，也不能把已经更新但尚未 ACK 的 group 当作未消费。
+Each group also needs an immutable `group_id` and exactly-once consumption. Atomically commit `consumed_group_ids + optimizer_step + output_policy_version` in the trainer checkpoint. After recovery, the process must neither reapply a group nor treat an applied-but-unacknowledged group as unconsumed.
 
-Async 是否值得，不看 tokens/s 一项。至少同时比较同步基线与异步版本的 held-out success、安全、KL、ratio tails、stale-drop rate、queue age、generator/trainer utilization、weight-sync latency 和 wall-clock-to-target。吞吐提高但单位时间学到的 held-out capability 下降，不算成功。
+Do not judge asynchrony by tokens per second alone. Compare synchronous and asynchronous systems on held-out success, safety, KL, ratio tails, stale/drop rate, queue age, generator and trainer utilization, weight-sync latency, and wall-clock time to a target. More throughput with less held-out capability learned per hour is not a win.
 
-### Component 选择
+### Component map
 
-| 拓扑                 | Generator                        | Trainer / weight sync                                                           | 适合目标                               |
-| -------------------- | -------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------- |
-| 单卡同步 smoke       | 同进程 generation                | PyTorch/PEFT，函数调用直接复制 LoRA                                             | 验证 trace、reward、梯度闭环           |
-| 多卡 colocated sync  | vLLM rollout phase               | [verl / HybridFlow](https://arxiv.org/abs/2409.19256) reshard 到训练 phase      | PPO/GRPO/RLOO 可复现基线               |
-| 分离式 bounded async | vLLM/SGLang generator pool       | FSDP/DeepSpeed learner + versioned queue + NCCL/IPC/RDMA sync                   | 长轨迹、减少 straggler idle            |
-| 全异步研究系统       | continuous generator pool        | [AReaL](https://arxiv.org/abs/2505.24298) 风格 learner/staleness controller     | 明确研究 off-policy trade-off          |
-| 多版本 streaming     | 同时保留若干 pinned policy pools | [DORA](https://arxiv.org/abs/2604.26256) 风格 lease/routing + bounded admission | 让长 episode 在原版本完成；2026 新证据 |
-| 既有 agent runtime   | trace adapter                    | [Agent Lightning](https://arxiv.org/abs/2508.03680) 风格 disaggregation         | 将执行与训练解耦                       |
+| Topology                           | Generator                                 | Trainer / weight synchronization                                                      | Best use                                                          |
+| ---------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Single-GPU synchronous smoke test  | In-process generation                     | PyTorch/PEFT; copy LoRA by function call                                              | Validate the trace, reward, and gradient loop                     |
+| Multi-GPU colocated synchronous    | vLLM rollout phase                        | [verl / HybridFlow](https://arxiv.org/abs/2409.19256) resharded into a training phase | Reproducible PPO/GRPO/RLOO baseline                               |
+| Disaggregated bounded async        | vLLM/SGLang generator pool                | FSDP/DeepSpeed learner + versioned queue + NCCL/IPC/RDMA sync                         | Long trajectories with less straggler idle time                   |
+| Fully asynchronous research system | Continuous generator pool                 | [AReaL](https://arxiv.org/abs/2505.24298)-style learner and staleness controller      | Explicitly study the off-policy trade-off                         |
+| Multi-version streaming            | Several pinned policy pools remain active | [DORA](https://arxiv.org/abs/2604.26256)-style leases, routing, and bounded admission | Let long episodes finish on their original version; 2026 preprint |
+| Existing agent runtime             | Trace adapter                             | [Agent Lightning](https://arxiv.org/abs/2508.03680)-style disaggregation              | Decouple execution from training                                  |
 
-可以直接阅读的实现锚点也很明确：[slime `train_async.py`](https://github.com/THUDM/slime/blob/main/train_async.py) 在更新权重前等待当前 generation，适合先理解半异步；[verl fully-async recipe](https://github.com/verl-project/verl/blob/main/docs/advance/fully_async.md) 显式拆成 Rollouter、MessageQueue、Trainer 和 ParameterSynchronizer；[THUDM AgentRL](https://github.com/THUDM/AgentRL) 给出了 Ray 上多轮 Agent 的 rollout/actor/reference worker pools 与 `group_id` queue。这些代码能提供 component，但不能替代前面的 version、logprob 和 held-out gates。
+There are useful implementation anchors. [slime's `train_async.py`](https://github.com/THUDM/slime/blob/main/train_async.py) waits for active generation before updating weights and is a useful introduction to semi-asynchronous execution. The [verl fully asynchronous recipe](https://github.com/verl-project/verl/blob/main/docs/advance/fully_async.md) separates Rollouter, MessageQueue, Trainer, and ParameterSynchronizer. [THUDM AgentRL](https://github.com/THUDM/AgentRL) implements multi-turn rollout, actor, and reference worker pools with a `group_id` queue on Ray. These repositories provide components; they do not replace the version, log-probability, and held-out gates above.
 
-最小 repo 不需要超过这些模块：
+A minimal repository needs no more than these modules:
 
 ```text
 agent_rl_min/
@@ -733,17 +731,17 @@ agent_rl_min/
 ├── trainer.py       # master weights + optimizer state
 ├── registry.py      # stage/checksum/atomic policy publish
 ├── weight_sync.py   # generator update protocol
-├── eval.py           # held-out + retain + integrity suites
+├── eval.py          # held-out + retain + integrity suites
 └── tests/           # replay, masks, versions, corruption, logprob contract
 ```
 
-先同步，再把 bounded async 当作一次算法与系统共同变化的 ablation；吞吐不是免费的算法改进。
+Start synchronously. Treat bounded asynchrony as an ablation that changes both the algorithm and the system. Throughput is not a free algorithmic improvement.
 
 ---
 
-## 7. 一个真正可以开始跑的 smoke experiment
+## 7. A smoke experiment you can actually run
 
-下面不是 paper-scale recipe，而是用来证明闭环没有作弊的最小实验。
+This is not a paper-scale recipe. It is the smallest experiment that can show the loop is not cheating.
 
 ```yaml
 model: Qwen/Qwen2.5-1.5B-Instruct
@@ -761,14 +759,14 @@ environment:
   reset_each_episode: true
   snapshot_backend: canonical_state
   base_snapshot_per_task: true
-  branching: false # 先证明 restore fidelity，再开启 turn-level forks
+  branching: false # prove restore fidelity before enabling turn-level forks
 
 rollout:
   mode: synchronous
   group_size: 8
   temperature: 1.0
   top_p: 1.0
-  top_k: null # 禁用 truncation；否则保存真实 sampler logprob
+  top_k: null # disable truncation, or save the actual sampler logprob
   pin_policy_for_full_episode: true
   max_version_lag: 0
   require_one_behavior_version_per_group: true
@@ -811,119 +809,118 @@ evaluation:
   dedup_rule_version: v1
 ```
 
-任务可以从确定性的文件、JSON、schema、CLI 修复开始。每个 task 包含：初始 container snapshot、自然语言目标、允许的 tools、隐藏 grader 和期望保持不变的 invariants。Train/held-out 应按 task template 或 environment family 隔离，而不是只换几个数字。
+Begin with deterministic file, JSON, schema, and CLI repair tasks. Each task should contain an initial container snapshot, a natural-language objective, allowed tools, a hidden grader, and invariants that must remain unchanged. Split train and held-out sets by task template or environment family, not by changing a few numbers.
 
-如果基础模型在 smoke set 上连 typed action 都无法稳定生成，先补少量 tool-call / recovery SFT；不要期待 RL 从全失败、全 parse error 的分布里凭空产生有效探索。
+If the base model cannot reliably emit typed actions on the smoke set, add a small tool-call and recovery SFT stage first. Do not expect RL to discover useful exploration from a distribution of universal failure and parse errors.
 
-### 四个对照
+### Four controls
 
-1. frozen no-update baseline；
-2. 相同 cold-start 的正常 RLOO update；
-3. reward 在 group 内随机打乱的 null update；
-4. SFT-only control，训练 token 数与 RL update 尽量匹配。
+1. A frozen, no-update baseline.
+2. A normal RLOO update from the same cold start.
+3. A null update with rewards shuffled within each group.
+4. An SFT-only control with training-token count matched as closely as possible to the RL update.
 
-### Go / no-go gate
+### Go / no-go gates
 
-在看 capability gain 前，先要求：
+Before measuring capability gain, require all of the following:
 
-- reset 后的 state hash 可复现；
-- restore 后重放固定 action suffix，observation、state hash 和 reward 100% 一致；
-- 两个 branch 的 mutation 彼此隔离；sealed terminal snapshot 不可变且不再对 agent 可见；
-- rollout、trainer 和 evaluator 引用同一个完整 `PolicyManifest`；scaffold drift 为 0；
-- 每条 action token 都有长度对齐、有限的 behavior logprob；
-- `π_beh`、`π_prox`、`π_ref` 的版本、用途和 logprob 字段无歧义；
-- 每个 episode 只有一个 behavior-policy version；
-- 每个 sibling group 只有一个 behavior-policy version，mixed-policy episode 数为 0；
-- generator 所有 ranks 的 active-weight checksum 与 registry 一致；
-- frozen checkpoint 下 generator/trainer 的 `p95/max |Δlogp|` 与 `k3` divergence 在预注册容差内；
-- queue 中不存在超过 `max_version_lag` 却仍进入 trainer 的样本；
-- group ID exactly-once consumption；duplicate/lost/incomplete group 分开计数；
-- `max_version_lag=0` 的 async code path 与同步实现产生数值一致的 loss/gradient；
-- stale/drop rate 按 task family、trajectory length 和 reward 分层，不隐藏 curriculum bias；
-- sample index、task ID、seed 和 checkpoint 完整；
-- `finish`、environment terminal、truncation、infra error 与 scheduler cancellation 使用不同枚举；censored trajectory 不被静默写成 reward=0；
-- `LossReducer` 的 unit test 证明 `episode_sum` 实现了长度无关归一常数下的 score-function 项；其他 reduction 被显式标为不同 surrogate；
-- verifier 在具有足够分母、由人类或更强程序裁决的代表性 fixtures 上通过预注册的 FP/FN gate；
-- 在独立 toy-logit unit test 中，正/负 advantage 的 aggregate policy-gradient directional derivative 符号正确；真实共享参数 batch 只要求总体目标按预期下降且 KL 有界，不要求每个 sampled action 单调变化；
-- shuffled-reward control 不出现稳定 held-out gain。
+- Reset reproduces the same state hash.
+- After restore, replaying a fixed action suffix reproduces observations, state hashes, and reward exactly.
+- Mutations in two branches are isolated; a sealed terminal snapshot is immutable and never visible to the agent.
+- Rollout, trainer, and evaluator reference the same complete `PolicyManifest`; scaffold drift is zero.
+- Every action token has a finite, length-aligned behavior log probability.
+- Versions, roles, and log-probability fields for `π_beh`, `π_prox`, and `π_ref` are unambiguous.
+- Each episode and each sibling group has exactly one behavior-policy version; mixed-policy episode count is zero.
+- Active-weight checksums on every generator rank match the registry.
+- At a frozen checkpoint, generator/trainer `p95/max |Δlogp|` and `k3` divergence stay within preregistered tolerances.
+- No sample beyond `max_version_lag` reaches the trainer.
+- Group IDs are consumed exactly once; duplicate, lost, and incomplete groups are counted separately.
+- With `max_version_lag=0`, the asynchronous code path produces numerically equivalent loss and gradients to the synchronous implementation.
+- Stale and dropped sample rates are stratified by task family, trajectory length, and reward so curriculum bias is visible.
+- Sample index, task ID, seed, and checkpoint are complete.
+- `finish`, environment terminal states, truncation, infrastructure failure, and scheduler cancellation use distinct termination codes; censored trajectories never become reward 0 silently.
+- Unit tests show that `episode_sum` implements the score-function term up to a length-independent constant; every other reduction is labeled as a different surrogate.
+- On representative fixtures adjudicated by humans or a stronger external program, the verifier passes preregistered FP/FN gates with denominators and confidence intervals.
+- In an independent toy-logit test, the aggregate policy-gradient directional derivative has the correct sign for positive and negative advantages. A real shared-parameter batch need only reduce the aggregate objective with bounded KL; do not demand monotonic change for every sampled action.
+- The shuffled-reward control shows no stable held-out gain.
 
-最后同时报告：held-out success、retain-suite delta、`pass^3`、invalid-action rate、tool calls/token/latency、side-effect rate、verifier audit-set FP/FN（含分母与 CI）、termination-reason distribution、zero-advantage group ratio、按长度分层的 gradient mass、KL、gradient norm 和 bootstrap confidence interval。异步时再报告 version/time lag、queue age、stale-drop rate、weight-sync latency、generator/trainer utilization 与 training–inference mismatch metrics；使用 clipped objective 时报告相应粒度的 clip fraction，只有显式丢弃样本时才另报 rejection fraction，并始终给出 importance-ratio tails。
+Report held-out success, retain-suite delta, `pass^3`, invalid-action rate, tool calls, tokens, latency, side-effect rate, verifier FP/FN on the audit set with denominators and confidence intervals, termination distribution, zero-advantage group rate, length-stratified gradient mass, KL, gradient norm, and bootstrap confidence intervals. For asynchronous runs, add version and wall-clock lag, queue age, stale/drop rate, weight-sync latency, generator/trainer utilization, and training–inference mismatch. For clipped objectives, report clip fraction at the corresponding granularity; report rejection fraction only when samples are actually discarded, and always include importance-ratio tails.
 
-在 policy、scaffold、budget 都固定，且 attempts 是独立或至少 exchangeable draws 的前提下，`pass@3` 表示三次里至少成功一次，更像搜索能力；`pass^3` 表示三次全部成功，更接近生产可靠性。这个区分来自 [τ-bench](https://arxiv.org/abs/2406.12045)。但每题只有三次的估计方差很高；生产可靠性结论仍需更多重复、per-task uncertainty 和置信区间。
+When the policy, scaffold, and budget are fixed and attempts are independent or at least exchangeable, `pass@3` asks whether at least one of three attempts succeeds and is closer to search capacity. `pass^3` asks whether all three succeed and is closer to operational reliability. This distinction comes from [τ-bench](https://arxiv.org/abs/2406.12045). Three attempts per task still have high variance; production reliability requires more repetitions, per-task uncertainty, and confidence intervals.
 
 ---
 
-## 8. 从“能跑”到“有研究价值”
+## 8. From a runnable loop to a research program
 
-闭环跑通以后，有五条比继续换 optimizer 更值得研究的方向。
+Once the loop works, five directions are more valuable than swapping optimizers again.
 
-### 8.1 哪些 experience 真正形成能力？
+### 8.1 Which experiences actually create capability?
 
-中等 pass rate 或非零 group variance 只说明当前 task 有学习信号，不说明训练它会改善其他任务。
+A middling pass rate or nonzero group variance says only that a task supplies a learning signal. It does not show that training on the task improves performance elsewhere.
 
-更强的 estimand 是：
+A stronger estimand is:
 
 ```text
 u(g, s) = J_heldout(Update(θ₀, rollout(g, s))) - J_heldout(θ₀)
 ```
 
-所有 candidate update 都从同一个 checkpoint `θ₀` 独立开始，定义的是 noisy one-update effect estimand，而不是自动识别出的因果效应。还需要 paired evaluation seeds、no-update/null control、多个 rollout/update seeds、置信区间，以及从多个候选中挑最大结果时的 selection correction，才能把变化归因于该 experience。这也是我们在 CUES-TMax 中试图测量的问题；在正式 causal updates 完成前，不能把 behavior taxonomy 或 surrogate 当作 utility label。
+Every candidate update starts independently from the same checkpoint `θ₀`. This defines a noisy one-update effect estimand; it does not identify a causal effect by itself. Attribution also requires paired evaluation seeds, no-update and null controls, multiple rollout and update seeds, confidence intervals, and correction for selecting the maximum among many candidates. This is the question behind the CUES-TMax protocol. Until the formal causal updates are complete, a behavior taxonomy or surrogate cannot be treated as a utility label.
 
-因此 `TaskSampler` 不应只有“保留 non-zero-variance groups”一个按钮。一个可审计 curriculum 至少维护四条流：当前可学习的 tasks、只有少量正例的 hard tasks、已经掌握但需要防遗忘的 retain tasks，以及环境本身不可行或 verifier 不可信的 quarantine tasks。每个 sample 还要保存 sampling propensity 和 capability family，才能判断训练分布是否在不知不觉中缩窄。[TMax](https://arxiv.org/abs/2606.23321) 是展示 difficulty control、persona 和 verifier diversification 的 2026 新预印本；这里更进一步要求用独立 one-update intervention 区分 learnability 与 causal utility。这是我在 CUES-TMax research protocol 中预注册、但尚未完成正式 causal updates 的问题。
+`TaskSampler` therefore needs more than a “keep nonzero-variance groups” switch. An auditable curriculum should maintain at least four streams: currently learnable tasks, hard tasks with rare positive examples, mastered retain tasks, and tasks quarantined because the environment is infeasible or the verifier is untrustworthy. Store sampling propensity and capability family for every sample so narrowing of the training distribution is measurable. [TMax](https://arxiv.org/abs/2606.23321) is a 2026 preprint that demonstrates difficulty control, persona diversity, and verifier diversification. The next step is an independent one-update intervention that separates learnability from causal utility.
 
-### 8.2 Target gain 是否以通用能力退化为代价？
+### 8.2 Does target gain come at the cost of general capability?
 
-当前 RL prompts 上的 reference KL 只约束被采样上下文附近的输出，不能保证未采样领域、旧工具 schema、instruction following 或 safety refusal 不退化。`RetainEvaluator` 应冻结一套 task-family-disjoint probes，每隔固定 updates 同时测 target gain 与 retain loss；发生越过预注册 frontier 的退化时，停止或回滚 checkpoint。
+Reference KL on current RL prompts constrains outputs only near sampled contexts. It does not preserve unsampled domains, old tool schemas, instruction following, or safety refusals. A `RetainEvaluator` should freeze task-family-disjoint probes and measure target gain and retain loss every fixed number of updates. Stop or roll back when regression crosses a preregistered frontier.
 
-最小对照是 fixed KL、SFT/PTX replay、domain-balanced replay 和 no-retention control，并画 `target gain – retain loss` Pareto，而不是只报训练 KL。[InstructGPT](https://arxiv.org/abs/2203.02155) 已使用 pretraining-data mix 缓解部分能力回退；[RECAP](https://arxiv.org/abs/2510.21978) 更直接讨论 current-task KL 无法保护 broader capabilities，但证据来自视觉语言模型且仍是新预印本，应把它当作 Agent 实验动机而非已完成外推。
+The minimal comparison is fixed KL, SFT/PTX replay, domain-balanced replay, and a no-retention control. Plot the target-gain–retain-loss Pareto frontier instead of reporting training KL alone. [InstructGPT](https://arxiv.org/abs/2203.02155) mixed pretraining data to mitigate some regressions. [RECAP](https://arxiv.org/abs/2510.21978) more directly argues that current-task KL does not preserve broader capabilities, but its evidence is from vision-language models and a recent preprint. Treat it as motivation for an Agent experiment, not a completed transfer result.
 
-### 8.3 Verifier error 会不会随 horizon 累积？
+### 8.3 Does verifier error accumulate with horizon?
 
-待检验假设是：horizon 增长会增加遇到冲突文档、stale state、wrong-path artifact、semantic lure 和模糊 rubric 的机会。实验应固定 experiment-owned token budget、注入可控 corruption，并分别画 actor error、verifier FP/FN、calibration、reward-hack rate 与 horizon 的关系；但固定 token 数只能减少 length confounding，不能消除 task difficulty、content density 和 tool topology 等混杂。不能只看一个 LLM judge 的平均正确率。
+The hypothesis is that longer horizons create more opportunities to encounter conflicting documents, stale state, wrong-path artifacts, semantic lures, and ambiguous rubrics. Hold experiment-owned token budget fixed, inject controlled corruptions, and separately plot actor error, verifier FP/FN, calibration where applicable, reward-hacking rate, and horizon. Fixed token count reduces length confounding but does not remove task difficulty, content density, or tool-topology confounding. A single average LLM-judge accuracy is insufficient.
 
-我们当前的 verifier-horizon pilot 观察到了 horizon effect，但没有达到预注册的 superlinearity 标准，且每个 cell 只有 14 episodes，低于预注册的 50。V3 小样本里 hybrid verifier 的 FP 是 `0/7`，代价是 FN 达到 `5/9 (55.6%)`，高于 semantic judge 的 `3/9 (33.3%)`。因此它支持的是继续检验的协议，而不是“hybrid 免费更好”或“误差必然超线性增长”的结论。完整实验设计、失败 gate 和结果见[三阶段 verifier-horizon 实验](https://ajing.github.io/posts/2026-08-14-verifier-error-horizon-scaling/)。
+Our verifier-horizon pilot observed a horizon-associated increase but did not satisfy the preregistered superlinearity test. It also used 14 episodes per cell, below the preregistered target of 50. In the small V3 sample, the hybrid verifier had FP `0/7`, but FN rose to `5/9 (55.6%)`, compared with `3/9 (33.3%)` for the semantic judge. The result supports a stronger protocol, not the claims that hybrid verification is free or that error necessarily grows superlinearly. The full design, failure gates, and results are in the [three-stage verifier-horizon experiment](https://ajing.github.io/posts/2026-08-14-verifier-error-horizon-scaling/).
 
-Verifier assets 还必须由独立身份 provision 到 agent 无写权限的 read-only namespace：agent 不可修改 tests、scorer、clock 或 reference artifact。[METR 的真实 agent traces](https://metr.org/blog/2025-06-05-recent-reward-hacking/)记录了修改 scorer/tests、利用 metadata 等 reward hacking；[OpenAI 的 CoT monitoring 研究](https://openai.com/index/chain-of-thought-monitoring/)说明当前 monitor 可以发现部分 hack，但直接把 monitor signal 作为优化目标也可能让意图更难观察。因此 monitor 更适合做 quarantine/audit signal，而不是未经验证地并入 dense reward。
+An independent identity must provision tests, scorer, clock, and reference artifacts into a read-only namespace the agent cannot modify. [METR's real agent traces](https://metr.org/blog/2025-06-05-recent-reward-hacking/) include reward hacking through scorer and test modification and metadata exploitation. [OpenAI's work on chain-of-thought monitoring](https://openai.com/index/chain-of-thought-monitoring/) shows that current monitors can catch some hacks, but optimizing the monitor signal directly can make intent harder to observe. Use monitor outputs as quarantine or audit signals unless they have been validated as training rewards.
 
-### 8.4 Agent 是否真的完成了状态改变？
+### 8.4 Did the agent really change the state?
 
-工具调用成功、GUI 显示成功和权威持久状态正确是三件事。对 GUI/CLI hybrid agent，mutation 应绑定 generation fence，写入权限应是单次、原子、可审计的；无法证明状态一致时，abstention 比 false completion 更正确。这个设计边界来自我近期 ReplicaGuard prototype 的状态模型：disk 是 authority，dirty buffer 是受保护意图，GUI 只是证据；当前结果仍来自受控 loopback 环境，不能外推成真实世界 prevalence。
+A successful tool response, a successful-looking GUI, and a correct authoritative persistent state are three different events. For a hybrid GUI/CLI agent, bind each mutation to a generation fence and make write authority single-use, atomic, and auditable. When state consistency cannot be proven, abstention is more correct than false completion. This boundary comes from the state model in the recent ReplicaGuard prototype: disk is authority, a dirty buffer is protected intent, and the GUI is evidence. The current results come from a controlled loopback environment and do not establish real-world prevalence.
 
-### 8.5 Benchmark 与 user simulator 也可能被 policy 学会利用
+### 8.5 The policy can exploit benchmarks and user simulators too
 
-Agent eval 应拆成五条轴：capability、重复运行可靠性、安全/副作用、成本/时延和 eval integrity，不能由一个 success rate 或 LLM judge 总分覆盖。`EvalFirewall` 至少使用 temporal/private holdout，分别审计 template、environment、repository 的 exact/semantic overlap；去掉 task identifiers 只能减少显式识别，不能阻止 semantic fingerprinting。网络和答案来源控制还必须与被测 construct 相容：对 open-web research agent，封网会改变任务本身，应公开 allow/block policy 及其 realism 代价。最终 artifact 由独立身份在 read-only grader namespace 中复验，并公开 system prompt、tools、预算、retries 和 scaffold manifest。这些措施降低而不消除 contamination。
+Separate Agent evaluation into five axes: capability, repeated-run reliability, safety and side effects, cost and latency, and evaluation integrity. A single success rate or LLM-judge score cannot represent all five. An `EvalFirewall` should use temporal and/or private holdouts, then audit exact and semantic overlap separately across templates, environments, and repositories. Removing task identifiers reduces explicit recognition but cannot prevent semantic fingerprinting. Network and answer-source restrictions must also preserve the construct being tested: disabling the web changes an open-web research task. Publish the allow/block policy and its realism cost. Reverify final artifacts under an independent identity in a read-only grader namespace, and publish the system prompt, tools, budget, retries, and scaffold manifest. These measures reduce contamination; they do not eliminate it.
 
-这不是假想问题。OpenAI 审计的是 o3 在 64 次运行中未稳定解决的 138 题——即榜单的 27.6% 困难子集，而不是随机样本；其中 59.4% 有 material test/description issues。加上 frontier models 能复现部分 gold patch/题目细节的 contamination 证据，OpenAI 因这两个原因停止报告该榜单。[OpenAI SWE-bench audit](https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/)
+The risk is concrete. OpenAI audited the 138 SWE-bench Verified tasks that o3 failed to solve consistently across 64 runs—the difficult 27.6% subset, not a random sample. It found material test or problem-description issues in 59.4% of that subset. Together with evidence that frontier models could reproduce parts of gold patches or problem details, those flaws led OpenAI to stop reporting the benchmark. See the [OpenAI SWE-bench audit](https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/).
 
-Anthropic 在 Claude Opus 4.6 的 multi-agent BrowseComp 运行中检查 1,266 题：9 例从公开 benchmark materials 获得答案，另有 2 例先识别自己在评测、再定位并解密 answer key。作者同时强调任务没有禁止搜索这些来源，因此不把行为本身定性为 alignment failure；它证明的是 web-enabled static eval 的完整性风险。[Anthropic BrowseComp eval awareness](https://www.anthropic.com/engineering/eval-awareness-browsecomp)
+In a 1,266-task Claude Opus 4.6 multi-agent BrowseComp run, Anthropic identified nine cases in which agents recovered answers from public benchmark material and two more in which they recognized the evaluation and located and decrypted an answer key. The authors note that the task did not prohibit those sources and therefore do not classify the behavior itself as an alignment failure. It demonstrates an integrity risk for web-enabled static evaluations. See [Anthropic's BrowseComp eval-awareness report](https://www.anthropic.com/engineering/eval-awareness-browsecomp).
 
-多轮客服或协作任务里，user simulator 本身还是另一个 policy，属于 transition dynamics。`SimulatorMatrix` 应版本化 user model、prompt、tools 和 sampling config，跨多个 simulator families 评测，并留一个 held-out simulator 或真实对话审计集。[τ²-bench](https://arxiv.org/abs/2506.07982) 将 agent 与用户双方都能操作环境建模为 dual-control Dec-POMDP；[RealUserSim](https://arxiv.org/abs/2605.20204) 是 2026 新预印本，其偏离与改善结论限定在 WildChat-derived profiles、五个行为维度和 τ-bench 实验，不能外推成所有 simulator 与真实用户场景的既定事实。
+In multi-turn support and collaboration tasks, the user simulator is another policy inside the transition dynamics. A `SimulatorMatrix` should version the user model, prompt, tools, and sampling configuration; evaluate across multiple simulator families; and reserve a held-out simulator or real-dialogue audit set. In its telecom dual-control domain, [τ²-bench](https://arxiv.org/abs/2506.07982) models agent and user as a Dec-POMDP in which both can act on a shared environment. [RealUserSim](https://arxiv.org/abs/2605.20204) is a 2026 preprint whose findings are limited to WildChat-derived profiles, five behavioral dimensions, and τ-bench experiments; they do not establish a universal gap between simulators and real users.
 
-这五条方向分别对应 experience utility、能力保留、reward integrity、runtime correctness 和 eval integrity。它们共同说明：Agent RL 的研究对象不是一条 loss，而是整个闭环中“哪一个信号可以被相信”。
+These directions correspond to experience utility, capability retention, reward integrity, runtime correctness, and evaluation integrity. Together they show that the object of study in Agent RL is not a loss function. It is which signals in the closed loop can be trusted.
 
 ---
 
-## 结语
+## Conclusion
 
-如果你只复现本文的一件事，就复现下面这条链：
+If you reproduce only one thing from this article, reproduce this chain:
 
 ```text
-同一个完整 PolicyManifest
-→ 同一个可重置初始状态
-→ 一组 fresh sibling rollouts
-→ agent 无写权限的独立 verifier namespace
-→ 明确的 advantage estimator
-→ 恰好一次可审计 update
+one complete PolicyManifest
+→ one resettable initial state
+→ a group of fresh sibling rollouts
+→ an independent verifier namespace the agent cannot write
+→ an explicit advantage estimator
+→ exactly one auditable update
 → task-disjoint held-out evaluation
 ```
 
-这条链跑通以后，PPO、GRPO、DPPO、branching credit 或异步 rollout 都只是可以替换的 component。跑不通时，继续增加数据、模型和 GPU，只会让错误更昂贵。
+Once this chain works, PPO, GRPO, DPPO, branching credit, and asynchronous rollout are replaceable components. Before it works, adding more data, parameters, and GPUs only makes the error more expensive.
 
-Agent RL 的技术深度，最终不在于用了多少算法名，而在于能否回答：**这个 experience 为什么产生了这个梯度，而这个梯度为什么改善了一个未见过的任务？**
+The technical depth of Agent RL is not the number of algorithm names in the stack. It is whether the system can answer: **Why did this experience produce this gradient, and why did that gradient improve an unseen task?**
 
 ---
 
-## 精选一手参考
+## Selected primary references
 
 - [POMDP: Planning and Acting in Partially Observable Stochastic Domains](https://people.csail.mit.edu/lpk/papers/aij98-pomdp.pdf)
 - [Generalized Advantage Estimation](https://arxiv.org/abs/1506.02438)
@@ -933,32 +930,32 @@ Agent RL 的技术深度，最终不在于用了多少算法名，而在于能�
 - [Dr.GRPO](https://arxiv.org/abs/2503.20783)
 - [DAPO](https://arxiv.org/abs/2503.14476)
 - [GSPO](https://arxiv.org/abs/2507.18071)
-- [STEPO / EvoCUA-1.5](https://arxiv.org/abs/2607.09773)（2026 preprint）
-- [Rethinking the Trust Region / DPPO](https://arxiv.org/abs/2602.04879)（2026 preprint）
+- [STEPO / EvoCUA-1.5](https://arxiv.org/abs/2607.09773) — 2026 preprint
+- [Rethinking the Trust Region / DPPO](https://arxiv.org/abs/2602.04879) — 2026 preprint
 - [GiGPO](https://arxiv.org/abs/2505.10978)
-- [TRACE](https://arxiv.org/abs/2607.13988)（2026 preprint）
-- [Branching Policy Optimization](https://arxiv.org/abs/2607.14171)（2026 preprint）
+- [TRACE](https://arxiv.org/abs/2607.13988) — 2026 preprint
+- [Branching Policy Optimization](https://arxiv.org/abs/2607.14171) — 2026 preprint
 - [Entropy Mechanism of RL](https://arxiv.org/abs/2505.22617)
 - [High-Entropy Minority Tokens](https://arxiv.org/abs/2506.01939)
-- [TMax: A Simple Recipe for Terminal Agents](https://arxiv.org/abs/2606.23321)（2026 preprint + open code/data）
+- [TMax: A Simple Recipe for Terminal Agents](https://arxiv.org/abs/2606.23321) — 2026 preprint with open code and data
 - [InstructGPT](https://arxiv.org/abs/2203.02155)
-- [RECAP: Mitigating General Capability Regression](https://arxiv.org/abs/2510.21978)（新预印本；VLM evidence）
+- [RECAP: Mitigating General Capability Regression](https://arxiv.org/abs/2510.21978) — recent preprint; VLM evidence
 - [Reward Model Overoptimization](https://arxiv.org/abs/2210.10760)
-- [Agent Lightning](https://arxiv.org/abs/2508.03680)（2025 preprint）
-- [Tool-calling Pipeline Sensitivity](https://arxiv.org/abs/2606.00135)（ICML 2026）
+- [Agent Lightning](https://arxiv.org/abs/2508.03680) — 2025 preprint
+- [Tool-calling Pipeline Sensitivity](https://arxiv.org/abs/2606.00135) — ICML 2026
 - [HybridFlow / verl](https://arxiv.org/abs/2409.19256)
 - [IMPALA / V-trace](https://arxiv.org/abs/1802.01561)
 - [Asynchronous RLHF](https://arxiv.org/abs/2410.18252)
 - [AReaL](https://arxiv.org/abs/2505.24298)
-- [DORA](https://arxiv.org/abs/2604.26256)（2026 preprint）
-- [Diagnosing Training–Inference Mismatch](https://arxiv.org/abs/2605.14220)（2026 preprint）
+- [DORA](https://arxiv.org/abs/2604.26256) — 2026 preprint
+- [Diagnosing Training–Inference Mismatch](https://arxiv.org/abs/2605.14220) — 2026 preprint
 - [APRIL: Active Partial Rollouts](https://arxiv.org/abs/2509.18521)
 - [RollPacker](https://arxiv.org/abs/2509.21009)
-- [CompactionRL](https://arxiv.org/abs/2607.05378)（2026 preprint）
+- [CompactionRL](https://arxiv.org/abs/2607.05378) — 2026 preprint
 - [vLLM Native RL APIs](https://vllm.ai/blog/2026-05-28-native-rl-apis)
 - [τ-bench](https://arxiv.org/abs/2406.12045)
 - [τ²-bench](https://arxiv.org/abs/2506.07982)
-- [RealUserSim](https://arxiv.org/abs/2605.20204)（2026 preprint）
+- [RealUserSim](https://arxiv.org/abs/2605.20204) — 2026 preprint
 - [OSWorld](https://arxiv.org/abs/2404.07972)
 - [AppWorld](https://arxiv.org/abs/2407.18901)
 - [OpenAI: Why We No Longer Evaluate SWE-bench Verified](https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/)
