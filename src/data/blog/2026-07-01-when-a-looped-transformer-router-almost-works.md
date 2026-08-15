@@ -66,22 +66,22 @@ That makes it a useful bridge between clean algorithmic probes and real language
 
 We compared two architectures:
 
-| Architecture | Description |
-| --- | --- |
-| `fixed_2x4` | two unique blocks, four fixed loops |
+| Architecture              | Description                                                          |
+| ------------------------- | -------------------------------------------------------------------- |
+| `fixed_2x4`               | two unique blocks, four fixed loops                                  |
 | `router_2x4_step_path020` | two unique blocks, routed path, step signal, path loss weight `0.20` |
 
 The grid controlled model width, training budget, and seed. The first grid used `d_model={32,48,64}`, budgets `{200,600,1200}`, and seeds `{0,1}`. The second interleaved grid added `d_model={40,56,80}`, budgets `{400,800,1600}`, and seed `0`.
 
-| Axis | Values |
-| --- | --- |
-| `d_model` | `32`, `40`, `48`, `56`, `64`, `80` |
-| steps | `200`, `400`, `600`, `800`, `1200`, `1600` |
-| seeds | `0`, `1` for the original grid; `0` for the interleaved additions |
-| task | `language_composition` |
-| train max hops | `4` |
-| eval max hops | `6` |
-| num nodes | `32` |
+| Axis           | Values                                                            |
+| -------------- | ----------------------------------------------------------------- |
+| `d_model`      | `32`, `40`, `48`, `56`, `64`, `80`                                |
+| steps          | `200`, `400`, `600`, `800`, `1200`, `1600`                        |
+| seeds          | `0`, `1` for the original grid; `0` for the interleaved additions |
+| task           | `language_composition`                                            |
+| train max hops | `4`                                                               |
+| eval max hops  | `6`                                                               |
+| num nodes      | `32`                                                              |
 
 That gives:
 
@@ -99,40 +99,40 @@ outputs/controlled_language_scaling_rows_seed0_seed1_plus_interleaved_20260701.c
 
 The router looks best at medium training budgets:
 
-| Budget | Mean router loss minus fixed loss | Router wins |
-| --- | ---: | ---: |
-| `200` steps | `+0.00104` | `3/6` |
-| `400` steps | `-0.00595` | `3/3` |
-| `600` steps | `-0.01149` | `6/6` |
-| `800` steps | `-0.01906` | `3/3` |
-| `1200` steps | `+0.00633` | `1/6` |
-| `1600` steps | `+0.01311` | `1/3` |
+| Budget       | Mean router loss minus fixed loss | Router wins |
+| ------------ | --------------------------------: | ----------: |
+| `200` steps  |                        `+0.00104` |       `3/6` |
+| `400` steps  |                        `-0.00595` |       `3/3` |
+| `600` steps  |                        `-0.01149` |       `6/6` |
+| `800` steps  |                        `-0.01906` |       `3/3` |
+| `1200` steps |                        `+0.00633` |       `1/6` |
+| `1600` steps |                        `+0.01311` |       `1/3` |
 
 Negative delta is better for the router. The `400`, `600`, and `800` step results are real enough to keep studying the router. But the `1200` and `1600` step results prevent us from promoting it as a stable architecture win.
 
 By width:
 
 | Width | Mean router loss minus fixed loss | Router wins |
-| --- | ---: | ---: |
-| `d32` | `-0.00347` | `5/6` |
-| `d40` | `-0.00029` | `2/3` |
-| `d48` | `-0.00230` | `2/6` |
-| `d56` | `+0.00044` | `2/3` |
-| `d64` | `+0.00165` | `3/6` |
-| `d80` | `-0.01206` | `3/3` |
+| ----- | --------------------------------: | ----------: |
+| `d32` |                        `-0.00347` |       `5/6` |
+| `d40` |                        `-0.00029` |       `2/3` |
+| `d48` |                        `-0.00230` |       `2/6` |
+| `d56` |                        `+0.00044` |       `2/3` |
+| `d64` |                        `+0.00165` |       `3/6` |
+| `d80` |                        `-0.01206` |       `3/3` |
 
 The old largest replicated point remains a stress test because it has two seeds:
 
 | Seed | Fixed loss | Router loss | Router delta |
-| --- | ---: | ---: | ---: |
-| `0` | `3.272328` | `3.287227` | `+0.014899` |
-| `1` | `3.225777` | `3.236505` | `+0.010727` |
+| ---- | ---------: | ----------: | -----------: |
+| `0`  | `3.272328` |  `3.287227` |  `+0.014899` |
+| `1`  | `3.225777` |  `3.236505` |  `+0.010727` |
 
 The new largest point is `d_model=80`, `1600` steps, seed `0`:
 
 | Seed | Fixed loss | Router loss | Router delta |
-| --- | ---: | ---: | ---: |
-| `0` | `3.141292` | `3.140688` | `-0.000603` |
+| ---- | ---------: | ----------: | -----------: |
+| `0`  | `3.141292` |  `3.140688` |  `-0.000603` |
 
 That is encouraging, but it is not enough to declare a win. The router is basically tied at the largest new point, while the two smaller `1600`-step runs lose by `+0.02149` and `+0.01844`. So the current router is not simply undertrained. It can win in the middle, and it may recover at larger width, but its long-horizon behavior is still unstable.
 
@@ -142,17 +142,17 @@ The router statistics explain why the long-run result is weak.
 
 The final exit mass increases as training gets longer:
 
-| Width and budget | Final exit mass | Route entropy |
-| --- | ---: | ---: |
-| `d32 / 200 / seed 1` | `0.6578` | `0.3856` |
-| `d32 / 1200 / seed 1` | `0.9616` | `0.0493` |
-| `d40 / 400 / seed 0` | `0.7743` | `0.2038` |
-| `d40 / 1600 / seed 0` | `0.9879` | `0.0255` |
-| `d56 / 1600 / seed 0` | `0.9922` | `0.0200` |
-| `d64 / 1200 / seed 1` | `0.9944` | `0.0236` |
-| `d80 / 400 / seed 0` | `0.9131` | `0.0712` |
-| `d80 / 800 / seed 0` | `0.9824` | `0.0206` |
-| `d80 / 1600 / seed 0` | `0.9914` | `0.0127` |
+| Width and budget      | Final exit mass | Route entropy |
+| --------------------- | --------------: | ------------: |
+| `d32 / 200 / seed 1`  |        `0.6578` |      `0.3856` |
+| `d32 / 1200 / seed 1` |        `0.9616` |      `0.0493` |
+| `d40 / 400 / seed 0`  |        `0.7743` |      `0.2038` |
+| `d40 / 1600 / seed 0` |        `0.9879` |      `0.0255` |
+| `d56 / 1600 / seed 0` |        `0.9922` |      `0.0200` |
+| `d64 / 1200 / seed 1` |        `0.9944` |      `0.0236` |
+| `d80 / 400 / seed 0`  |        `0.9131` |      `0.0712` |
+| `d80 / 800 / seed 0`  |        `0.9824` |      `0.0206` |
+| `d80 / 1600 / seed 0` |        `0.9914` |      `0.0127` |
 
 This is the key failure mode. A router that always routes to the same endpoint is not really using adaptive computation. It is learning a low-entropy shortcut.
 
@@ -191,12 +191,12 @@ L(N, D, R) =
 
 The fit quality is reasonable for a 54-point exploratory grid:
 
-| Metric | Value |
-| --- | ---: |
-| observations | `54` |
-| RMSE | `0.0477` loss |
-| MAE | `0.0381` loss |
-| R2 | `0.769` |
+| Metric       |         Value |
+| ------------ | ------------: |
+| observations |          `54` |
+| RMSE         | `0.0477` loss |
+| MAE          | `0.0381` loss |
+| R2           |       `0.769` |
 
 This should not be treated as a final scaling law. The range is small, and the
 floor term is constrained by the limited data. But it is strong enough to

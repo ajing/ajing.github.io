@@ -92,14 +92,14 @@ letting the model spend a small amount of feedback on genuinely useful tokens.
 
 Only winning on hard tokens is not enough. A candidate has to beat the fixed loop on the full bundle:
 
-| Gate | Why it matters |
-|---|---|
-| Validation loss | General language-model quality |
-| Token accuracy | Direct next-token performance |
-| Reasoning-slice loss | A proxy for multi-step language-like examples |
-| Deterministic validation loss | Less noisy paired comparison |
-| Easy-token loss | Checks that routing does not damage obvious tokens |
-| Hard-token loss | Checks whether extra computation helps difficult tokens |
+| Gate                          | Why it matters                                          |
+| ----------------------------- | ------------------------------------------------------- |
+| Validation loss               | General language-model quality                          |
+| Token accuracy                | Direct next-token performance                           |
+| Reasoning-slice loss          | A proxy for multi-step language-like examples           |
+| Deterministic validation loss | Less noisy paired comparison                            |
+| Easy-token loss               | Checks that routing does not damage obvious tokens      |
+| Hard-token loss               | Checks whether extra computation helps difficult tokens |
 
 ## The Candidate That Worked
 
@@ -149,12 +149,12 @@ token_feedback_router_lateonly4x2_learnedsrc_scale010_dynfloor000_gate005_utilbc
 
 Here is the evidence stack that changed my mind:
 
-| Check | Matched baseline | Seeds | Result |
-|---|---|---:|---|
-| d384, `4x2`, batch4, 2000 steps | `fixed_4x2` | 0/1/2 | Router wins token accuracy, validation loss, reasoning loss, deterministic validation loss, easy-token loss, and hard-token loss |
-| d512, `4x2`, batch4, 2000 steps | `fixed_4x2` | 0/1/2 | Same all-metric win at larger width |
-| d512, depth16 `4x4`, batch4, 2000 steps | `fixed_4x4` | 0/1/2 | Same all-metric win after moving to the final-loop-only depth-16 structure |
-| d512, depth16 `4x4`, batch8, 2000 steps | `fixed_4x4` | 0/1/2 | Strongest current confirmation; hard-token margin widens |
+| Check                                   | Matched baseline | Seeds | Result                                                                                                                           |
+| --------------------------------------- | ---------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------- |
+| d384, `4x2`, batch4, 2000 steps         | `fixed_4x2`      | 0/1/2 | Router wins token accuracy, validation loss, reasoning loss, deterministic validation loss, easy-token loss, and hard-token loss |
+| d512, `4x2`, batch4, 2000 steps         | `fixed_4x2`      | 0/1/2 | Same all-metric win at larger width                                                                                              |
+| d512, depth16 `4x4`, batch4, 2000 steps | `fixed_4x4`      | 0/1/2 | Same all-metric win after moving to the final-loop-only depth-16 structure                                                       |
+| d512, depth16 `4x4`, batch8, 2000 steps | `fixed_4x4`      | 0/1/2 | Strongest current confirmation; hard-token margin widens                                                                         |
 
 The important part is not that any one metric is dramatic. It is that the sign does not flip when the comparison gets stricter. Earlier routers often had one beautiful column and one ugly column. This one is boring in the right way: small positive margins across the whole gate.
 
@@ -174,25 +174,25 @@ fixed_4x4
 
 Three-seed aggregate:
 
-| Metric | `fixed_4x4` | router | router - fixed |
-|---|---:|---:|---:|
-| Validation token accuracy | `0.883870` | `0.883952` | `+0.000081` |
-| Last validation loss | `1.338885` | `1.337927` | `-0.000958` |
-| Reasoning loss | `1.237956` | `1.237297` | `-0.000659` |
-| Deterministic validation loss | `1.336670` | `1.335787` | `-0.000883` |
-| Easy-token loss | `0.031210` | `0.031138` | `-0.000071` |
-| Hard-token loss | `5.253051` | `5.249732` | `-0.003318` |
+| Metric                        | `fixed_4x4` |     router | router - fixed |
+| ----------------------------- | ----------: | ---------: | -------------: |
+| Validation token accuracy     |  `0.883870` | `0.883952` |    `+0.000081` |
+| Last validation loss          |  `1.338885` | `1.337927` |    `-0.000958` |
+| Reasoning loss                |  `1.237956` | `1.237297` |    `-0.000659` |
+| Deterministic validation loss |  `1.336670` | `1.335787` |    `-0.000883` |
+| Easy-token loss               |  `0.031210` | `0.031138` |    `-0.000071` |
+| Hard-token loss               |  `5.253051` | `5.249732` |    `-0.003318` |
 
 Lower loss is better. Higher accuracy is better.
 
 The router statistics are also important:
 
-| Router statistic | Value |
-|---|---:|
-| Mean token feedback | `0.057688` |
-| Source entropy | `0.366058` |
-| Source final mass | `0.856165` |
-| Feedback applications | `2.0` |
+| Router statistic      |      Value |
+| --------------------- | ---------: |
+| Mean token feedback   | `0.057688` |
+| Source entropy        | `0.366058` |
+| Source final mass     | `0.856165` |
+| Feedback applications |      `2.0` |
 
 The router is mostly using final-ish source information, but it has not collapsed into a completely deterministic route. It learns a small source mixture and applies feedback to only a small share of token states.
 
@@ -204,21 +204,21 @@ This is a matched-backbone training-quality comparison, not a serving-cost claim
 
 The same depth-16 direction was already slightly positive at batch size `4`, but the margins were almost too small to trust:
 
-| Metric | batch4 router - fixed |
-|---|---:|
-| Validation loss | `-0.000430` |
-| Reasoning loss | `-0.000450` |
-| Deterministic validation loss | `-0.000438` |
-| Hard-token loss | `-0.000986` |
+| Metric                        | batch4 router - fixed |
+| ----------------------------- | --------------------: |
+| Validation loss               |           `-0.000430` |
+| Reasoning loss                |           `-0.000450` |
+| Deterministic validation loss |           `-0.000438` |
+| Hard-token loss               |           `-0.000986` |
 
 At batch size `8`, the same broad pattern became clearer:
 
-| Metric | batch8 router - fixed |
-|---|---:|
-| Validation loss | `-0.000958` |
-| Reasoning loss | `-0.000659` |
-| Deterministic validation loss | `-0.000883` |
-| Hard-token loss | `-0.003318` |
+| Metric                        | batch8 router - fixed |
+| ----------------------------- | --------------------: |
+| Validation loss               |           `-0.000958` |
+| Reasoning loss                |           `-0.000659` |
+| Deterministic validation loss |           `-0.000883` |
+| Hard-token loss               |           `-0.003318` |
 
 The most interesting movement is hard-token loss: the advantage widened from about `0.0010` to about `0.0033`.
 

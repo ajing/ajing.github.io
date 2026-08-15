@@ -56,7 +56,7 @@ Embeddings can help find some of these. They cannot reliably classify all of the
 
 ![Embedding similarity versus leakage risk](/images/pretraining/embedding-similarity-vs-leakage.svg "Embedding similarity versus leakage risk")
 
-*Embedding similarity and leakage risk are related, but they are not the same axis. Some high-similarity documents are harmless; some low-similarity documents leak the answer or solution.*
+_Embedding similarity and leakage risk are related, but they are not the same axis. Some high-similarity documents are harmless; some low-similarity documents leak the answer or solution._
 
 ## 2. Embedding similarity has no natural decontamination threshold
 
@@ -177,7 +177,7 @@ and:
 
 The names and objects changed, but the computation is the same:
 
-> 3 * 4 + 2 * 1
+> 3 _ 4 + 2 _ 1
 
 Should this count as contamination? It depends on the evaluation claim.
 

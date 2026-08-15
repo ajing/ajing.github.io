@@ -18,7 +18,12 @@ const staticPages = [
   "/topics/",
 ] as const;
 
-const priorityStaticPages = ["/", "/posts/", "/start-here/", "/topics/"] as const;
+const priorityStaticPages = [
+  "/",
+  "/posts/",
+  "/start-here/",
+  "/topics/",
+] as const;
 const priorityTopicSlugs = new Set(["agents", "evaluation"]);
 const priorityPostCount = 8;
 

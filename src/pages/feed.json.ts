@@ -37,13 +37,12 @@ export const GET: APIRoute = async () => {
         items,
       },
       null,
-      2
+      2,
     ),
     {
       headers: {
         "Content-Type": "application/feed+json; charset=utf-8",
       },
-    }
+    },
   );
 };
-

@@ -4,4 +4,3 @@ export function getReadingTime(content: string): string {
   const minutes = Math.ceil(words / wordsPerMinute);
   return `${minutes} min read`;
 }
-

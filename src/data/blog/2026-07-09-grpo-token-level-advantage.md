@@ -50,10 +50,10 @@ The short answer is:
 
 ## What GRPO Gives Each Token
 
-Let a policy generate a response \(y_{1:T}\) for prompt \(x\). In an outcome reward setting, the reward is usually observed only after the full response:
+Let a policy generate a response \(y\_{1:T}\) for prompt \(x\). In an outcome reward setting, the reward is usually observed only after the full response:
 
 \[
-R = R(x, y_{1:T})
+R = R(x, y\_{1:T})
 \]
 
 For math, \(R\) may be correctness. For code, it may be test pass rate. For RLHF, it may be a reward model score. For safety or formatting, it may be a judge score.
@@ -61,7 +61,7 @@ For math, \(R\) may be correctness. For code, it may be test pass rate. For RLHF
 GRPO samples a group of \(G\) responses for the same prompt:
 
 \[
-\{y^{(i)}\}_{i=1}^{G}
+\{y^{(i)}\}\_{i=1}^{G}
 \]
 
 Each response receives a scalar reward \(R_i\). GRPO then normalizes those rewards within the group:
@@ -73,13 +73,13 @@ Z_i = \frac{R_i - \mu_G}{\sigma_G + \epsilon}
 where:
 
 \[
-\mu_G = \frac{1}{G}\sum_{j=1}^{G} R_j
+\mu*G = \frac{1}{G}\sum*{j=1}^{G} R_j
 \]
 
 The outcome-GRPO approximation is:
 
 \[
-A^{\text{GRPO}}_{i,t} = Z_i,\qquad t=1,\dots,T_i
+A^{\text{GRPO}}\_{i,t} = Z_i,\qquad t=1,\dots,T_i
 \]
 
 Every token in the response receives the same advantage.
@@ -106,7 +106,7 @@ r_1, r_2, \dots, r_T
 such that:
 
 \[
-\sum_{t=1}^{T} r_t = R
+\sum\_{t=1}^{T} r_t = R
 \]
 
 There are infinitely many decompositions.
@@ -120,7 +120,7 @@ r_t = \frac{1}{T}
 Terminal:
 
 \[
-r_T = 1,\qquad r_{t<T}=0
+r*T = 1,\qquad r*{t<T}=0
 \]
 
 Key-token:
@@ -145,15 +145,15 @@ GAE does not remove the need for these assumptions. GAE answers a different ques
 The GAE residual is:
 
 \[
-\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)
+\delta*t = r_t + \gamma V(s*{t+1}) - V(s_t)
 \]
 
 and the advantage estimate is:
 
 \[
-\hat A_t^{(\gamma,\lambda)}
+\hat A*t^{(\gamma,\lambda)}
 =
-\sum_{l=0}^{T-t}(\gamma\lambda)^l \delta_{t+l}
+\sum*{l=0}^{T-t}(\gamma\lambda)^l \delta\_{t+l}
 \]
 
 If \(r_t\) is only terminal, GAE can still produce token-level advantages. But token differences mostly come from the value function, not from localized reward evidence.
@@ -176,7 +176,7 @@ The smallest useful change to GRPO is:
 For response \(i\):
 
 \[
-r_{i,t} =
+r\_{i,t} =
 \begin{cases}
 0, & t < T_i \\
 Z_i, & t = T_i
@@ -186,19 +186,22 @@ Z_i, & t = T_i
 Then:
 
 \[
-\delta_{i,t}
+\delta*{i,t}
 =
-r_{i,t}
-+ \gamma V_\psi(s_{i,t+1})
-- V_\psi(s_{i,t})
-\]
+r*{i,t}
+
+- \gamma V*\psi(s*{i,t+1})
+
+* V*\psi(s*{i,t})
+  \]
 
 \[
-\hat A_{i,t}
+\hat A*{i,t}
 =
-\delta_{i,t}
-+ \gamma\lambda \hat A_{i,t+1}
-\]
+\delta*{i,t}
+
+- \gamma\lambda \hat A\_{i,t+1}
+  \]
 
 A minimal implementation looks like this:
 
@@ -245,13 +248,13 @@ Once the minimal GAE version exists, the real design choice is how to define tok
 We can write the problem as a credit operator:
 
 \[
-\mathcal C: Z_i \mapsto \{r_{i,t}\}_{t=1}^{T_i}
+\mathcal C: Z*i \mapsto \{r*{i,t}\}\_{t=1}^{T_i}
 \]
 
 After that, GAE is standard:
 
 \[
-\hat A_{i,t} = \text{GAE}(r_{i,t}, V(s_{i,t}))
+\hat A*{i,t} = \text{GAE}(r*{i,t}, V(s\_{i,t}))
 \]
 
 ### 1. Token Weighting: Position, Entropy, and Eligibility Traces
@@ -259,9 +262,9 @@ After that, GAE is standard:
 The cheapest route is weighted redistribution:
 
 \[
-r_{i,t}
+r*{i,t}
 =
-Z_i \cdot \frac{w_{i,t}}{\sum_k w_{i,k}}
+Z_i \cdot \frac{w*{i,t}}{\sum*k w*{i,k}}
 \]
 
 The weights can come from:
@@ -296,7 +299,7 @@ U(s_t) \approx \mathbb E[Z \mid s_t]
 Then redistributed reward can be:
 
 \[
-r_t = U(s_t) - U(s_{t-1})
+r*t = U(s_t) - U(s*{t-1})
 \]
 
 This asks: after seeing this token, did the expected final outcome change?
@@ -314,19 +317,19 @@ Related work:
 
 Another route is to resample from an intermediate prefix.
 
-For a position \(t\), keep the prefix \(y_{<t}\), sample suffixes:
+For a position \(t\), keep the prefix \(y\_{<t}\), sample suffixes:
 
 \[
-\tilde y_{t:T}^{(m)} \sim \pi(\cdot \mid x, y_{<t})
+\tilde y*{t:T}^{(m)} \sim \pi(\cdot \mid x, y*{<t})
 \]
 
 and estimate:
 
 \[
-V(s_t)
+V(s*t)
 \approx
-\frac{1}{M}\sum_{m=1}^{M}
-R(x, y_{<t}, \tilde y_{t:T}^{(m)})
+\frac{1}{M}\sum*{m=1}^{M}
+R(x, y*{<t}, \tilde y*{t:T}^{(m)})
 \]
 
 This gives a Monte Carlo prefix value. VinePPO uses this kind of language-environment flexibility to produce better credit estimates than learned value networks in reasoning tasks. Reset methods go further: identify or sample an intermediate reasoning state, reset there, generate counterfactual suffixes, and learn from outcome differences.
@@ -343,7 +346,7 @@ Related work:
 Instead of inferring credit online, train a token reward model:
 
 \[
-f_\phi(x, y_{\le t}) \to \phi_t
+f*\phi(x, y*{\le t}) \to \phi_t
 \]
 
 Then project its token scores back to the known sequence score:
@@ -352,9 +355,9 @@ Then project its token scores back to the known sequence score:
 r_t
 =
 \phi_t
-+
-\frac{Z - \sum_k \phi_k}{T}
-\]
+
+- \frac{Z - \sum_k \phi_k}{T}
+  \]
 
 This enforces:
 
@@ -406,15 +409,17 @@ A reasoning model may receive:
 The tempting implementation is:
 
 \[
-R_{\text{total}}
+R*{\text{total}}
 =
-R_{\text{task}}
-+ \beta_1 R_{\text{format}}
-+ \beta_2 R_{\text{style}}
-- \beta_3 R_{\text{KL}}
-\]
+R*{\text{task}}
 
-and then broadcast or redistribute \(R_{\text{total}}\).
+- \beta*1 R*{\text{format}}
+- \beta*2 R*{\text{style}}
+
+* \beta*3 R*{\text{KL}}
+  \]
+
+and then broadcast or redistribute \(R\_{\text{total}}\).
 
 That is usually the wrong abstraction.
 
@@ -432,14 +437,16 @@ If correctness and style are collapsed into one sequence reward, the model can l
 The fix is to split reward channels before token credit assignment:
 
 \[
-A_{t}^{\text{final}}
+A*{t}^{\text{final}}
 =
-A_{t}^{\text{task}}
-+ \beta_{\text{format}} A_{t}^{\text{format}}
-+ \beta_{\text{style}} A_{t}^{\text{style}}
-+ \beta_{\text{process}} A_{t}^{\text{process}}
-- \beta_{\text{KL}} k_t
-\]
+A*{t}^{\text{task}}
+
+- \beta*{\text{format}} A*{t}^{\text{format}}
+- \beta*{\text{style}} A*{t}^{\text{style}}
+- \beta*{\text{process}} A*{t}^{\text{process}}
+
+* \beta\_{\text{KL}} k_t
+  \]
 
 Each reward channel should have its own projection to token level.
 
@@ -447,18 +454,18 @@ Each reward channel should have its own projection to token level.
 
 Not every reward should be distributed the same way.
 
-| Reward type | Natural granularity | Recommended projection |
-|---|---:|---|
-| Final correctness | sequence / terminal | GRPO-\(\lambda\), prefix tree, suffix resampling, terminal GAE |
-| Unit-test pass rate | sequence / test case | code span, function, line, or suffix resampling |
-| Process correctness | step | step reward distributed across step tokens |
-| Format | token / span | local penalty on malformed spans |
-| Fluency | span | token or span reward model |
-| Over-excitement | span | local penalty on exaggerated phrases and punctuation |
-| Repetition | n-gram / span | local penalty on repeated spans |
-| Length | sequence plus token | small per-token cost plus overlong penalty |
-| KL | token | direct per-token KL |
-| Safety | span / sequence | local penalty for explicit violation, hard constraint for severe cases |
+| Reward type         |  Natural granularity | Recommended projection                                                 |
+| ------------------- | -------------------: | ---------------------------------------------------------------------- |
+| Final correctness   |  sequence / terminal | GRPO-\(\lambda\), prefix tree, suffix resampling, terminal GAE         |
+| Unit-test pass rate | sequence / test case | code span, function, line, or suffix resampling                        |
+| Process correctness |                 step | step reward distributed across step tokens                             |
+| Format              |         token / span | local penalty on malformed spans                                       |
+| Fluency             |                 span | token or span reward model                                             |
+| Over-excitement     |                 span | local penalty on exaggerated phrases and punctuation                   |
+| Repetition          |        n-gram / span | local penalty on repeated spans                                        |
+| Length              |  sequence plus token | small per-token cost plus overlong penalty                             |
+| KL                  |                token | direct per-token KL                                                    |
+| Safety              |      span / sequence | local penalty for explicit violation, hard constraint for severe cases |
 
 The principle is simple:
 
@@ -477,7 +484,7 @@ If all channels are mixed first and whitened later, a high-variance channel can 
 A safer pattern is:
 
 \[
-\tilde A_{i,t}^{(c)}
+\tilde A\_{i,t}^{(c)}
 =
 \text{normalize within channel } c
 \]
@@ -485,9 +492,9 @@ A safer pattern is:
 then:
 
 \[
-A_{i,t}^{\text{final}}
+A*{i,t}^{\text{final}}
 =
-\sum_c \beta_c \tilde A_{i,t}^{(c)}
+\sum_c \beta_c \tilde A*{i,t}^{(c)}
 \]
 
 If the coefficients \(\beta_c\) change over training, use multiple value heads:
@@ -512,17 +519,17 @@ Too much style penalty can suppress reasoning. Too little does nothing. Too much
 For some channels, a constrained objective is cleaner:
 
 \[
-\max_\pi \mathbb E[R_{\text{task}}]
+\max*\pi \mathbb E[R*{\text{task}}]
 \]
 
 subject to:
 
 \[
-\mathbb E[\text{style violation}] \le \tau_{\text{style}}
+\mathbb E[\text{style violation}] \le \tau\_{\text{style}}
 \]
 
 \[
-\mathbb E[\text{format error}] \le \tau_{\text{format}}
+\mathbb E[\text{format error}] \le \tau\_{\text{format}}
 \]
 
 In practice:
@@ -557,13 +564,13 @@ This does not solve credit assignment, but it makes the baseline healthier.
 Use group-normalized \(Z_i\) as terminal reward:
 
 \[
-r^{\text{task}}_{i,T_i} = Z_i
+r^{\text{task}}\_{i,T_i} = Z_i
 \]
 
 Add a shared value head and compute:
 
 \[
-A^{\text{task}}_{i,t}
+A^{\text{task}}\_{i,t}
 =
 \text{GAE}(r^{\text{task}}, V^{\text{task}})
 \]
@@ -597,9 +604,11 @@ Then combine:
 A_t
 =
 A_t^{\text{task}}
-+ \beta_{\text{style}} A_t^{\text{style}}
-- \beta_{\text{KL}} k_t
-\]
+
+- \beta\_{\text{style}} A_t^{\text{style}}
+
+* \beta\_{\text{KL}} k_t
+  \]
 
 The important part is locality: a bad phrase should not penalize the whole proof.
 
@@ -635,13 +644,15 @@ The estimator I would actually aim for is:
 \[
 A^{\text{final}}_{i,t}
 =
-\alpha_{\text{task}} \tilde A^{\text{task}}_{i,t}
-+ \alpha_{\text{process}} \tilde A^{\text{process}}_{i,t}
-+ \alpha_{\text{style}} \tilde A^{\text{style}}_{i,t}
-+ \alpha_{\text{format}} \tilde A^{\text{format}}_{i,t}
-- \alpha_{\text{KL}} \tilde k_{i,t}
-- \alpha_{\text{length}} \tilde \ell_{i,t}
-\]
+\alpha_{\text{task}} \tilde A^{\text{task}}\_{i,t}
+
+- \alpha*{\text{process}} \tilde A^{\text{process}}*{i,t}
+- \alpha*{\text{style}} \tilde A^{\text{style}}*{i,t}
+- \alpha*{\text{format}} \tilde A^{\text{format}}*{i,t}
+
+* \alpha*{\text{KL}} \tilde k*{i,t}
+* \alpha*{\text{length}} \tilde \ell*{i,t}
+  \]
 
 Where:
 
@@ -673,14 +684,14 @@ Final task score is not enough. A token-level advantage estimator should be eval
 
 I would track:
 
-| Category | Metrics |
-|---|---|
-| Task quality | math accuracy, code pass@1, reward model score, judge win-rate |
-| Training efficiency | reward per rollout, steps to threshold, token budget to threshold |
-| Stability | policy KL, token entropy, advantage variance, value explained variance |
-| Output quality | response length, repetition rate, overlong rate, format error rate |
-| Attribution faithfulness | reward drop after deleting top-credit tokens vs random tokens |
-| Reward interference | correctness drop after style reward, exploration drop after KL, short-answer bias after length penalty |
+| Category                 | Metrics                                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Task quality             | math accuracy, code pass@1, reward model score, judge win-rate                                         |
+| Training efficiency      | reward per rollout, steps to threshold, token budget to threshold                                      |
+| Stability                | policy KL, token entropy, advantage variance, value explained variance                                 |
+| Output quality           | response length, repetition rate, overlong rate, format error rate                                     |
+| Attribution faithfulness | reward drop after deleting top-credit tokens vs random tokens                                          |
+| Reward interference      | correctness drop after style reward, exploration drop after KL, short-answer bias after length penalty |
 
 Synthetic oracle tasks are especially useful. Create tasks where only a few known tokens or steps determine reward. Then measure whether the estimator actually identifies those tokens. This is much cleaner than trying to infer credit quality from benchmark accuracy alone.
 
@@ -692,15 +703,15 @@ The setup is intentionally simple. Each generated sequence has 48 tokens. Four h
 
 The experiment used 20 random seeds, 500 prompts per seed, and 8 responses per prompt. The metrics below are averaged across seeds.
 
-| Estimator | Token-credit correlation | Task key recall | Style violation recall | Filler credit mass |
-|---|---:|---:|---:|---:|
-| Task uniform | 0.140 | 0.075 | 0.003 | 0.903 |
-| Task terminal trace | 0.102 | 0.000 | 0.008 | 0.908 |
-| Task entropy weighting | 0.489 | 1.000 | 0.000 | 0.569 |
-| Task learned token RM | 0.965 | 0.926 | 0.021 | 0.316 |
-| Mixed total entropy weighting | 0.457 | 1.000 | 0.000 | 0.569 |
-| Split task entropy + local style | 0.502 | 0.839 | 1.000 | 0.491 |
-| Split learned task + local style | 0.966 | 0.837 | 0.560 | 0.295 |
+| Estimator                        | Token-credit correlation | Task key recall | Style violation recall | Filler credit mass |
+| -------------------------------- | -----------------------: | --------------: | ---------------------: | -----------------: |
+| Task uniform                     |                    0.140 |           0.075 |                  0.003 |              0.903 |
+| Task terminal trace              |                    0.102 |           0.000 |                  0.008 |              0.908 |
+| Task entropy weighting           |                    0.489 |           1.000 |                  0.000 |              0.569 |
+| Task learned token RM            |                    0.965 |           0.926 |                  0.021 |              0.316 |
+| Mixed total entropy weighting    |                    0.457 |           1.000 |                  0.000 |              0.569 |
+| Split task entropy + local style |                    0.502 |           0.839 |                  1.000 |              0.491 |
+| Split learned task + local style |                    0.966 |           0.837 |                  0.560 |              0.295 |
 
 The numbers are not meant to prove a universal ranking of methods. The environment was designed to isolate a specific failure mode.
 

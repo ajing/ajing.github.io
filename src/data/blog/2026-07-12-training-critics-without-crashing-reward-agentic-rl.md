@@ -81,18 +81,18 @@ tokens inside the credited turn
 policy-gradient update
 ```
 
-Token-level optimization remains necessary. Token-level *causal interpretation* is optional and much harder.
+Token-level optimization remains necessary. Token-level _causal interpretation_ is optional and much harder.
 
 ---
 
 ## 2. Four Roles That Should Not Be Collapsed Into One Critic
 
-| Component | Core question | Typical input | Typical use |
-|---|---|---|---|
-| Outcome verifier / reward model | Did the trajectory succeed? | final state, output, tests, rubric | terminal reward, evaluation |
-| Value critic | How much future return is available here? | current state, sometimes action | advantage estimation |
-| Process or privileged critic | Which intermediate decisions helped? | full trajectory plus training-only evidence | turn rewards, data labeling |
-| Monitor | Is the agent exploiting or concealing something? | actions, observations, raw reasoning | audit, triage, safety evaluation |
+| Component                       | Core question                                    | Typical input                               | Typical use                      |
+| ------------------------------- | ------------------------------------------------ | ------------------------------------------- | -------------------------------- |
+| Outcome verifier / reward model | Did the trajectory succeed?                      | final state, output, tests, rubric          | terminal reward, evaluation      |
+| Value critic                    | How much future return is available here?        | current state, sometimes action             | advantage estimation             |
+| Process or privileged critic    | Which intermediate decisions helped?             | full trajectory plus training-only evidence | turn rewards, data labeling      |
+| Monitor                         | Is the agent exploiting or concealing something? | actions, observations, raw reasoning        | audit, triage, safety evaluation |
 
 The separation matters because each component fails differently.
 
@@ -431,15 +431,15 @@ monitor alert rate
 
 This decomposition gives a practical diagnosis table:
 
-| Observation | Likely failure |
-|---|---|
-| Task reward down, KL and clip fraction up | policy update too large |
-| Reward down after entropy and diversity fall | exploration collapse |
-| Raw reward normal, values and advantages abnormal | critic failure |
-| Proxy reward up, held-out success down | reward hacking / overoptimization |
-| All workers suddenly report zero | pipeline or environment incident |
-| GRPO groups mostly all-zero or all-one | relative-advantage starvation |
-| Total reward down, task success unchanged | KL, length, safety, or formatting component shift |
+| Observation                                       | Likely failure                                    |
+| ------------------------------------------------- | ------------------------------------------------- |
+| Task reward down, KL and clip fraction up         | policy update too large                           |
+| Reward down after entropy and diversity fall      | exploration collapse                              |
+| Raw reward normal, values and advantages abnormal | critic failure                                    |
+| Proxy reward up, held-out success down            | reward hacking / overoptimization                 |
+| All workers suddenly report zero                  | pipeline or environment incident                  |
+| GRPO groups mostly all-zero or all-one            | relative-advantage starvation                     |
+| Total reward down, task success unchanged         | KL, length, safety, or formatting component shift |
 
 For long-running jobs, define automatic pause conditions before training begins. A crash investigation is much easier when the system preserves the checkpoint, optimizer state, rollouts, reward-code version, environment image, and critic version from both sides of the event.
 
@@ -447,16 +447,16 @@ For long-running jobs, define automatic pause conditions before training begins.
 
 ## 10. A Practical Method-Selection Guide
 
-| Situation | Good starting point | Why | Primary risk |
-|---|---|---|---|
-| Short trajectory, reliable outcome reward | GRPO / sequence-relative update | simple and critic-free | coarse credit, homogeneous groups |
-| Repeated or restorable intermediate states | pairwise or GiGPO-style local comparison | matched-state relative credit | coverage and pair-selection bias |
-| Large historical trajectory dataset | IQL plus advantage-weighted cloning | conservative offline reuse | critic error, dataset support |
-| Sparse long-horizon environment | turn-level PPO plus value critic | temporal credit at action boundaries | value instability |
-| Full trajectory reveals why a step failed | hindsight critic / HCAPO-style labeling | uses downstream evidence | narrative rather than causal credit |
-| Environment can branch and rerun | counterfactual advantage | strongest local causal evidence | rollout cost and stochasticity |
-| Hidden tests or backend truth exist | privileged critic | denser, better-informed training signal | leakage and shortcut learning |
-| Judge is weak or gameable | held-out monitor plus verifier ensemble | reduces direct optimization pressure | higher evaluation cost |
+| Situation                                  | Good starting point                      | Why                                     | Primary risk                        |
+| ------------------------------------------ | ---------------------------------------- | --------------------------------------- | ----------------------------------- |
+| Short trajectory, reliable outcome reward  | GRPO / sequence-relative update          | simple and critic-free                  | coarse credit, homogeneous groups   |
+| Repeated or restorable intermediate states | pairwise or GiGPO-style local comparison | matched-state relative credit           | coverage and pair-selection bias    |
+| Large historical trajectory dataset        | IQL plus advantage-weighted cloning      | conservative offline reuse              | critic error, dataset support       |
+| Sparse long-horizon environment            | turn-level PPO plus value critic         | temporal credit at action boundaries    | value instability                   |
+| Full trajectory reveals why a step failed  | hindsight critic / HCAPO-style labeling  | uses downstream evidence                | narrative rather than causal credit |
+| Environment can branch and rerun           | counterfactual advantage                 | strongest local causal evidence         | rollout cost and stochasticity      |
+| Hidden tests or backend truth exist        | privileged critic                        | denser, better-informed training signal | leakage and shortcut learning       |
+| Judge is weak or gameable                  | held-out monitor plus verifier ensemble  | reduces direct optimization pressure    | higher evaluation cost              |
 
 This table is not a leaderboard. The right choice depends on what evidence the environment can produce.
 
@@ -543,4 +543,3 @@ The critic is not the truth. It is an instrument for turning delayed evidence in
 - [Agent-RLVR](https://arxiv.org/abs/2506.11425)
 - [Detecting Misbehavior in Frontier Reasoning Models](https://openai.com/index/chain-of-thought-monitoring/)
 - [Scaling Laws for Reward Model Overoptimization](https://openai.com/index/scaling-laws-for-reward-model-overoptimization/)
-

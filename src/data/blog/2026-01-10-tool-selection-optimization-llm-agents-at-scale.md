@@ -20,12 +20,12 @@ This post covers the technical approaches to tool selection optimization—from 
 
 ## 1. The Scale Problem
 
-| # Tools | Selection Accuracy | Approach |
-|---------|-------------------|----------|
-| 5-10 | 90-95% | All in context |
-| 20-50 | 80-90% | Good descriptions critical |
-| 100-200 | 60-80% | Retrieval necessary |
-| 500+ | 40-60% | Multi-stage selection |
+| # Tools | Selection Accuracy | Approach                   |
+| ------- | ------------------ | -------------------------- |
+| 5-10    | 90-95%             | All in context             |
+| 20-50   | 80-90%             | Good descriptions critical |
+| 100-200 | 60-80%             | Retrieval necessary        |
+| 500+    | 40-60%             | Multi-stage selection      |
 
 **Why it matters:** Tool definitions cost 200-500 tokens each. At 500 tools, that's 200K+ tokens per request—**3-5 seconds** of inference time and **~45K USD/month** at scale. Optimized selection (10 tools) drops this to 400ms and ~900 USD/month.
 
@@ -45,7 +45,7 @@ class HybridToolRetriever:
         self.semantic = SemanticRetriever(tools, embedding_model)
         self.keyword = BM25Retriever(tools)
         self.alpha = alpha
-    
+
     def retrieve(self, query: str, k: int = 10) -> List[Tool]:
         # Reciprocal Rank Fusion - no normalization needed
         tool_scores = defaultdict(float)
@@ -53,7 +53,7 @@ class HybridToolRetriever:
             tool_scores[tool.name] += 1 / (60 + rank)
         for rank, tool in enumerate(self.keyword.retrieve(query, k*2)):
             tool_scores[tool.name] += 1 / (60 + rank)
-        
+
         sorted_tools = sorted(tool_scores.items(), key=lambda x: -x[1])
         return [self.get_tool(name) for name, _ in sorted_tools[:k]]
 ```
@@ -63,6 +63,7 @@ class HybridToolRetriever:
 A query like "now delete it" only makes sense with conversation history. Two established approaches:
 
 **1. Query Rewriting (TREC CAsT standard)**
+
 ```python
 def rewrite_query(query: str, history: List[Turn]) -> str:
     """LLM rewrites ambiguous query to be self-contained"""
@@ -71,6 +72,7 @@ def rewrite_query(query: str, history: List[Turn]) -> str:
 ```
 
 **2. History Concatenation (ConvDR approach)**
+
 ```python
 def retrieve_with_history(query: str, history: List[Turn], k: int = 10):
     """Concatenate recent history with query before encoding"""
@@ -83,11 +85,11 @@ def retrieve_with_history(query: str, history: List[Turn], k: int = 10):
 
 ### 2.3 Embedding Model Selection
 
-| Model | Cost/1M | Notes |
-|-------|---------|-------|
-| **Voyage 3 Large** | $0.18 | Top on Agentset tool retrieval benchmark |
-| **text-embedding-3-large** | $0.13 | Balanced accuracy/cost |
-| **BGE-M3** | $0.01 | Self-hosted, budget option |
+| Model                      | Cost/1M | Notes                                    |
+| -------------------------- | ------- | ---------------------------------------- |
+| **Voyage 3 Large**         | $0.18   | Top on Agentset tool retrieval benchmark |
+| **text-embedding-3-large** | $0.13   | Balanced accuracy/cost                   |
+| **BGE-M3**                 | $0.01   | Self-hosted, budget option               |
 
 **Note on Gemini Embedding:** Leads MTEB general benchmarks but underperforms on tool-specific retrieval (Agentset leaderboard). General embedding quality ≠ tool retrieval quality.
 
@@ -103,15 +105,15 @@ def retrieve_with_history(query: str, history: List[Turn], k: int = 10):
 
 **Benchmarks tested:**
 
-| Benchmark | Description | Tools |
-|-----------|-------------|-------|
+| Benchmark           | Description                                 | Tools             |
+| ------------------- | ------------------------------------------- | ----------------- |
 | **StableToolBench** | Stability benchmark for tool-augmented LLMs | 16,000+ real APIs |
-| **RestBench** | RESTful API evaluation | REST APIs |
+| **RestBench**       | RESTful API evaluation                      | REST APIs         |
 
 **The insight:** Incomplete descriptions force LLMs to make exploratory calls. The optimized version adds:
 
 ```
-When NOT to use: 
+When NOT to use:
 - If you already have the information from previous tool calls
 - For structured data queries (use database_query instead)
 
@@ -127,16 +129,24 @@ Note: Each call costs ~200ms. Batch multiple intents into one call.
   "when_to_use": "Weather, temperature, rain, outdoor planning queries",
   "when_not_to_use": "Historical data (use weather_history), air quality (use air_quality_api)",
   "parameters": {
-    "location": {"type": "string", "description": "City name or coordinates"},
-    "days": {"type": "integer", "default": 7, "description": "Forecast days (1-14)"}
+    "location": { "type": "string", "description": "City name or coordinates" },
+    "days": {
+      "type": "integer",
+      "default": 7,
+      "description": "Forecast days (1-14)"
+    }
   },
-  "example_queries": ["What's the weather in Tokyo?", "Will it rain this weekend?"]
+  "example_queries": [
+    "What's the weather in Tokyo?",
+    "Will it rain this weekend?"
+  ]
 }
 ```
 
 **Key elements:**
+
 - `when_to_use` — triggers selection
-- `when_not_to_use` — prevents over-selection  
+- `when_not_to_use` — prevents over-selection
 - `example_queries` — improves retrieval matching
 
 ### 3.3 Tool Use Examples (Anthropic)
@@ -148,13 +158,15 @@ JSON Schema defines structure but can't express **usage patterns**: date formats
 ```json
 {
   "name": "create_ticket",
-  "input_schema": { /* ... */ },
+  "input_schema": {
+    /* ... */
+  },
   "input_examples": [
     {
       "title": "Login page returns 500 error",
       "priority": "critical",
       "labels": ["bug", "authentication", "production"],
-      "reporter": {"id": "USR-12345", "name": "Jane Smith"},
+      "reporter": { "id": "USR-12345", "name": "Jane Smith" },
       "due_date": "2024-11-06"
     },
     {
@@ -173,6 +185,7 @@ From three examples, Claude learns: date format (YYYY-MM-DD), ID conventions (US
 **Result:** Parameter accuracy improved from **72% to 90%** on complex parameter handling.
 
 **Best practices:**
+
 - Use realistic data (real city names, plausible prices)
 - Show variety: minimal, partial, and full specification patterns
 - Keep it concise: 1-5 examples per tool
@@ -182,10 +195,10 @@ From three examples, Claude learns: date format (YYYY-MM-DD), ID conventions (US
 
 Instead of loading all tool definitions upfront, discover tools on-demand:
 
-| Approach | Token Cost | Tools Available |
-|----------|------------|----------------|
-| **Traditional** | ~72K tokens (50+ MCP tools) | All loaded |
-| **Tool Search Tool** | ~8.7K tokens | Full library, on-demand |
+| Approach             | Token Cost                  | Tools Available         |
+| -------------------- | --------------------------- | ----------------------- |
+| **Traditional**      | ~72K tokens (50+ MCP tools) | All loaded              |
+| **Tool Search Tool** | ~8.7K tokens                | Full library, on-demand |
 
 **Implementation:** Mark tools with `defer_loading: true`:
 
@@ -206,6 +219,7 @@ Instead of loading all tool definitions upfront, discover tools on-demand:
 When Claude needs GitHub capabilities, it searches and only loads `github.createPullRequest`—not all 50+ tools from Slack, Jira, and Google Drive.
 
 **Results (internal testing):**
+
 - **85% token reduction** (72K → 8.7K)
 - Opus 4: 49% → **74%** accuracy
 - Opus 4.5: 79.5% → **88.1%** accuracy
@@ -225,7 +239,7 @@ class ToolMerger:
     def merge(self, tools: List[Tool], similarity_threshold=0.85) -> List[Tool]:
         embeddings = embed_tools(tools)
         clusters = self._cluster(embeddings, similarity_threshold)
-        
+
         merged = []
         for cluster in clusters:
             if len(cluster) == 1:
@@ -250,20 +264,20 @@ class VirtualToolRouter:
     def get_virtual_tools(self) -> List[Tool]:
         # LLM sees ONE tool per capability
         return [
-            Tool(name="weather_forecast", 
+            Tool(name="weather_forecast",
                  description="Get weather forecast for any location"),
             Tool(name="web_search",
                  description="Search the web for current information"),
         ]
-    
+
     def execute(self, tool_name: str, params: dict, strategy: str = "smart"):
         providers = self.providers[tool_name]
-        
+
         if strategy == "cheapest":
             provider = min(providers, key=lambda p: p.cost)
         elif strategy == "reliable":
             provider = max(providers, key=lambda p: p.reliability)
-        
+
         return self._call_with_fallback(provider, providers, params)
 ```
 
@@ -275,12 +289,12 @@ If user preference matters, add optional `provider` parameter with `default="aut
 
 100+ endpoints per service → can't fit in context. Solutions:
 
-| Approach | Example | Token Overhead |
-|----------|---------|----------------|
-| **Hierarchical** | Domain → operation | ~25 tools max |
-| **Intent-based** | "Charge customer" → `[get_customer, create_payment_intent, confirm_payment]` | ~10 intents |
-| **CRUD abstraction** | `manage_customer(operation="create\|read\|update\|delete")` | ~15 resources |
-| **Dynamic retrieval** | Embed API docs, retrieve k=5 per query | k retrieved |
+| Approach              | Example                                                                      | Token Overhead |
+| --------------------- | ---------------------------------------------------------------------------- | -------------- |
+| **Hierarchical**      | Domain → operation                                                           | ~25 tools max  |
+| **Intent-based**      | "Charge customer" → `[get_customer, create_payment_intent, confirm_payment]` | ~10 intents    |
+| **CRUD abstraction**  | `manage_customer(operation="create\|read\|update\|delete")`                  | ~15 resources  |
+| **Dynamic retrieval** | Embed API docs, retrieve k=5 per query                                       | k retrieved    |
 
 ---
 
@@ -293,6 +307,7 @@ Trains **Qwen3-8B** and **Qwen2.5-VL-7B** using SFT + RL. Single model does both
 **Phase 1:** Supervised learning on selection rationales (why tool X, not tool Y)
 
 **Phase 2:** RL refinement with reward:
+
 ```python
 reward = (
     task_success * 0.5 +
@@ -305,15 +320,16 @@ reward = (
 ### 5.2 Graph-Based Selection (arXiv:2511.14650)
 
 Model tool co-occurrence as a graph:
+
 - Nodes = Tools
 - Edges = `P(tool_j | tool_i)` from historical trajectories
 
 **How it combines with hybrid retrieval:**
 
-| Turn | Method | Why |
-|------|--------|-----|
-| **First turn** | Hybrid (BM25 + embedding) | No history, need query understanding |
-| **Subsequent turns** | Graph transitions | Co-occurrence patterns dominate |
+| Turn                 | Method                    | Why                                  |
+| -------------------- | ------------------------- | ------------------------------------ |
+| **First turn**       | Hybrid (BM25 + embedding) | No history, need query understanding |
+| **Subsequent turns** | Graph transitions         | Co-occurrence patterns dominate      |
 
 ```python
 class HybridGraphSelector:
@@ -321,7 +337,7 @@ class HybridGraphSelector:
         if not tool_history:
             # First turn: pure retrieval
             return self.hybrid_retriever.retrieve(query, k)
-        
+
         # Subsequent: graph candidates, reranked by query relevance
         graph_candidates = self.graph.get_likely_next(tool_history[-1], k * 2)
         return self.rerank_by_query(graph_candidates, query, k)
@@ -333,21 +349,22 @@ class HybridGraphSelector:
 
 Not retrieval, not training—**inference-time control**. Keep all tools in context, mask logits during generation.
 
-| Technique | How It Works | Library |
-|-----------|--------------|---------|
-| **Logit masking** | Set disallowed tokens to `-inf` | Manus |
+| Technique               | How It Works                    | Library                  |
+| ----------------------- | ------------------------------- | ------------------------ |
+| **Logit masking**       | Set disallowed tokens to `-inf` | Manus                    |
 | **Grammar-constrained** | Force output to match CFG/regex | Outlines, LMQL, Guidance |
-| **JSON schema** | Constrain to valid structure | OpenAI JSON mode, vLLM |
+| **JSON schema**         | Constrain to valid structure    | OpenAI JSON mode, vLLM   |
 
 **Why not just remove tools?**
 
-| Approach | Problem |
-|----------|---------|
-| Dynamically add/remove tools | Invalidates KV-cache |
-| Retrieval-based filtering | Might filter out needed tools |
-| **Logit masking** | Tools stay in context, output constrained |
+| Approach                     | Problem                                   |
+| ---------------------------- | ----------------------------------------- |
+| Dynamically add/remove tools | Invalidates KV-cache                      |
+| Retrieval-based filtering    | Might filter out needed tools             |
+| **Logit masking**            | Tools stay in context, output constrained |
 
 **Implementation pattern (Manus):**
+
 ```python
 # State machine controls which tool prefixes are allowed
 allowed_prefixes = {
@@ -380,11 +397,11 @@ Query → Category Classifier → [Data|Web|Code|Doc] → Retrieve within catego
 
 **Multi-stage pipeline:**
 
-| Stage | Method | Output | Latency |
-|-------|--------|--------|---------|
-| 1. Coarse | Embedding retrieval | k=100 | ~20ms |
-| 2. Rerank | Cross-encoder | k=30 | ~50ms |
-| 3. Filter | LLM confirmation | k=10 | ~100ms |
+| Stage     | Method              | Output | Latency |
+| --------- | ------------------- | ------ | ------- |
+| 1. Coarse | Embedding retrieval | k=100  | ~20ms   |
+| 2. Rerank | Cross-encoder       | k=30   | ~50ms   |
+| 3. Filter | LLM confirmation    | k=10   | ~100ms  |
 
 Trigger LLM stage only if top scores are ambiguous (gap < 0.1).
 
@@ -394,12 +411,12 @@ Trigger LLM stage only if top scores are ambiguous (gap < 0.1).
 
 ### 7.1 Research Approaches
 
-| Framework | Method | Result |
-|-----------|--------|--------|
-| **PALADIN** (arXiv:2509.25238) | Train on 50K recovery-annotated trajectories | 95.2% recovery on unseen APIs |
-| **Structured Reflection** (arXiv:2509.18847) | Diagnose failure → propose corrective action | Improved multi-turn success |
-| **STAR** (arXiv:2503.06060) | Foundation model + knowledge graph | 78% recovery success rate |
-| **Toolken+** (arXiv:2410.12004) | Add "Reject" option—model can decline to use tools | Reduces false tool calls |
+| Framework                                    | Method                                             | Result                        |
+| -------------------------------------------- | -------------------------------------------------- | ----------------------------- |
+| **PALADIN** (arXiv:2509.25238)               | Train on 50K recovery-annotated trajectories       | 95.2% recovery on unseen APIs |
+| **Structured Reflection** (arXiv:2509.18847) | Diagnose failure → propose corrective action       | Improved multi-turn success   |
+| **STAR** (arXiv:2503.06060)                  | Foundation model + knowledge graph                 | 78% recovery success rate     |
+| **Toolken+** (arXiv:2410.12004)              | Add "Reject" option—model can decline to use tools | Reduces false tool calls      |
 
 **Key insight from PALADIN:** Expose agents to tool failures during training (timeouts, API exceptions, inconsistent outputs) with expert recovery demonstrations.
 
@@ -420,16 +437,17 @@ def select_with_recovery(query: str, failed_tools: Set[str] = None):
     candidates = retrieve_tools(query)
     if failed_tools:
         candidates = [t for t in candidates if t.name not in failed_tools]
-    
+
     if not candidates:
         # Fallback to capability-based alternatives
         capability = infer_capability(query)
         candidates = [Tool(name=t) for t in CAPABILITY_TOOLS.get(capability, [])]
-    
+
     return candidates
 ```
 
 **Structured reflection (self-correction):**
+
 ```python
 def reflect_on_failure(query: str, tool: str, error: str, history: List[Turn]):
     """LLM diagnoses failure and proposes recovery action"""
@@ -438,7 +456,7 @@ def reflect_on_failure(query: str, tool: str, error: str, history: List[Turn]):
     Tool called: {tool}
     Error: {error}
     Previous steps: {format_history(history)}
-    
+
     Diagnose what went wrong and propose the next action:
     1. Was this the wrong tool? → Suggest alternative
     2. Wrong parameters? → Suggest correction
@@ -447,7 +465,8 @@ def reflect_on_failure(query: str, tool: str, error: str, history: List[Turn]):
     return llm.generate(prompt)
 ```
 
-**Retrieval failure (vocabulary mismatch):** 
+**Retrieval failure (vocabulary mismatch):**
+
 - Detect via low scores (top score < 0.5)
 - Reformulate with synonyms: "cancel" → "refund", "terminate"
 - Build alias index: user terms → tool terms
@@ -475,11 +494,11 @@ Instead of sequential tool calls with each result entering context, Claude write
 
 **Example:** "Which team members exceeded their Q3 travel budget?"
 
-| Traditional | Programmatic |
-|-------------|-------------|
-| 20+ API round-trips | 1 code block |
+| Traditional                     | Programmatic                 |
+| ------------------------------- | ---------------------------- |
+| 20+ API round-trips             | 1 code block                 |
 | 2,000+ expense items in context | Only final result in context |
-| ~200KB context consumed | ~1KB context consumed |
+| ~200KB context consumed         | ~1KB context consumed        |
 
 ### 8.2 How It Works
 
@@ -505,7 +524,7 @@ print(json.dumps(exceeded))  # Only this enters Claude's context
 ```json
 {
   "tools": [
-    {"type": "code_execution_20250825", "name": "code_execution"},
+    { "type": "code_execution_20250825", "name": "code_execution" },
     {
       "name": "get_expenses",
       "allowed_callers": ["code_execution_20250825"]
@@ -515,6 +534,7 @@ print(json.dumps(exceeded))  # Only this enters Claude's context
 ```
 
 **Results:**
+
 - **37% token reduction** on complex research tasks
 - Latency: Eliminate 19+ inference passes for 20-tool workflows
 - Accuracy: GIA benchmark improved 46.5% → **51.2%**
@@ -542,16 +562,19 @@ The agent navigates the filesystem, reading only the `.ts` files it needs:
 
 ```typescript
 // ./servers/google-drive/getDocument.ts
-export async function getDocument(input: {documentId: string}): Promise<{content: string}> {
-  return callMCPTool('google_drive__get_document', input);
+export async function getDocument(input: {
+  documentId: string;
+}): Promise<{ content: string }> {
+  return callMCPTool("google_drive__get_document", input);
 }
 ```
 
 **Result:** Token usage dropped from **150,000 → 2,000 tokens** (98.7% reduction).
 
 **Progressive disclosure:** Add a `search_tools` function with detail levels:
+
 - Name only
-- Name + description  
+- Name + description
 - Full definition with schemas
 
 ### 8.4 Privacy-Preserving Operations
@@ -561,9 +584,9 @@ Intermediate data stays in the sandbox. For sensitive workloads, **tokenize PII*
 ```javascript
 // What the agent sees (if it logs the data):
 [
-  { email: '[EMAIL_1]', phone: '[PHONE_1]', name: '[NAME_1]' },
-  { email: '[EMAIL_2]', phone: '[PHONE_2]', name: '[NAME_2]' }
-]
+  { email: "[EMAIL_1]", phone: "[PHONE_1]", name: "[NAME_1]" },
+  { email: "[EMAIL_2]", phone: "[PHONE_2]", name: "[NAME_2]" },
+];
 // Real data flows between tools, never through the model
 ```
 
@@ -575,7 +598,7 @@ Agents can persist reusable functions:
 // ./skills/save-sheet-as-csv.ts
 export async function saveSheetAsCsv(sheetId: string) {
   const data = await gdrive.getSheet({ sheetId });
-  const csv = data.map(row => row.join(',')).join('\n');
+  const csv = data.map((row) => row.join(",")).join("\n");
   await fs.writeFile(`./workspace/sheet-${sheetId}.csv`, csv);
   return `./workspace/sheet-${sheetId}.csv`;
 }
@@ -595,12 +618,12 @@ Over time, agents build a **growing toolbox** of higher-level capabilities. Add 
 
 **Solutions:**
 
-| Approach | How | Savings |
-|----------|-----|---------|
-| **Static tool set** | Keep all tools in context, use masking | 100% cache hit |
-| **Ordered insertion** | Always insert tools in same order | Partial cache hit |
-| **Tool prefix caching** | Separate tool definitions from conversation | ~50% savings |
-| **Deferred loading** | Anthropic's `defer_loading: true` | 85% reduction + cache preserved |
+| Approach                | How                                         | Savings                         |
+| ----------------------- | ------------------------------------------- | ------------------------------- |
+| **Static tool set**     | Keep all tools in context, use masking      | 100% cache hit                  |
+| **Ordered insertion**   | Always insert tools in same order           | Partial cache hit               |
+| **Tool prefix caching** | Separate tool definitions from conversation | ~50% savings                    |
+| **Deferred loading**    | Anthropic's `defer_loading: true`           | 85% reduction + cache preserved |
 
 **Manus insight:** This is why they keep all tools in context and use logit masking—KV cache stability matters more than context length at their scale.
 
@@ -620,7 +643,8 @@ tools_with_cache = {
 }
 ```
 
-**Impact:** 
+**Impact:**
+
 - First request: Full input token cost
 - Subsequent: ~90% reduction for cached prefix
 - **Requires tool list stability**—changing tools invalidates cache
@@ -638,7 +662,7 @@ class CachedToolRetriever:
         ])
         # Optional: quantize for faster search
         self.tool_embeddings_int8 = quantize_to_int8(self.tool_embeddings)
-    
+
     def retrieve(self, query: str, k: int = 10):
         query_emb = self.embedding_model.encode(query)  # Only this at runtime
         scores = cosine_similarity(query_emb, self.tool_embeddings)
@@ -657,13 +681,13 @@ class CachedToolSelector:
         self.selector = selector
         self.cache = LRUCache(maxsize=10000)
         self.ttl = cache_ttl
-    
+
     def select(self, query: str, context_hash: str = None):
         cache_key = hash(query + str(context_hash))
-        
+
         if cache_key in self.cache:
             return self.cache[cache_key]
-        
+
         result = self.selector.select(query)
         self.cache[cache_key] = result
         return result
@@ -685,12 +709,12 @@ Query → Category Classifier → Shard[category].search(query)
 
 ### 9.6 Hardware Considerations
 
-| Component | CPU | GPU | When to Use GPU |
-|-----------|-----|-----|-----------------|
-| BM25 | ✓ Fast | N/A | Never (string ops) |
-| Embedding encode | Slow | ✓ Fast | >100 queries/sec |
-| Similarity search | ✓ OK | ✓ Faster | >10K tools |
-| Cross-encoder rerank | Slow | ✓ Fast | Always if available |
+| Component            | CPU    | GPU      | When to Use GPU     |
+| -------------------- | ------ | -------- | ------------------- |
+| BM25                 | ✓ Fast | N/A      | Never (string ops)  |
+| Embedding encode     | Slow   | ✓ Fast   | >100 queries/sec    |
+| Similarity search    | ✓ OK   | ✓ Faster | >10K tools          |
+| Cross-encoder rerank | Slow   | ✓ Fast   | Always if available |
 
 **Rule of thumb:** GPU for neural components, CPU for keyword search.
 
@@ -698,12 +722,12 @@ Query → Category Classifier → Shard[category].search(query)
 
 ## 10. Production Recommendations
 
-| Tool Count | Approach | Key Investment |
-|------------|----------|----------------|
-| **5-50** | All in context | Description quality |
-| **50-200** | Semantic retrieval + reranking | Embedding fine-tuning |
-| **200-1000** | Hierarchical routing | Category classifier, A/B testing |
-| **1000+** | Learned selection + graph | Dedicated model, continuous learning |
+| Tool Count   | Approach                       | Key Investment                       |
+| ------------ | ------------------------------ | ------------------------------------ |
+| **5-50**     | All in context                 | Description quality                  |
+| **50-200**   | Semantic retrieval + reranking | Embedding fine-tuning                |
+| **200-1000** | Hierarchical routing           | Category classifier, A/B testing     |
+| **1000+**    | Learned selection + graph      | Dedicated model, continuous learning |
 
 ---
 
@@ -717,6 +741,7 @@ Query → Category Classifier → Shard[category].search(query)
 4. **Learned components** (10%): RL fine-tuning for edge cases
 
 **Common mistakes:**
+
 - Over-engineering retrieval when descriptions are bad
 - Ignoring conversation context
 - No fallback strategy
@@ -729,6 +754,7 @@ The best tool selection system is one where **you rarely think about it because 
 ## References
 
 ### Tool Selection Optimization
+
 1. **ToolScope** - arXiv:2510.20036 - Tool merging and context-aware filtering
 2. **AutoTool** - arXiv:2512.13278 - Dynamic tool selection via RL
 3. **AutoTool (Graph)** - arXiv:2511.14650 - Historical trajectory modeling
@@ -736,26 +762,31 @@ The best tool selection system is one where **you rarely think about it because 
 5. **Bloomberg ACL 2025** - Context optimization for tool calling (StableToolBench, RestBench)
 
 ### Tool Retrieval
+
 6. **"Retrieval Models Aren't Tool-Savvy"** - ACL 2025 Findings - Shows <35% completeness@10
 7. **HYRR: Hybrid Retrieval** - arXiv:2212.10528 - Combining BM25 with neural retrieval
 
 ### Conversational Retrieval
+
 8. **TREC CAsT** - [Conversational Assistance Track](https://www.treccast.ai/) - Benchmark for conversational search
 9. **ConvDR** - arXiv:2104.13650 - Few-shot conversational dense retrieval with history encoding
 
 ### Constrained Decoding
+
 10. **Manus** - [Context Engineering for AI Agents](https://medium.com/@peakji/context-engineering-for-ai-agents-lessons-from-building-manus-71883f0a67f2)
 11. **Outlines** - github.com/outlines-dev/outlines - Grammar-constrained generation
 
 ### Error Recovery
+
 12. **PALADIN** - arXiv:2509.25238 - Self-correcting agents with 95.2% recovery on unseen APIs
 13. **Structured Reflection** - arXiv:2509.18847 - Diagnose failures, propose corrective actions
 14. **STAR** - arXiv:2503.06060 - Foundation model + knowledge graph for recovery (78% success)
 15. **Toolken+** - arXiv:2410.12004 - "Reject" option to reduce false tool calls
 
 ### Production Features
+
 16. **Anthropic Advanced Tool Use** - [anthropic.com/engineering/advanced-tool-use](https://www.anthropic.com/engineering/advanced-tool-use) - Tool Search Tool (85% token reduction, 49%→74% accuracy), Programmatic Tool Calling (37% token reduction), Tool Use Examples (72%→90% parameter accuracy)
 17. **Anthropic Code Execution with MCP** - [anthropic.com/engineering/code-execution-with-mcp](https://www.anthropic.com/engineering/code-execution-with-mcp) - Filesystem-based tool discovery (98.7% token reduction), privacy-preserving operations, skills accumulation
 18. **Cloudflare Code Mode** - [blog.cloudflare.com/code-mode](https://blog.cloudflare.com/code-mode/) - Similar findings on code-based MCP tool orchestration
 
-*Code examples are synthesized implementations illustrating practical patterns.*
+_Code examples are synthesized implementations illustrating practical patterns._

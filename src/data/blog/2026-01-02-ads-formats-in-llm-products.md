@@ -36,6 +36,7 @@ AI: [Detailed answer about laptop features...]
 ```
 
 **How it works**:
+
 - Ads appear as suggested follow-up questions
 - Clearly labeled as "Sponsored"
 - Brands pay for placement in relevant query categories
@@ -57,11 +58,12 @@ AI Overview: "The best running shoes for marathons include..."
 Sources:
 🛒 [Sponsored] Nike.com - Nike Vaporfly 3
 🛒 [Sponsored] ASICS.com - Metaspeed Sky+
-📄 Runner's World - 2024 Marathon Shoe Guide  
+📄 Runner's World - 2024 Marathon Shoe Guide
 📄 Reddit r/running - Community recommendations
 ```
 
 **How it works**:
+
 - Existing Google Shopping ads surface in AI Overview citations
 - Sponsored results mixed with organic sources
 - Leverages existing ad auction infrastructure
@@ -87,6 +89,7 @@ Microsoft Copilot displays traditional Bing ads alongside AI responses:
 ```
 
 **How it works**:
+
 - Traditional display ads shown in sidebar
 - Clear visual separation from AI content
 - Leverages existing Bing Ads infrastructure
@@ -104,11 +107,12 @@ Many AI assistants include affiliate links when recommending products:
 ```
 User: "What's a good beginner guitar?"
 
-AI: "For beginners, I recommend the Yamaha FG800. 
+AI: "For beginners, I recommend the Yamaha FG800.
 You can find it on [Amazon](https://amazon.com/dp/...) for around $200."
 ```
 
 **How it works**:
+
 - AI includes product links with affiliate tracking
 - Revenue share when users purchase
 - Often not explicitly disclosed as advertising
@@ -148,12 +152,13 @@ Embedding ads directly within the AI's response text:
 ```
 User: "Plan a 3-day trip to Paris"
 
-AI: "Day 1: Start at the Eiffel Tower. For a unique experience, 
-[GetYourGuide](https://getyourguide.com) offers skip-the-line 
+AI: "Day 1: Start at the Eiffel Tower. For a unique experience,
+[GetYourGuide](https://getyourguide.com) offers skip-the-line
 tickets with local guides... Day 2: Visit the Louvre..."
 ```
 
 **Research findings** (GEM-Bench, arXiv:2509.14221):
+
 - Simple prompt injection: Good CTR, but reduced user satisfaction
 - Post-generation refinement: Better UX, but adds computational overhead
 - Key challenge: Making ads feel natural, not intrusive
@@ -171,13 +176,14 @@ The [RARE paper](https://arxiv.org/pdf/2504.01304.pdf) introduced "Commercial In
 ```
 User Query: "comfortable shoes for standing all day"
      ↓
-LLM generates Commercial Intent: "ergonomic work footwear, 
+LLM generates Commercial Intent: "ergonomic work footwear,
 cushioned insoles, nurse shoes, retail worker shoes"
      ↓
 Retrieved Ads: [Nike Air Max, Crocs Work, Skechers Go Walk]
 ```
 
 **Production results** (deployed in search advertising):
+
 - +5.04% consumption
 - +6.37% GMV
 - +1.28% CTR
@@ -203,8 +209,8 @@ Backlinks                  Context that triggers citations
 
 **Example transformation**:
 
-| Before | After (GEO-optimized) |
-|--------|----------------------|
+| Before                             | After (GEO-optimized)                                                                                                                                        |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | "Nike Air Max 90 - Air cushioning" | "For users seeking comfortable everyday running shoes with responsive cushioning, the Nike Air Max 90 offers visible Air technology ideal for extended wear" |
 
 **Key insight**: The second version is more likely to be retrieved AND cited by RAG-based LLMs because it directly answers potential user queries.
@@ -220,6 +226,7 @@ Backlinks                  Context that triggers citations
 Using LLMs not just to inject ads, but to **generate more persuasive ad content**:
 
 **Key findings**:
+
 - LLM-generated ads match human ads in **personalization** (Big Five personality targeting)
 - LLM-generated ads **outperform humans** in persuasive storytelling
 - Particularly effective: authority appeals, social proof, aspirational narratives
@@ -257,29 +264,31 @@ User study findings that explain why in-response ads aren't widely deployed:
 
 ## Summary: Production vs. Research
 
-| Format | Status | Company/Paper |
-|--------|--------|---------------|
-| Sponsored follow-up questions | ✅ Production | Perplexity |
-| Sponsored sources/citations | ✅ Production | Google AI Overviews |
-| Side panel ads | ✅ Production | Microsoft Copilot |
-| Affiliate links | ✅ Production | Various |
-| Brand plugin partnerships | ⚠️ Limited | OpenAI (deprecated plugins) |
-| In-response ad injection | 🔬 Research | GEM-Bench (arXiv:2509.14221) |
-| Commercial intent retrieval | 🔬→✅ Research→Prod | RARE (arXiv:2504.01304) |
-| Generative Engine Optimization | 🔬 Research | Rewrite-to-Rank (arXiv:2507.21099) |
-| LLM-generated persuasive ads | 🔬 Research | arXiv:2512.03373 |
-| Trust/disclosure dynamics | 🔬 Research | GenAI Advertising (arXiv:2409.15436) |
+| Format                         | Status              | Company/Paper                        |
+| ------------------------------ | ------------------- | ------------------------------------ |
+| Sponsored follow-up questions  | ✅ Production       | Perplexity                           |
+| Sponsored sources/citations    | ✅ Production       | Google AI Overviews                  |
+| Side panel ads                 | ✅ Production       | Microsoft Copilot                    |
+| Affiliate links                | ✅ Production       | Various                              |
+| Brand plugin partnerships      | ⚠️ Limited          | OpenAI (deprecated plugins)          |
+| In-response ad injection       | 🔬 Research         | GEM-Bench (arXiv:2509.14221)         |
+| Commercial intent retrieval    | 🔬→✅ Research→Prod | RARE (arXiv:2504.01304)              |
+| Generative Engine Optimization | 🔬 Research         | Rewrite-to-Rank (arXiv:2507.21099)   |
+| LLM-generated persuasive ads   | 🔬 Research         | arXiv:2512.03373                     |
+| Trust/disclosure dynamics      | 🔬 Research         | GenAI Advertising (arXiv:2409.15436) |
 
 ---
 
 ## The Trend
 
 Production systems favor **separation**:
+
 - Ads clearly labeled and visually distinct
 - User choice to engage or ignore
 - Leveraging existing ad infrastructure
 
 Research explores **integration**:
+
 - Ads woven into response text
 - Personalized and contextual
 - New retrieval and generation mechanisms

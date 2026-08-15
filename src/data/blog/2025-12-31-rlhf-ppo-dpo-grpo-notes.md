@@ -95,11 +95,11 @@ This also explains why many systems can compute KL by just calculating logprobs 
 
 ### Forward KL vs Reverse KL Intuition
 
-| | Forward KL $D_{KL}(P_{ref} \| P_\theta)$ | Reverse KL $D_{KL}(P_\theta \| P_{ref})$ |
-|---|---|---|
-| **Penalizes** | $P_\theta$ assigning low prob where $P_{ref}$ is high | $P_\theta$ assigning high prob where $P_{ref}$ is low |
-| **Behavioral tendency** | Mode-covering (tries to cover all modes) | Mode-seeking (tends to converge to single mode) |
-| **Practical effect** | More "exploratory," may produce strange outputs | More "conservative," tends toward safe answers |
+|                         | Forward KL $D_{KL}(P_{ref} \| P_\theta)$              | Reverse KL $D_{KL}(P_\theta \| P_{ref})$              |
+| ----------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| **Penalizes**           | $P_\theta$ assigning low prob where $P_{ref}$ is high | $P_\theta$ assigning high prob where $P_{ref}$ is low |
+| **Behavioral tendency** | Mode-covering (tries to cover all modes)              | Mode-seeking (tends to converge to single mode)       |
+| **Practical effect**    | More "exploratory," may produce strange outputs       | More "conservative," tends toward safe answers        |
 
 RLHF commonly uses **Reverse KL** because we want to avoid the model "making things up" (assigning high probability where reference thinks it's impossible).
 
@@ -149,6 +149,7 @@ r(x, y) = \beta \log \frac{\pi_\theta(y|x)}{\pi_{\text{ref}}(y|x)} + \beta \log 
 $$
 
 where $Z(x)$ is the partition function. This means:
+
 - A DPO-trained model **is itself a reward model**
 - You can use a trained DPO model to score new completions
 
@@ -187,11 +188,11 @@ for y, A in zip(y_group, advantages):
     logp_new = logprob(pi_theta, x, y)
     logp_old = logprob(pi_old, x, y)
     ratio = exp(logp_new - logp_old)
-    
+
     pg1 = -A * ratio
     pg2 = -A * clip(ratio, 1-eps, 1+eps)
     pg_loss = max(pg1, pg2)                        # element-wise max
-    
+
     kl = logp_new - logprob(pi_ref, x, y)
     loss = pg_loss + beta * kl
 ```
@@ -200,13 +201,13 @@ The book also mentions implementation details: GRPO commonly adds KL **directly 
 
 ### GRPO vs PPO: Why Use Group Comparison?
 
-| Aspect | PPO | GRPO |
-|--------|-----|------|
-| **Baseline** | Value function $V(s)$ | Within-group mean $\bar{r}$ |
-| **Extra model** | Needs Critic training | Not needed |
-| **Memory overhead** | High (storing value head) | Low |
-| **Variance** | GAE can control | Depends on group size G |
-| **Use case** | Complex multi-step decisions | Bandit-style (single generation) |
+| Aspect              | PPO                          | GRPO                             |
+| ------------------- | ---------------------------- | -------------------------------- |
+| **Baseline**        | Value function $V(s)$        | Within-group mean $\bar{r}$      |
+| **Extra model**     | Needs Critic training        | Not needed                       |
+| **Memory overhead** | High (storing value head)    | Low                              |
+| **Variance**        | GAE can control              | Depends on group size G          |
+| **Use case**        | Complex multi-step decisions | Bandit-style (single generation) |
 
 ---
 
@@ -216,13 +217,13 @@ The book dedicates a section to "bias in data collection," calling out **prefix 
 
 ### Common Data Bias Types
 
-| Bias Type | Manifestation | Consequence |
-|-----------|---------------|-------------|
-| **Length bias** | Longer answers more likely chosen as preferred | Model becomes verbose, information density drops |
-| **Format bias** | Markdown/lists more likely to win | Over-formatting, bullet points even for simple questions |
-| **Sycophancy** | Agreeing with user more likely chosen | Model becomes "pleasing," afraid to correct errors |
-| **Position bias** | First/last option more likely chosen | Evaluation results unstable |
-| **Verbosity ≠ Quality** | Detailed ≠ correct | Reward hacking |
+| Bias Type               | Manifestation                                  | Consequence                                              |
+| ----------------------- | ---------------------------------------------- | -------------------------------------------------------- |
+| **Length bias**         | Longer answers more likely chosen as preferred | Model becomes verbose, information density drops         |
+| **Format bias**         | Markdown/lists more likely to win              | Over-formatting, bullet points even for simple questions |
+| **Sycophancy**          | Agreeing with user more likely chosen          | Model becomes "pleasing," afraid to correct errors       |
+| **Position bias**       | First/last option more likely chosen           | Evaluation results unstable                              |
+| **Verbosity ≠ Quality** | Detailed ≠ correct                             | Reward hacking                                           |
 
 **My engineering conclusion:**
 For preference pair data, the difference often isn't in quantity but in whether these biases are systematically addressed (e.g., UI display, labeling workflow, length control, penalties for "flattery/fluff").
@@ -243,11 +244,11 @@ The book's attitude toward evaluation is realistic: evaluation evolves with trai
 
 ### Internal vs External Evaluation
 
-| | Internal Evaluation | External Evaluation |
-|---|---|---|
-| **Purpose** | Hillclimbing, guide iteration | Comparison, release decisions |
+|                     | Internal Evaluation                  | External Evaluation              |
+| ------------------- | ------------------------------------ | -------------------------------- |
+| **Purpose**         | Hillclimbing, guide iteration        | Comparison, release decisions    |
 | **Characteristics** | Controllable variables, reproducible | Opaque configuration, high error |
-| **Risk** | Overfitting internal benchmark | Not reproducible, high noise |
+| **Risk**            | Overfitting internal benchmark       | Not reproducible, high noise     |
 
 ### LLM-as-a-Judge Engineering Tips
 
@@ -277,13 +278,13 @@ The book gives a definition I really like:
 
 ### Typical Over-Optimization Symptoms
 
-| Symptom | Cause | Mitigation |
-|---------|-------|------------|
-| **Fixed phrases** | Certain phrases overvalued by RM | Diversity regularization, entropy bonus |
-| **Repetition/Hedging** | Safe outputs score high | Penalize repeated n-grams |
-| **Sycophancy** | Agreeing with user scores high | Dedicated sycophancy detector |
-| **Excessive refusal** | Refusing is safer than being wrong | Balance helpfulness vs harmlessness |
-| **Length gaming** | Long answers score high | Length penalty term |
+| Symptom                | Cause                              | Mitigation                              |
+| ---------------------- | ---------------------------------- | --------------------------------------- |
+| **Fixed phrases**      | Certain phrases overvalued by RM   | Diversity regularization, entropy bonus |
+| **Repetition/Hedging** | Safe outputs score high            | Penalize repeated n-grams               |
+| **Sycophancy**         | Agreeing with user scores high     | Dedicated sycophancy detector           |
+| **Excessive refusal**  | Refusing is safer than being wrong | Balance helpfulness vs harmlessness     |
+| **Length gaming**      | Long answers score high            | Length penalty term                     |
 
 ### Guardrails Aren't Decoration—They're Survival Necessities
 
@@ -304,14 +305,14 @@ total_loss = (
 
 ### Training Side (Observable)
 
-| Metric | Focus | Alert Threshold |
-|--------|-------|-----------------|
-| `mean_reward` | Is it continuously rising | Sudden drop or saturation |
-| `reward_std` | Is distribution healthy | Too small (collapse) or too large (unstable) |
-| `kl_divergence` | Deviation from reference | > 10-15 usually problematic |
-| `clip_fraction` | PPO clip trigger rate | > 30% may mean learning rate too high |
-| `entropy` | Output diversity | Continuous decline = collapse |
-| `grad_norm` | Gradient health | Sudden spike = instability |
+| Metric          | Focus                     | Alert Threshold                              |
+| --------------- | ------------------------- | -------------------------------------------- |
+| `mean_reward`   | Is it continuously rising | Sudden drop or saturation                    |
+| `reward_std`    | Is distribution healthy   | Too small (collapse) or too large (unstable) |
+| `kl_divergence` | Deviation from reference  | > 10-15 usually problematic                  |
+| `clip_fraction` | PPO clip trigger rate     | > 30% may mean learning rate too high        |
+| `entropy`       | Output diversity          | Continuous decline = collapse                |
+| `grad_norm`     | Gradient health           | Sudden spike = instability                   |
 
 ### Evaluation Side (Reproducible)
 
@@ -351,13 +352,13 @@ total_loss = (
 
 ### When to Choose Which?
 
-| Scenario | Recommended Algorithm | Reasoning |
-|----------|----------------------|-----------|
-| Lots of preference pairs, want fast iteration | DPO | Simple implementation, no rollout needed |
-| Have verifier/env feedback, sufficient resources | PPO | Most flexible, can do multi-step optimization |
-| Have verifier, but memory-constrained | GRPO | No value head needed |
-| Math/code with correct answers | GRPO | Verifier easy to define |
-| Open-ended generation, subjective preferences | DPO | Leverages human preference data |
+| Scenario                                         | Recommended Algorithm | Reasoning                                     |
+| ------------------------------------------------ | --------------------- | --------------------------------------------- |
+| Lots of preference pairs, want fast iteration    | DPO                   | Simple implementation, no rollout needed      |
+| Have verifier/env feedback, sufficient resources | PPO                   | Most flexible, can do multi-step optimization |
+| Have verifier, but memory-constrained            | GRPO                  | No value head needed                          |
+| Math/code with correct answers                   | GRPO                  | Verifier easy to define                       |
+| Open-ended generation, subjective preferences    | DPO                   | Leverages human preference data               |
 
 ---
 
@@ -373,16 +374,16 @@ total_loss = (
 
 ## Appendix: Objective Function to Implementation Reference Table
 
-| | PPO | GRPO | DPO |
-|---|---|---|---|
-| **Objective** | $\mathbb{E}[\min(r A, \text{clip}(r) A)]$ | $\mathbb{E}[\min(r A, \text{clip}(r) A)] - \beta \text{KL}$ | $-\mathbb{E}[\log\sigma(\beta \Delta)]$ |
-| **Advantage** | $A = G - V(s)$ (GAE) | $A = (r - \mu) / \sigma$ (within-group) | Implicit (log-ratio) |
-| **KL handling** | Fold into reward or loss | Add directly to loss | Implicit in loss structure |
-| **Needs rollout** | ✓ | ✓ | ✗ |
-| **Needs value head** | ✓ | ✗ | ✗ |
-| **Needs reference** | ✓ | ✓ | ✓ |
-| **Data source** | Online sampling | Online sampling (G per prompt) | Offline preference pairs |
-| **Key hyperparams** | $\epsilon$, $\gamma$, `vf_coef` | $\epsilon$, $G$, $\beta$ | $\beta$ |
+|                      | PPO                                       | GRPO                                                        | DPO                                     |
+| -------------------- | ----------------------------------------- | ----------------------------------------------------------- | --------------------------------------- |
+| **Objective**        | $\mathbb{E}[\min(r A, \text{clip}(r) A)]$ | $\mathbb{E}[\min(r A, \text{clip}(r) A)] - \beta \text{KL}$ | $-\mathbb{E}[\log\sigma(\beta \Delta)]$ |
+| **Advantage**        | $A = G - V(s)$ (GAE)                      | $A = (r - \mu) / \sigma$ (within-group)                     | Implicit (log-ratio)                    |
+| **KL handling**      | Fold into reward or loss                  | Add directly to loss                                        | Implicit in loss structure              |
+| **Needs rollout**    | ✓                                         | ✓                                                           | ✗                                       |
+| **Needs value head** | ✓                                         | ✗                                                           | ✗                                       |
+| **Needs reference**  | ✓                                         | ✓                                                           | ✓                                       |
+| **Data source**      | Online sampling                           | Online sampling (G per prompt)                              | Offline preference pairs                |
+| **Key hyperparams**  | $\epsilon$, $\gamma$, `vf_coef`           | $\epsilon$, $G$, $\beta$                                    | $\beta$                                 |
 
 ---
 

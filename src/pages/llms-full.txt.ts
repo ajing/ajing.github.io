@@ -20,8 +20,8 @@ export const GET: APIRoute = async () => {
   });
 
   const topicLines = TOPICS.map(
-    topic =>
-      `- ${topic.title}: ${new URL(`/topics/${topic.slug}/`, SITE.website).href}`
+    (topic) =>
+      `- ${topic.title}: ${new URL(`/topics/${topic.slug}/`, SITE.website).href}`,
   );
 
   const body = [
@@ -36,7 +36,7 @@ export const GET: APIRoute = async () => {
     ...topicLines,
     "",
     "## Posts",
-    ...postLines.flatMap(line => [line, ""]),
+    ...postLines.flatMap((line) => [line, ""]),
   ].join("\n");
 
   return new Response(body, {
@@ -45,4 +45,3 @@ export const GET: APIRoute = async () => {
     },
   });
 };
-

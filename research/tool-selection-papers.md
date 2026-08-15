@@ -5,6 +5,7 @@ A curated list of research papers on tool selection for LLM agents.
 **Last Updated:** January 2026
 
 > ⚠️ **Verification Note:** This document distinguishes between:
+>
 > - ✅ **Verified papers** (confirmed to exist via web search)
 > - ⚠️ **Unverified arXiv IDs** (paper may exist but couldn't confirm)
 > - 📝 **Synthesized content** (algorithm details/numbers I generated for illustration)
@@ -15,15 +16,16 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### 1. Toolformer: Language Models Can Teach Themselves to Use Tools ✅
 
-| | |
-|---|---|
-| **arXiv** | [2302.04761](https://arxiv.org/abs/2302.04761) ✅ Verified |
-| **Authors** | Timo Schick, et al. (Meta AI) |
-| **Date** | February 2023 |
+|             |                                                            |
+| ----------- | ---------------------------------------------------------- |
+| **arXiv**   | [2302.04761](https://arxiv.org/abs/2302.04761) ✅ Verified |
+| **Authors** | Timo Schick, et al. (Meta AI)                              |
+| **Date**    | February 2023                                              |
 
 **Historical Significance:** THE foundational paper showing LLMs can learn tool use through self-supervision.
 
 **Core Idea:** Let the model generate its own training data by:
+
 1. Inserting candidate API calls into text
 2. Executing calls and measuring if they improve perplexity
 3. Keeping only calls that help
@@ -37,13 +39,14 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### 2. AutoTool: Dynamic Tool Selection and Integration ✅
 
-| | |
-|---|---|
-| **arXiv** | [2512.13278](https://arxiv.org/abs/2512.13278) ✅ Verified |
-| **Authors** | Jiaru Zou, Ling Yang, et al. |
-| **Date** | December 2025 |
+|             |                                                            |
+| ----------- | ---------------------------------------------------------- |
+| **arXiv**   | [2512.13278](https://arxiv.org/abs/2512.13278) ✅ Verified |
+| **Authors** | Jiaru Zou, Ling Yang, et al.                               |
+| **Date**    | December 2025                                              |
 
 **Core Idea:** Train LLMs with explicit tool-selection rationales using:
+
 - 200,000 instances dataset with rationales
 - Dual-phase optimization: SFT + RL
 - Models trained: Qwen3-8B, Qwen2.5-VL-7B
@@ -54,12 +57,13 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### 3. Tool Learning with LLMs: A Survey ✅
 
-| | |
-|---|---|
+|           |                                                            |
+| --------- | ---------------------------------------------------------- |
 | **arXiv** | [2304.08354](https://arxiv.org/abs/2304.08354) ✅ Verified |
-| **Date** | 2024 |
+| **Date**  | 2024                                                       |
 
 **Taxonomy - Four Stages:**
+
 1. Task Planning → decompose query
 2. **Tool Selection** → choose tools (our focus)
 3. Tool Calling → execute with parameters
@@ -69,8 +73,8 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### 4. ToolTalk: Evaluating Tool-Usage in Conversational Setting ✅
 
-| | |
-|---|---|
+|           |                                                            |
+| --------- | ---------------------------------------------------------- |
 | **arXiv** | [2311.10775](https://arxiv.org/abs/2311.10775) ✅ Verified |
 
 **Benchmark:** 28 tools, 7 plugins, multi-step tool usage in dialogue.
@@ -79,8 +83,8 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### 5. ConvDR: Few-Shot Conversational Dense Retrieval ✅
 
-| | |
-|---|---|
+|           |                                                            |
+| --------- | ---------------------------------------------------------- |
 | **arXiv** | [2105.04166](https://arxiv.org/abs/2105.04166) ✅ Verified |
 
 **Relevance:** Methods for conversation-aware retrieval that can apply to tool selection.
@@ -93,8 +97,8 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### 6. "AutoTool-Graph" / Tool Usage Inertia ⚠️
 
-| | |
-|---|---|
+|           |                          |
+| --------- | ------------------------ |
 | **arXiv** | 2511.14650 ⚠️ Unverified |
 
 **Claimed Idea:** Graph-based tool selection using co-occurrence patterns from historical trajectories.
@@ -105,8 +109,8 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### 7. "ToolScope" ⚠️
 
-| | |
-|---|---|
+|           |                          |
+| --------- | ------------------------ |
 | **arXiv** | 2510.20036 ⚠️ Unverified |
 
 **Claimed Idea:** Tool merging (clustering similar tools) + hybrid retrieval (BM25 + dense + cross-encoder).
@@ -117,8 +121,8 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### 8. "TECTON" ⚠️
 
-| | |
-|---|---|
+|           |                          |
+| --------- | ------------------------ |
 | **arXiv** | 2411.04535 ⚠️ Unverified |
 
 **Claimed Idea:** Two-phase meta-reasoning (generate candidates, then reason about which is best).
@@ -129,8 +133,8 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### 9. Bloomberg Joint Optimization ⚠️
 
-| | |
-|---|---|
+|           |                                 |
+| --------- | ------------------------------- |
 | **Venue** | ACL 2025 Findings ⚠️ Unverified |
 
 **Claimed Idea:** Co-optimize agent prompts and tool descriptions together.
@@ -141,8 +145,8 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### 10. ToolTweak / ToolHijacker ⚠️
 
-| | |
-|---|---|
+|           |                                      |
+| --------- | ------------------------------------ |
 | **arXiv** | 2510.02554, 2504.19793 ⚠️ Unverified |
 
 **Claimed Idea:** Security attacks on tool selection (adversarial tool descriptions).
@@ -153,8 +157,8 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### 11. RapidTools ⚠️
 
-| | |
-|---|---|
+|           |         |
+| --------- | ------- |
 | **Venue** | Unknown |
 
 **Claimed Idea:** Empirical study on factors affecting tool selection (# tools, examples, model size).
@@ -165,8 +169,8 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### 12. Meta-Cognition for Tool Use ⚠️
 
-| | |
-|---|---|
+|           |         |
+| --------- | ------- |
 | **Venue** | Unknown |
 
 **Claimed Idea:** Self-assessment to decide when NOT to use tools.
@@ -179,14 +183,15 @@ A curated list of research papers on tool selection for LLM agents.
 
 ### Manus AI ✅
 
-| Blog | URL | Status |
-|------|-----|--------|
+| Blog                | URL                                                                                 | Status       |
+| ------------------- | ----------------------------------------------------------------------------------- | ------------ |
 | Context Engineering | https://manus.im/blog/context-engineering-for-ai-agents-lessons-from-building-manus | ✅ Real blog |
-| Wide Research | https://manus.im/blog/wide-research-beyond-the-context-window | ✅ Real blog |
+| Wide Research       | https://manus.im/blog/wide-research-beyond-the-context-window                       | ✅ Real blog |
 
 **Key Ideas from Manus:**
+
 - Keep all tools in context, use logit masking instead of retrieval
-- Tool naming conventions with prefixes (browser_*, file_*, shell_*)
+- Tool naming conventions with prefixes (browser*\*, file*\_, shell\_\_)
 - State machine to control which tools are valid per state
 - Benefits: KV-cache stability, no retrieval errors
 
@@ -225,24 +230,24 @@ This is a general pattern from conversational search research, applied to tools.
 
 ## What's Real vs What I Made Up
 
-| Item | Status |
-|------|--------|
-| Toolformer paper | ✅ Real |
-| AutoTool-RL (2512.13278) | ✅ Real |
-| Tool Learning Survey | ✅ Real |
-| ToolTalk benchmark | ✅ Real |
-| ConvDR | ✅ Real |
-| Manus blogs | ✅ Real |
-| AutoTool-Graph (2511.14650) | ⚠️ Unverified arXiv ID |
-| ToolScope (2510.20036) | ⚠️ Unverified arXiv ID |
-| TECTON (2411.04535) | ⚠️ Unverified arXiv ID |
-| Bloomberg ACL link | ⚠️ Unverified |
-| ToolTweak/ToolHijacker | ⚠️ Unverified arXiv IDs |
-| RapidTools | ⚠️ Unverified |
-| Meta-cognition paper | ⚠️ Unverified |
-| Specific result numbers (30% reduction, etc.) | 📝 Synthesized |
-| Algorithm pseudocode | 📝 Synthesized |
-| Author names for unverified papers | 📝 Possibly incorrect |
+| Item                                          | Status                  |
+| --------------------------------------------- | ----------------------- |
+| Toolformer paper                              | ✅ Real                 |
+| AutoTool-RL (2512.13278)                      | ✅ Real                 |
+| Tool Learning Survey                          | ✅ Real                 |
+| ToolTalk benchmark                            | ✅ Real                 |
+| ConvDR                                        | ✅ Real                 |
+| Manus blogs                                   | ✅ Real                 |
+| AutoTool-Graph (2511.14650)                   | ⚠️ Unverified arXiv ID  |
+| ToolScope (2510.20036)                        | ⚠️ Unverified arXiv ID  |
+| TECTON (2411.04535)                           | ⚠️ Unverified arXiv ID  |
+| Bloomberg ACL link                            | ⚠️ Unverified           |
+| ToolTweak/ToolHijacker                        | ⚠️ Unverified arXiv IDs |
+| RapidTools                                    | ⚠️ Unverified           |
+| Meta-cognition paper                          | ⚠️ Unverified           |
+| Specific result numbers (30% reduction, etc.) | 📝 Synthesized          |
+| Algorithm pseudocode                          | 📝 Synthesized          |
+| Author names for unverified papers            | 📝 Possibly incorrect   |
 
 ---
 

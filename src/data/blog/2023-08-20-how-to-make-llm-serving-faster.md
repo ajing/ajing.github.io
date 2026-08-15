@@ -63,4 +63,3 @@ The FlashAttention paper is inspired by differences in memory types. HBM has abo
 5. [Transformer Inference Arithmetic](https://kipp.ly/blog/transformer-inference-arithmetic/#kv-cache)
 6. [LLM Numbers - GPU Memory Requirements](https://github.com/ray-project/llm-numbers#1-mb-gpu-memory-required-for-1-token-of-output-with-a-13b-parameter-model)
 7. FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness
-

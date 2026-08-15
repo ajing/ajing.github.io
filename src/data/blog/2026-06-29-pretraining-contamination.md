@@ -143,7 +143,7 @@ This creates a real engineering tradeoff. Too little filtering leaves leakage. T
 
 ![Contamination policy scatter: remove, review, or keep](/images/pretraining/contamination-policy-scatter.svg "Contamination policy scatter")
 
-*A decontamination system should not collapse every hit into one similarity threshold. The action depends on match confidence and leakage severity.*
+_A decontamination system should not collapse every hit into one similarity threshold. The action depends on match confidence and leakage severity._
 
 ## 6. What a serious decontamination pipeline actually does
 

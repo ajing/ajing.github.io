@@ -81,16 +81,15 @@ description: "Practical lessons from training autoencoders and VAEs for embeddin
 
 ### Common Pitfalls (and Fixes)
 
-| Pitfall | Fix |
-|---------|-----|
-| **KL collapse or degenerate latents** | Introduce free-bits and a gradual KL warmup |
-| **Numerical instability (NaNs)** | Back off the learning rate, enable gradient clipping, verify normalization |
-| **Overfitting to reconstruction** | Include retrieval-aware losses or lightweight contrastive terms; validate on retrieval tasks |
-| **Chasing tiny gains** | Once a medium-dimensional setting performs well, extra dimensions rarely pay off |
+| Pitfall                               | Fix                                                                                          |
+| ------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **KL collapse or degenerate latents** | Introduce free-bits and a gradual KL warmup                                                  |
+| **Numerical instability (NaNs)**      | Back off the learning rate, enable gradient clipping, verify normalization                   |
+| **Overfitting to reconstruction**     | Include retrieval-aware losses or lightweight contrastive terms; validate on retrieval tasks |
+| **Chasing tiny gains**                | Once a medium-dimensional setting performs well, extra dimensions rarely pay off             |
 
 ---
 
 ### Closing Thought
 
 For embedding compression, VAEs with carefully scheduled KL and light contrastive shaping repeatedly offered the strongest blend of compactness, stability, and downstream retrieval quality. Keep the objective balanced, the regularization principled, and the evaluation focused on the end task—not just reconstruction loss.
-

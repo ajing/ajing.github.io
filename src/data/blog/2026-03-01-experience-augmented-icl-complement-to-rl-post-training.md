@@ -23,19 +23,19 @@ This post proposes **Experience-Augmented ICL**: store successful reasoning traj
 
 ## Positioning: Where Experience-Augmented ICL Fits
 
-To frame this precisely, consider the landscape of methods for improving LLM reasoning *after* pretraining:
+To frame this precisely, consider the landscape of methods for improving LLM reasoning _after_ pretraining:
 
-| Method | Parameter Update | Compute Profile | Adaptation Scope |
-|--------|-----------------|-----------------|------------------|
-| **RL Post-Training** (GRPO/PPO) | ✅ Full / LoRA | GPU hours (offline) | Global policy shift |
-| **Test-Time Training** (TTT) | ✅ Temporary per-query | Medium (per query) | Single-instance adaptation |
-| **Test-Time Compute Scaling** (best-of-N, MCTS) | ❌ None | High inference (per query) | Single-instance search |
-| **Standard RAG** | ❌ None | Retrieval + inference | Knowledge augmentation |
-| **Experience-Augmented ICL** (this work) | ❌ None | Retrieval + inference | Strategy augmentation |
+| Method                                          | Parameter Update       | Compute Profile            | Adaptation Scope           |
+| ----------------------------------------------- | ---------------------- | -------------------------- | -------------------------- |
+| **RL Post-Training** (GRPO/PPO)                 | ✅ Full / LoRA         | GPU hours (offline)        | Global policy shift        |
+| **Test-Time Training** (TTT)                    | ✅ Temporary per-query | Medium (per query)         | Single-instance adaptation |
+| **Test-Time Compute Scaling** (best-of-N, MCTS) | ❌ None                | High inference (per query) | Single-instance search     |
+| **Standard RAG**                                | ❌ None                | Retrieval + inference      | Knowledge augmentation     |
+| **Experience-Augmented ICL** (this work)        | ❌ None                | Retrieval + inference      | Strategy augmentation      |
 
-The key distinction from standard RAG: we're not retrieving *knowledge* (facts, documents), we're retrieving *strategies* — structured sequences of reasoning steps that demonstrate how to solve similar problems. And unlike test-time compute scaling (which burns compute searching over solutions to the current problem), experience-augmented ICL amortizes that search cost across problems: the successful searches from past problems become the demonstrations for future ones.
+The key distinction from standard RAG: we're not retrieving _knowledge_ (facts, documents), we're retrieving _strategies_ — structured sequences of reasoning steps that demonstrate how to solve similar problems. And unlike test-time compute scaling (which burns compute searching over solutions to the current problem), experience-augmented ICL amortizes that search cost across problems: the successful searches from past problems become the demonstrations for future ones.
 
-> **Connection to test-time compute scaling:** Best-of-N sampling and experience-augmented ICL are complementary. Best-of-N searches the solution space for the *current* query. Experience retrieval biases that search using solutions to *past* queries. The combination is especially powerful: use retrieved trajectories to guide sampling, then run best-of-N within that guided distribution. This is effectively **amortized test-time compute** — the expensive search from previous queries reduces the search needed for new ones.
+> **Connection to test-time compute scaling:** Best-of-N sampling and experience-augmented ICL are complementary. Best-of-N searches the solution space for the _current_ query. Experience retrieval biases that search using solutions to _past_ queries. The combination is especially powerful: use retrieved trajectories to guide sampling, then run best-of-N within that guided distribution. This is effectively **amortized test-time compute** — the expensive search from previous queries reduces the search needed for new ones.
 
 ---
 
@@ -45,19 +45,19 @@ Several research threads converge on this idea, though none fully address multi-
 
 **Agent Experiential Learning:**
 
-| Work | Approach | Retrieval Method | Key Limitation |
-|------|----------|-----------------|----------------|
-| **ExpeL** (Zhao et al., 2023) | Collects success/failure experiences; retrieves via ICL | `all-mpnet-base-v2` + Faiss kNN on task description | Single-level retrieval only |
-| **Voyager** (Wang et al., 2023) | Skill library for Minecraft agent | OpenAI embedding on one-sentence skill descriptions | Retrieves descriptions, not full trajectories |
-| **Reflexion** (Shinn et al., 2023) | Verbal reflections from failures as episodic memory | Recency-based (most recent reflection) | No similarity-based retrieval |
-| **CER** (2024) | Training-free dynamic memory buffer | Associative retrieval on context | Compressed experience summaries only |
-| **ECHO** (2024) | Hindsight replay — counterfactual positives from failures | N/A (augmentation, not retrieval) | Trajectory generation, not retrieval |
-| **ACE** (2025) | Persistent playbooks; ICL-based learning from feedback | Rule-based playbook matching | No embedding-based similarity |
+| Work                               | Approach                                                  | Retrieval Method                                    | Key Limitation                                |
+| ---------------------------------- | --------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------- |
+| **ExpeL** (Zhao et al., 2023)      | Collects success/failure experiences; retrieves via ICL   | `all-mpnet-base-v2` + Faiss kNN on task description | Single-level retrieval only                   |
+| **Voyager** (Wang et al., 2023)    | Skill library for Minecraft agent                         | OpenAI embedding on one-sentence skill descriptions | Retrieves descriptions, not full trajectories |
+| **Reflexion** (Shinn et al., 2023) | Verbal reflections from failures as episodic memory       | Recency-based (most recent reflection)              | No similarity-based retrieval                 |
+| **CER** (2024)                     | Training-free dynamic memory buffer                       | Associative retrieval on context                    | Compressed experience summaries only          |
+| **ECHO** (2024)                    | Hindsight replay — counterfactual positives from failures | N/A (augmentation, not retrieval)                   | Trajectory generation, not retrieval          |
+| **ACE** (2025)                     | Persistent playbooks; ICL-based learning from feedback    | Rule-based playbook matching                        | No embedding-based similarity                 |
 
 **Key gap:** All existing work performs single-level retrieval — embed the task description, run kNN, return results. Nobody attempts strategy-level or step-level matching, which is where the interesting retrieval challenges lie.
 
 **Trajectory Synthesis:**
-AgentTrek (ICLR 2025 Spotlight) automatically synthesizes GUI agent trajectories from web tutorials. STEP (2025) decomposes trajectories at the step level for fine-grained credit assignment. These are complementary: they address *how to generate* trajectories, while we address *how to retrieve and use* them.
+AgentTrek (ICLR 2025 Spotlight) automatically synthesizes GUI agent trajectories from web tutorials. STEP (2025) decomposes trajectories at the step level for fine-grained credit assignment. These are complementary: they address _how to generate_ trajectories, while we address _how to retrieve and use_ them.
 
 **Production systems** are converging on this pattern independently: Claude Code uses `CLAUDE.md` + `/memories` for cross-session accumulation; Cursor has CORE Memory MCP and Agent Skills; Devin uses RAG over codebase chunks. All use simple retrieval — the retrieval quality problem remains unsolved.
 
@@ -81,7 +81,7 @@ Trajectory = {
 }
 ```
 
-Standard embedding-based retrieval treats this as a flat text blob — embed the task description, compute cosine similarity, return top-K. This works for *task-level* similarity ("find Fibonacci" matches "implement Fibonacci") but misses deeper structure:
+Standard embedding-based retrieval treats this as a flat text blob — embed the task description, compute cosine similarity, return top-K. This works for _task-level_ similarity ("find Fibonacci" matches "implement Fibonacci") but misses deeper structure:
 
 - Two trajectories solving the same task type with **different strategies** (DP vs. greedy) will have high task-level similarity but low strategy-level similarity.
 - Two trajectories in **different domains** that use the **same reasoning pattern** (e.g., divide-and-conquer in both algorithm design and system debugging) will have low task-level similarity but high strategy-level similarity.
@@ -94,7 +94,7 @@ We propose matching at three granularities:
 Embed `task_description`, cosine similarity. This is the baseline that all existing papers use.
 
 **Level 2 — Strategy Embedding (the key differentiator):**
-Summarize each trajectory's key decisions and reasoning strategy into a condensed text representation, then embed. This captures *how* the problem was solved, not just *what* was solved.
+Summarize each trajectory's key decisions and reasoning strategy into a condensed text representation, then embed. This captures _how_ the problem was solved, not just _what_ was solved.
 
 The asymmetric retrieval challenge: user queries contain task information but rarely state their strategy needs explicitly. Two approaches to bridge this gap:
 
@@ -124,12 +124,12 @@ $$
 
 The choice of embedding model matters more than the architecture above it:
 
-| Model Category | Examples | Trade-off |
-|---------------|----------|-----------|
-| **General sentence encoders** | `all-mpnet-base-v2`, `e5-large-v2` | Off-the-shelf, no training; doesn't understand trajectory structure |
-| **Code+text bimodal** | `voyage-code-3` | Understands code snippets in trajectories; strong for coding agent tasks |
-| **Instruction-tuned** | `gte-Qwen2`, `SFR-Embedding-2` | Better at capturing semantic differences like "DP approach" vs "greedy approach" |
-| **Fine-tuned contrastive** | Trained on trajectory pairs | Best precision but requires trajectory-pair training data |
+| Model Category                | Examples                           | Trade-off                                                                        |
+| ----------------------------- | ---------------------------------- | -------------------------------------------------------------------------------- |
+| **General sentence encoders** | `all-mpnet-base-v2`, `e5-large-v2` | Off-the-shelf, no training; doesn't understand trajectory structure              |
+| **Code+text bimodal**         | `voyage-code-3`                    | Understands code snippets in trajectories; strong for coding agent tasks         |
+| **Instruction-tuned**         | `gte-Qwen2`, `SFR-Embedding-2`     | Better at capturing semantic differences like "DP approach" vs "greedy approach" |
+| **Fine-tuned contrastive**    | Trained on trajectory pairs        | Best precision but requires trajectory-pair training data                        |
 
 **Practical observation:** ExpeL's `all-mpnet-base-v2` baseline is hard to beat for task-level retrieval. The gains from better embeddings show up primarily at Level 2 (strategy matching), where instruction-tuned models like `gte-Qwen2` capture reasoning-style differences that general encoders miss.
 
@@ -137,11 +137,11 @@ The choice of embedding model matters more than the architecture above it:
 
 For a production system, multi-stage retrieval is essential:
 
-| Stage | Method | Output | Purpose |
-|-------|--------|--------|---------|
-| Coarse filter | Skill-tag matching (inverted index) | ~50 candidates | Eliminate obviously irrelevant trajectories |
-| Recall | Multi-level embedding search (ANN) | ~10 candidates | Semantic ranking across task, strategy, and step levels |
-| Rerank | LLM-as-Judge or cross-encoder | ~3 candidates | Fine-grained relevance judgment |
+| Stage         | Method                              | Output         | Purpose                                                 |
+| ------------- | ----------------------------------- | -------------- | ------------------------------------------------------- |
+| Coarse filter | Skill-tag matching (inverted index) | ~50 candidates | Eliminate obviously irrelevant trajectories             |
+| Recall        | Multi-level embedding search (ANN)  | ~10 candidates | Semantic ranking across task, strategy, and step levels |
+| Rerank        | LLM-as-Judge or cross-encoder       | ~3 candidates  | Fine-grained relevance judgment                         |
 
 The LLM reranking stage is expensive but high-value: given the query and 10 candidate trajectory summaries, the LLM selects the most relevant 2–3. This is where the biggest quality gains come from — the LLM can reason about subtle relevance factors that embedding similarity misses.
 
@@ -151,12 +151,12 @@ Everything above assumes a one-shot setting: a user query arrives, we retrieve t
 
 **Challenge 1: What do we embed on the query side?**
 
-At turn *t*, the user has exchanged *t* messages with the agent. The naive approach — embed only the latest user message — fails for the same reason it fails in conversational search: "now debug it" is meaningless without context. But concatenating the entire conversation history produces an embedding dominated by earlier turns, diluting the current intent.
+At turn _t_, the user has exchanged _t_ messages with the agent. The naive approach — embed only the latest user message — fails for the same reason it fails in conversational search: "now debug it" is meaningless without context. But concatenating the entire conversation history produces an embedding dominated by earlier turns, diluting the current intent.
 
 Four approaches, in order of increasing sophistication:
 
 **Approach A — Sliding Window Concatenation:**
-Concatenate the last *k* turns (typically *k* = 3–5) and embed the result. Simple, no LLM call needed, but the embedding quality degrades as the window includes irrelevant earlier context.
+Concatenate the last _k_ turns (typically _k_ = 3–5) and embed the result. Simple, no LLM call needed, but the embedding quality degrades as the window includes irrelevant earlier context.
 
 ```python
 def embed_multiturn_query(history: List[Turn], k: int = 3):
@@ -181,11 +181,11 @@ Rewrite the latest message to be self-contained: "{current_turn}"
 
 **Which LLM for rewriting?** Query rewriting is fundamentally a **simple NLU task** — coreference resolution ("it" → "the sorting function") and context incorporation ("debug" → "debug the Python implementation from the previous step"). This is closer to T5-level seq2seq than frontier-model reasoning. TREC CAsT participants typically used fine-tuned T5-base/T5-large, and these consistently outperformed zero-shot large models for this specific task.
 
-| Model Tier | Examples | Latency | When to Use |
-|-----------|----------|---------|-------------|
-| **Fine-tuned small** (2B–8B) | Gemma 2B, Phi-3-mini, T5-large | 10–30ms | Production — best latency, sufficient quality for most cases |
-| **Instruction-tuned medium** | Llama 3.1 8B, Gemini Flash | 30–80ms | When you lack fine-tuning data; zero-shot rewriting |
-| **Frontier** | GPT-4o, Claude Sonnet | 200–500ms | Complex multi-hop intent resolution; or as teacher for distillation |
+| Model Tier                   | Examples                       | Latency   | When to Use                                                         |
+| ---------------------------- | ------------------------------ | --------- | ------------------------------------------------------------------- |
+| **Fine-tuned small** (2B–8B) | Gemma 2B, Phi-3-mini, T5-large | 10–30ms   | Production — best latency, sufficient quality for most cases        |
+| **Instruction-tuned medium** | Llama 3.1 8B, Gemini Flash     | 30–80ms   | When you lack fine-tuning data; zero-shot rewriting                 |
+| **Frontier**                 | GPT-4o, Claude Sonnet          | 200–500ms | Complex multi-hop intent resolution; or as teacher for distillation |
 
 The **best production pattern** is teacher-student distillation: use a frontier model offline to generate (conversation, rewritten_query) training pairs, then fine-tune a small 2B–8B model that serves at 10–30ms. A few thousand rewriting examples are typically sufficient — the task's low complexity means small models learn it quickly.
 
@@ -209,12 +209,12 @@ Train a dedicated encoder on (multi-turn conversation, relevant trajectory) pair
 
 Stored trajectories are themselves multi-step sequences. The question is what unit to embed and index:
 
-| Granularity | What Gets Embedded | Retrieval Behavior |
-|-------------|-------------------|-------------------|
-| **Whole trajectory** | Full task description + all steps | Matches on overall task similarity; misses partial overlaps |
-| **Per-step** | Each (thought, action, observation) triple | Can match mid-trajectory; high index size |
-| **Sub-trajectory windows** | Overlapping windows of *k* consecutive steps | Balances granularity and index size |
-| **Hierarchical** | Task-level + strategy-level + step-level (our multi-level approach) | Best coverage; highest engineering complexity |
+| Granularity                | What Gets Embedded                                                  | Retrieval Behavior                                          |
+| -------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **Whole trajectory**       | Full task description + all steps                                   | Matches on overall task similarity; misses partial overlaps |
+| **Per-step**               | Each (thought, action, observation) triple                          | Can match mid-trajectory; high index size                   |
+| **Sub-trajectory windows** | Overlapping windows of _k_ consecutive steps                        | Balances granularity and index size                         |
+| **Hierarchical**           | Task-level + strategy-level + step-level (our multi-level approach) | Best coverage; highest engineering complexity               |
 
 For multi-turn retrieval specifically, **sub-trajectory windowing** is valuable: if the user is at step 5 of a 15-step task, you want to retrieve trajectories that had a similar step 5, not just a similar starting task. This is the partial trajectory matching problem — matching an in-progress trajectory against completed ones.
 
@@ -241,7 +241,7 @@ def index_trajectory_windows(trajectory, window_size=3, stride=1):
 In a single-turn setting, you retrieve once. In multi-turn, the relevance of retrieved trajectories changes as the conversation evolves. Two strategies:
 
 - **Retrieve once, at conversation start.** Simple, but the initial retrieval may become irrelevant by turn 5. Works when the task is well-defined from the start.
-- **Re-retrieve at each turn (or at key decision points).** Expensive, but allows the system to adapt — if the user pivots from "implement a sort" to "now benchmark it against numpy," the system retrieves trajectories relevant to *benchmarking*, not sorting. The re-retrieval can be triggered selectively: re-retrieve when the cosine similarity between the current turn embedding and the original query embedding drops below a threshold, signaling a topic shift.
+- **Re-retrieve at each turn (or at key decision points).** Expensive, but allows the system to adapt — if the user pivots from "implement a sort" to "now benchmark it against numpy," the system retrieves trajectories relevant to _benchmarking_, not sorting. The re-retrieval can be triggered selectively: re-retrieve when the cosine similarity between the current turn embedding and the original query embedding drops below a threshold, signaling a topic shift.
 
 ```python
 async def multiturn_serve(conversation: List[Turn], trajectory_db):
@@ -249,17 +249,17 @@ async def multiturn_serve(conversation: List[Turn], trajectory_db):
     initial_query = rewrite_for_retrieval(conversation[-1].content, conversation)
     initial_emb = embed(initial_query)
     retrieved = trajectory_db.retrieve(initial_query, top_k=3)
-    
+
     for new_turn in incoming_turns():
         conversation.append(new_turn)
         current_query = rewrite_for_retrieval(new_turn.content, conversation)
         current_emb = embed(current_query)
-        
+
         # Re-retrieve if intent has shifted significantly
         if cosine_similarity(current_emb, initial_emb) < DRIFT_THRESHOLD:
             retrieved = trajectory_db.retrieve(current_query, top_k=3)
             initial_emb = current_emb  # Reset anchor
-        
+
         response = model.generate(conversation, retrieved_trajectories=retrieved)
         yield response
 ```
@@ -274,7 +274,7 @@ async def multiturn_serve(conversation: List[Turn], trajectory_db):
 
 Initial trajectories can come from three sources:
 
-1. **Rejection sampling with a strong model:** Sample N solutions per task, filter by verification (unit tests, exact match, environment checks). This is the same data pipeline used for RL post-training — the difference is we *store* the trajectories instead of training on them.
+1. **Rejection sampling with a strong model:** Sample N solutions per task, filter by verification (unit tests, exact match, environment checks). This is the same data pipeline used for RL post-training — the difference is we _store_ the trajectories instead of training on them.
 
 2. **Extraction from existing benchmarks:** GSM8K already has chain-of-thought traces. SWE-bench has patches. WebArena has interaction logs. Convert these to the trajectory format.
 
@@ -289,17 +289,17 @@ The mechanism: on each query, sample N candidate trajectories in parallel at var
 ```python
 async def serve_and_accumulate(query, context, n_samples=8):
     similar_trajs = trajectory_db.retrieve(query, top_k=3)
-    
+
     trajectories = await asyncio.gather(*[
         model.solve(query, context, similar_trajs, temperature=t, trace=True)
         for t in [0.2, 0.4, 0.6, 0.6, 0.8, 0.8, 1.0, 1.0]
     ])
-    
-    verified = [(t, score) for t in trajectories 
+
+    verified = [(t, score) for t in trajectories
                 if (score := verify(t)) > THRESHOLD]
-    
+
     respond_to_user(max(verified, key=lambda x: x[1]))
-    
+
     for traj, score in verified:
         if should_store(traj, trajectory_db):
             trajectory_db.add(traj)
@@ -321,20 +321,20 @@ The flywheel only works if the database maintains high signal-to-noise ratio:
 def should_store(trajectory, db):
     if not trajectory.verified_success:
         return False
-    
+
     # Dedup: skip if too similar to existing entries
     most_similar = db.retrieve(trajectory.task, top_k=1)
     if most_similar and similarity(trajectory, most_similar[0]) > 0.95:
         return False
-    
+
     # Novelty: prioritize trajectories that use new strategies or cover new domains
     if compute_novelty(trajectory, db) < NOVELTY_THRESHOLD:
         return False
-    
+
     # Compress overly long trajectories
     if trajectory.num_steps > MAX_STEPS:
         trajectory = compress(trajectory)
-    
+
     return True
 ```
 
@@ -344,13 +344,14 @@ def should_store(trajectory, db):
 
 ## Context Engineering: Making Trajectories Useful In-Context
 
-Retrieving the right trajectory is necessary but not sufficient. The model must actually *use* it effectively. This section addresses the non-obvious challenges.
+Retrieving the right trajectory is necessary but not sufficient. The model must actually _use_ it effectively. This section addresses the non-obvious challenges.
 
 ### The Lost-in-the-Middle Problem
 
 Liu et al. (2023) showed that LLMs exhibit a U-shaped attention curve: information at the beginning and end of context is utilized well; middle content is largely ignored. Trajectories are long (easily 500–2000 tokens each), and placing multiple trajectories in context means key decision steps often land in the dead zone.
 
 **Mitigations that work:**
+
 - **Position control:** Place trajectories at the end of context, immediately before the user query. This exploits the recency bias in attention.
 - **Front-load strategy summaries:** Begin each trajectory with a one-line "Core strategy: X" header. Even if detailed steps are ignored, the strategy signal reaches the model.
 - **Hierarchical compression:** Present a 50-token strategy summary first, then 200-token key steps, then full trajectory only if context budget allows.
@@ -363,11 +364,11 @@ The compression question has an information-theoretic framing: **what is the min
 
 Three compression strategies, ordered by aggressiveness:
 
-| Strategy | Token Budget | What's Preserved | What's Lost |
-|----------|-------------|-------------------|-------------|
-| **Full trajectory** | 1000–3000 per traj | Everything | Nothing |
-| **Key steps only** | 200–500 per traj | Decision points, strategy pivots | Routine steps, verbose observations |
-| **Strategy summary** | 50–150 per traj | High-level approach, key insight | Step-level detail, execution specifics |
+| Strategy             | Token Budget       | What's Preserved                 | What's Lost                            |
+| -------------------- | ------------------ | -------------------------------- | -------------------------------------- |
+| **Full trajectory**  | 1000–3000 per traj | Everything                       | Nothing                                |
+| **Key steps only**   | 200–500 per traj   | Decision points, strategy pivots | Routine steps, verbose observations    |
+| **Strategy summary** | 50–150 per traj    | High-level approach, key insight | Step-level detail, execution specifics |
 
 An interesting finding from the reasoning step length literature (arXiv 2024): lengthening CoT steps improves reasoning even when no new information is added. This suggests that for reasoning tasks, **some verbosity in trajectories may actually help** — the detailed step-by-step format itself provides a scaffolding effect. The optimal compression level likely depends on task type: math/code benefits from detailed steps; agent tasks benefit more from strategy summaries.
 
@@ -376,6 +377,7 @@ An interesting finding from the reasoning step length literature (arXiv 2024): l
 When multiple retrieved trajectories employ contradictory strategies, the model may become confused. If Trajectory 1 solves a problem with DP and Trajectory 2 uses greedy, naively presenting both can degrade performance below the single-trajectory baseline.
 
 **Mitigations:**
+
 - Retrieve top 1–2 trajectories only (quality > quantity — confirmed by ACL 2024 findings showing one carefully selected demo can outperform multiple)
 - When presenting multiple trajectories, explicitly annotate differences and when each approach is preferred
 - **Self-selection:** Have the model browse trajectory summaries first and select the most relevant one before seeing full details (analogous to MCTS node selection)
@@ -392,17 +394,17 @@ Trajectory format matters more than expected. If the retrieved trajectory uses a
 
 This approach is not universally superior to RL post-training. It's important to be precise about where it breaks down:
 
-**1. Distribution shift in reasoning style.** RL post-training *changes how the model reasons* — it can learn to prefer certain tool-calling patterns, develop new heuristics, or suppress failure modes. Experience-augmented ICL can only show the model what good reasoning looks like; it can't reshape the model's inherent biases. For tasks where the base model has deeply ingrained bad habits, ICL demonstrations may not override them.
+**1. Distribution shift in reasoning style.** RL post-training _changes how the model reasons_ — it can learn to prefer certain tool-calling patterns, develop new heuristics, or suppress failure modes. Experience-augmented ICL can only show the model what good reasoning looks like; it can't reshape the model's inherent biases. For tasks where the base model has deeply ingrained bad habits, ICL demonstrations may not override them.
 
 **2. Context budget constraints.** Experience-augmented ICL trades parameter storage for context storage. For complex tasks requiring 5+ reference trajectories of 1000+ tokens each, the context budget for actual reasoning shrinks. RL post-training encodes patterns in weights — zero context overhead.
 
 **3. Latency sensitivity.** The retrieval pipeline (embedding + ANN search + optional LLM reranking) adds 50–200ms. For latency-critical applications, this overhead may be unacceptable. RL post-training has zero inference overhead.
 
-**4. Novelty gap.** If the trajectory database has no similar entries for a truly novel query, retrieval returns irrelevant trajectories that can *hurt* performance. RL post-training generalizes through learned policy; experience retrieval requires explicit coverage.
+**4. Novelty gap.** If the trajectory database has no similar entries for a truly novel query, retrieval returns irrelevant trajectories that can _hurt_ performance. RL post-training generalizes through learned policy; experience retrieval requires explicit coverage.
 
 **Where experience-augmented ICL wins:** rapid deployment (hours vs. days), continuous improvement without retraining, domain adaptation without catastrophic forgetting, and the ability to maintain multiple strategy libraries for different user populations.
 
-> **The hybrid hypothesis:** The most promising direction may not be either/or. Use experience-augmented ICL for rapid bootstrapping and long-tail coverage, then apply RL fine-tuning on the highest-value trajectory patterns. The trajectory database tells you *what* to train on; RL training tells the model to internalize it. This "retrieval-first, training-supplementary" paradigm is the natural next step.
+> **The hybrid hypothesis:** The most promising direction may not be either/or. Use experience-augmented ICL for rapid bootstrapping and long-tail coverage, then apply RL fine-tuning on the highest-value trajectory patterns. The trajectory database tells you _what_ to train on; RL training tells the model to internalize it. This "retrieval-first, training-supplementary" paradigm is the natural next step.
 
 ---
 
@@ -412,25 +414,25 @@ This approach is not universally superior to RL post-training. It's important to
 
 The critical experiment: **does experience-augmented ICL match RL post-training when given access to the same trajectories?**
 
-| Condition | Description |
-|-----------|-------------|
-| Base LLM | No assistance |
-| Random few-shot ICL | Randomly selected demonstrations |
-| Standard RAG | Retrieved documents (not trajectories) |
-| Experience ICL (Level 1) | Task-level retrieval only |
-| Experience ICL (Level 1+2) | Task + strategy retrieval |
-| Experience ICL (Level 1+2+3) | Full multi-level retrieval |
-| RL post-trained (same data) | GRPO/PPO trained on the same trajectory set |
+| Condition                    | Description                                 |
+| ---------------------------- | ------------------------------------------- |
+| Base LLM                     | No assistance                               |
+| Random few-shot ICL          | Randomly selected demonstrations            |
+| Standard RAG                 | Retrieved documents (not trajectories)      |
+| Experience ICL (Level 1)     | Task-level retrieval only                   |
+| Experience ICL (Level 1+2)   | Task + strategy retrieval                   |
+| Experience ICL (Level 1+2+3) | Full multi-level retrieval                  |
+| RL post-trained (same data)  | GRPO/PPO trained on the same trajectory set |
 
 ### Key Ablations
 
-| Variable | Conditions | Tests |
-|----------|-----------|-------|
-| Number of trajectories | 1, 3, 5, 10 | Quality vs. quantity trade-off |
-| Compression level | Full / key-steps / summary | Token efficiency vs. information preservation |
-| Context position | Beginning / middle / end | Lost-in-the-middle effect |
-| Cross-model transfer | Same model / different model | Self-play vs. cross-model trajectories |
-| Database size scaling | 100 / 1K / 10K / 100K entries | Scaling behavior and diminishing returns |
+| Variable               | Conditions                    | Tests                                         |
+| ---------------------- | ----------------------------- | --------------------------------------------- |
+| Number of trajectories | 1, 3, 5, 10                   | Quality vs. quantity trade-off                |
+| Compression level      | Full / key-steps / summary    | Token efficiency vs. information preservation |
+| Context position       | Beginning / middle / end      | Lost-in-the-middle effect                     |
+| Cross-model transfer   | Same model / different model  | Self-play vs. cross-model trajectories        |
+| Database size scaling  | 100 / 1K / 10K / 100K entries | Scaling behavior and diminishing returns      |
 
 ### Benchmarks
 
@@ -452,7 +454,7 @@ The critical experiment: **does experience-augmented ICL match RL post-training 
 
 1. **Optimal compression:** What is the minimum trajectory representation that preserves decision-relevant information? Can we learn a task-dependent compression function?
 
-2. **Dynamic retrieval during reasoning:** Current design retrieves trajectories once before generation. Can we re-retrieve *mid-reasoning* — e.g., when the model hits a dead end at step 5, retrieve step-level similar partial trajectories?
+2. **Dynamic retrieval during reasoning:** Current design retrieves trajectories once before generation. Can we re-retrieve _mid-reasoning_ — e.g., when the model hits a dead end at step 5, retrieve step-level similar partial trajectories?
 
 3. **Quality vs. diversity:** The most similar trajectory maximizes relevance but may bias the model toward one solution path. Deliberately introducing moderately dissimilar trajectories (MMR-style) could improve exploration. When does diversity help?
 
@@ -467,6 +469,7 @@ The critical experiment: **does experience-augmented ICL match RL post-training 
 ## References
 
 ### Agent Experiential Learning
+
 1. **ExpeL** — Zhao et al., 2023 — Autonomous experience collection + retrieval-augmented ICL
 2. **Voyager** — Wang et al., 2023 — Skill library with embedding-based retrieval for Minecraft
 3. **Reflexion** — Shinn et al., 2023 — Verbal reflections from failed trajectories as episodic memory
@@ -475,17 +478,20 @@ The critical experiment: **does experience-augmented ICL match RL post-training 
 6. **ACE** (Agentic Context Engineering) — 2025 — Persistent playbooks and ICL-based learning
 
 ### Trajectory Synthesis
+
 7. **AgentTrek** (ICLR 2025 Spotlight) — Automated GUI agent trajectory synthesis from web tutorials
 8. **TrajICL** — 2024 — Trajectory prediction via ICL with spatio-temporal similarity (step-level matching)
 9. **STEP** — 2025 — Step-level trajectory decomposition for fine-grained credit assignment
 10. **RLEP** — 2024 — Experience replay to accelerate RL reasoning training
 
 ### Retrieval-Augmented Reasoning
+
 11. **RAT** (Retrieval Augmented Thoughts) — 2024 — RAG + CoT synergy for multi-step reasoning
 12. **R3-RAG** — 2024 — RL-trained optimal retrieval + reasoning trajectory
 13. **RAS** — 2026 — Dynamic question-specific knowledge graph construction
 
 ### Context Utilization and Test-Time Compute
+
 14. **Lost in the Middle** — Liu et al., 2023 — U-shaped attention curve in long contexts
 15. **Many-Shot ICL** — Google DeepMind, 2024 — Power-law improvement with demonstration count
 16. **Reinforced ICL** — DeepMind, 2024 — Model-generated rationales as effective substitutes
@@ -493,7 +499,8 @@ The critical experiment: **does experience-augmented ICL match RL post-training 
 18. **Reasoning Step Length** — arXiv 2024 — Longer CoT steps improve reasoning independent of information content
 
 ### Multi-Turn Conversational Retrieval
+
 19. **ConvDR** — Yu et al., 2021 (arXiv:2104.13650) — Few-shot conversational dense retrieval with history encoding
 20. **TREC CAsT** — Conversational Assistance Track — Benchmark for conversational search with query rewriting
 
-*Code examples are synthesized implementations illustrating practical patterns.*
+_Code examples are synthesized implementations illustrating practical patterns._
