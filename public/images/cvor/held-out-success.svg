@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Selected held-out terminal success by training arm</title>
+  <desc id="desc">Horizontal bars compare Base, three supervised repair arms, and three on-policy reinforcement learning budgets. CVoR reaches 63.7 percent, while matched-interaction RL reaches 75.7 percent.</desc>
+  <rect width="1200" height="700" fill="#ffffff"/>
+  <style>
+    text{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#172033}
+    .title{font-size:28px;font-weight:700}.subtitle{font-size:16px;fill:#526071}.label{font-size:16px;font-weight:600}
+    .value{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}.tick{font-size:14px;fill:#64748b}
+    .grid{stroke:#e2e8f0;stroke-width:1}.group{font-size:13px;font-weight:700;letter-spacing:.08em;fill:#64748b}
+    .note{font-size:14px;fill:#64748b}
+  </style>
+  <text x="70" y="55" class="title">Selected held-out terminal success by update arm</text>
+  <text x="70" y="87" class="subtitle">Mean over 8 paired checkpoints · 600 ID tasks per checkpoint · greedy terminal success</text>
+  <text x="70" y="142" class="group">SUPERVISED UPDATE</text>
+  <text x="70" y="422" class="group">ON-POLICY RL</text>
+  <line x1="320" y1="145" x2="320" y2="610" class="grid"/><text x="320" y="635" class="tick" text-anchor="middle">0%</text><line x1="520" y1="145" x2="520" y2="610" class="grid"/><text x="520" y="635" class="tick" text-anchor="middle">20%</text><line x1="720" y1="145" x2="720" y2="610" class="grid"/><text x="720" y="635" class="tick" text-anchor="middle">40%</text><line x1="919.9999999999999" y1="145" x2="919.9999999999999" y2="610" class="grid"/><text x="919.9999999999999" y="635" class="tick" text-anchor="middle">60%</text><line x1="1120" y1="145" x2="1120" y2="610" class="grid"/><text x="1120" y="635" class="tick" text-anchor="middle">80%</text>
+  <line x1="70" y1="415" x2="1140" y2="415" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="5 5"/>
+  <text x="290" y="196" class="label" text-anchor="end">Base / no update</text>
+        <rect x="320" y="173" width="596.0" height="34" rx="4" fill="#64748b" stroke="#475569" stroke-width="1.5"/>
+        <text x="928.0" y="196" class="value">59.6%</text><text x="290" y="256" class="label" text-anchor="end">CVoR-SFT</text>
+        <rect x="320" y="233" width="636.9" height="34" rx="4" fill="#0b4f8a" stroke="#08375f" stroke-width="1.5"/>
+        <text x="968.9" y="256" class="value">63.7%</text><text x="290" y="316" class="label" text-anchor="end">Earliest-Repair SFT</text>
+        <rect x="320" y="293" width="651.5" height="34" rx="4" fill="#9cc4df" stroke="#356b92" stroke-width="1.5"/>
+        <text x="983.5" y="316" class="value">65.1%</text><text x="290" y="376" class="label" text-anchor="end">Random-Repair SFT</text>
+        <rect x="320" y="353" width="654.4" height="34" rx="4" fill="#d7e7f2" stroke="#356b92" stroke-width="1.5"/>
+        <text x="986.4" y="376" class="value">65.4%</text><text x="290" y="466" class="label" text-anchor="end">RL, 0.25x interactions</text>
+        <rect x="320" y="443" width="668.3" height="34" rx="4" fill="#f2c18d" stroke="#9a4c0b" stroke-width="1.5"/>
+        <text x="1000.3" y="466" class="value">66.8%</text><text x="290" y="526" class="label" text-anchor="end">RL, 0.5x interactions</text>
+        <rect x="320" y="503" width="710.6" height="34" rx="4" fill="#d97706" stroke="#92400e" stroke-width="1.5"/>
+        <text x="1042.6" y="526" class="value">71.1%</text><text x="290" y="586" class="label" text-anchor="end">RL, matched interactions</text>
+        <rect x="320" y="563" width="756.7" height="34" rx="4" fill="#a3470a" stroke="#7c2d12" stroke-width="1.5"/>
+        <text x="1088.7" y="586" class="value">75.7%</text>
+  <text x="70" y="674" class="note">RL uses terminal {0,1} reward. “Matched” is the first RL batch at or above CVoR’s transition target, not equal total economic cost.</text>
+</svg>

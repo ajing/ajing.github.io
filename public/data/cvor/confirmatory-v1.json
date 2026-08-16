@@ -1,0 +1,151 @@
+{
+  "schema_version": "cvor-blog-summary-v1",
+  "frozen_date": "2026-08-14",
+  "design": {
+    "checkpoint_seeds": 8,
+    "collection_tasks_per_seed": 900,
+    "id_tasks_per_seed": 600,
+    "ood_tasks_per_seed": 300,
+    "selection_suffix_seeds": 4,
+    "independent_audit_suffix_seeds": 8,
+    "independent_audit_scope": "all 7,960 candidates",
+    "repair_labels_per_sft_arm": 96,
+    "anchor_labels_per_sft_arm": 96,
+    "optimizer_steps_per_sft_arm": 36,
+    "outcome_rows": 79200,
+    "integrity_checks": "21/21",
+    "policy_observation": "36-feature local observation",
+    "selection_tie_break": "maximum selection delta, then lower repair NLL, then earlier step and stable candidate ID",
+    "max_delta_tie_task_groups": 1382,
+    "total_candidate_task_groups": 4359,
+    "tie_break_sensitivity_fraction": 0.133
+  },
+  "methods": [
+    {
+      "method": "Base / no update",
+      "id": 0.5960416667,
+      "ood": 0.49875
+    },
+    {
+      "method": "CVoR-SFT",
+      "id": 0.636875,
+      "ood": 0.5658333333
+    },
+    {
+      "method": "CVoR + NLL gate",
+      "id": 0.6185416667,
+      "ood": 0.54
+    },
+    {
+      "method": "Earliest-Repair SFT",
+      "id": 0.6514583333,
+      "ood": 0.57875
+    },
+    {
+      "method": "Random-Repair SFT",
+      "id": 0.654375,
+      "ood": 0.5841666667
+    },
+    {
+      "method": "Uncertainty SFT",
+      "id": 0.6239583333,
+      "ood": 0.5479166667
+    },
+    {
+      "method": "Teacher BC, equal labels",
+      "id": 0.60625,
+      "ood": 0.5241666667
+    },
+    {
+      "method": "Sham-CVoR",
+      "id": 0.509375,
+      "ood": 0.3741666667
+    },
+    {
+      "method": "RL, 0.25x interactions",
+      "id": 0.6683333333,
+      "ood": 0.60625
+    },
+    {
+      "method": "RL, 0.5x interactions",
+      "id": 0.710625,
+      "ood": 0.6558333333
+    },
+    {
+      "method": "RL, matched interactions",
+      "id": 0.7566666667,
+      "ood": 0.7179166667
+    }
+  ],
+  "contrasts": {
+    "cvor_minus_base": {
+      "point": 0.0408333333,
+      "ci95": [0.024375, 0.0583333333],
+      "positive_seeds": 8
+    },
+    "cvor_minus_earliest": {
+      "point": -0.0145833333,
+      "ci95": [-0.0358385417, 0.0097916667],
+      "positive_seeds": 2,
+      "per_seed": [
+        0.035, -0.02, -0.0233333333, -0.045, -0.045, -0.0266666667,
+        -0.0316666667, 0.04
+      ]
+    },
+    "cvor_minus_random": {
+      "point": -0.0175,
+      "ci95": [-0.0318802083, -0.0022916667],
+      "positive_seeds": 1
+    },
+    "cvor_minus_rl_quarter": {
+      "point": -0.0314583333,
+      "ci95": [-0.04375, -0.018125],
+      "positive_seeds": 0
+    },
+    "cvor_minus_rl_matched": {
+      "point": -0.1197916667,
+      "ci95": [-0.1377083333, -0.1010416667],
+      "positive_seeds": 0
+    },
+    "sham_minus_base": {
+      "point": -0.0866666667,
+      "ci95": [-0.1106302083, -0.0597916667],
+      "positive_seeds": 0
+    }
+  },
+  "mechanism": {
+    "cvor": {
+      "audit_delta": 0.7862955729,
+      "audit_rescue": 0.7906901042
+    },
+    "earliest": {
+      "audit_delta": 0.2610677083,
+      "audit_rescue": 0.2880859375
+    },
+    "random": {
+      "audit_delta": 0.2626953125,
+      "audit_rescue": 0.2775065104
+    },
+    "uncertainty": {
+      "audit_delta": 0.1809895833,
+      "audit_rescue": 0.1883138021
+    },
+    "cvor_minus_random_rescue": {
+      "point": 0.5131835938,
+      "ci95": [0.4796549479, 0.5458984375]
+    },
+    "selection_to_audit_spearman_mean": 0.7339281013
+  },
+  "rl": {
+    "closure": 0.2542153048,
+    "cvor_gap_to_matched_rl": -0.1197916667,
+    "cvor_environment_transitions_per_seed": 62449.875,
+    "rl_quarter_environment_transitions_per_seed": 15924.875,
+    "rl_matched_environment_transitions_per_seed": 62830.125
+  },
+  "decision": {
+    "mechanism": "PASS",
+    "downstream_training_and_rl_closure": "NO-GO",
+    "full_cost_pareto": "NOT EVALUABLE"
+  }
+}
