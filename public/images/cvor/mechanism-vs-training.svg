@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" role="img" aria-labelledby="title desc">
+  <title id="title">Immediate repair rescue and held-out training gain are different estimands</title>
+  <desc id="desc">CVoR produces a 79.1 percent independent rescue rate, far above Earliest and Random. After supervised training, however, CVoR gains 4.1 percentage points over Base, below Earliest at 5.5 and Random at 5.8.</desc>
+  <rect width="1200" height="600" fill="#ffffff"/>
+  <style>
+    text{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#172033}
+    .title{font-size:27px;font-weight:700}.subtitle{font-size:16px;fill:#526071}.panel{font-size:18px;font-weight:700}
+    .label{font-size:16px;font-weight:600}.value{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+    .tick{font-size:13px;fill:#64748b}.grid{stroke:#e2e8f0;stroke-width:1}.note{font-size:14px;fill:#64748b}
+  </style>
+  <text x="60" y="52" class="title">Immediate rescue and held-out training gain are different estimands</text>
+  <text x="60" y="84" class="subtitle">Independent branch audit on the left; downstream ID gain versus Base on the right</text>
+  <text x="190" y="135" class="panel">One-action repair rescue</text>
+  <text x="810" y="135" class="panel">Held-out gain after SFT</text>
+  <line x1="190" y1="190" x2="190" y2="455" class="grid"/><text x="190" y="180" class="tick" text-anchor="middle">0%</text><line x1="360" y1="190" x2="360" y2="455" class="grid"/><text x="360" y="180" class="tick" text-anchor="middle">40%</text><line x1="530" y1="190" x2="530" y2="455" class="grid"/><text x="530" y="180" class="tick" text-anchor="middle">80%</text>
+  <line x1="810" y1="190" x2="810" y2="455" class="grid"/><text x="810" y="180" class="tick" text-anchor="middle">0 pp</text><line x1="960" y1="190" x2="960" y2="455" class="grid"/><text x="960" y="180" class="tick" text-anchor="middle">4 pp</text><line x1="1110" y1="190" x2="1110" y2="455" class="grid"/><text x="1110" y="180" class="tick" text-anchor="middle">8 pp</text>
+  <text x="165" y="246" class="label" text-anchor="end">CVoR</text>
+        <rect x="190" y="223" width="336.0" height="34" rx="4" fill="#0b4f8a" stroke="#08375f" stroke-width="1.5"/>
+        <text x="536.0" y="246" class="value">79.1%</text>
+        <text x="785" y="246" class="label" text-anchor="end">CVoR</text>
+        <rect x="810" y="223" width="153.1" height="34" rx="4" fill="#0b4f8a" stroke="#08375f" stroke-width="1.5"/>
+        <text x="973.1" y="246" class="value">+4.1 pp</text><text x="165" y="336" class="label" text-anchor="end">Earliest</text>
+        <rect x="190" y="313" width="122.4" height="34" rx="4" fill="#a9cce3" stroke="#356b92" stroke-width="1.5"/>
+        <text x="322.4" y="336" class="value">28.8%</text>
+        <text x="785" y="336" class="label" text-anchor="end">Earliest</text>
+        <rect x="810" y="313" width="207.8" height="34" rx="4" fill="#a9cce3" stroke="#356b92" stroke-width="1.5"/>
+        <text x="1027.8" y="336" class="value">+5.5 pp</text><text x="165" y="426" class="label" text-anchor="end">Random</text>
+        <rect x="190" y="403" width="117.9" height="34" rx="4" fill="#d7e7f2" stroke="#356b92" stroke-width="1.5"/>
+        <text x="317.9" y="426" class="value">27.8%</text>
+        <text x="785" y="426" class="label" text-anchor="end">Random</text>
+        <rect x="810" y="403" width="218.7" height="34" rx="4" fill="#d7e7f2" stroke="#356b92" stroke-width="1.5"/>
+        <text x="1038.7" y="426" class="value">+5.8 pp</text>
+  <text x="60" y="520" class="note">CVoR’s selection-to-audit Spearman correlation is 0.734 across the full candidate pool.</text>
+  <text x="60" y="548" class="note">The two panels intentionally use separate axes: branch-level rescue is not the same quantity as checkpoint-level learning utility.</text>
+</svg>
