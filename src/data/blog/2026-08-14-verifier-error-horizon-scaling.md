@@ -1,7 +1,8 @@
 ---
 author: Jing Lu
 pubDatetime: 2026-08-14T00:00:00-07:00
-title: "Do Verifier Errors Grow Superlinearly with Horizon? A Three-Stage Experiment"
+modDatetime: 2026-08-17T00:00:00-07:00
+title: "Do Verifier Errors Grow Superlinearly with Horizon? A Six-Stage Experiment"
 featured: true
 draft: false
 tags:
@@ -11,7 +12,7 @@ tags:
   - Reinforcement Learning
   - Evaluation
   - Post Training
-description: "A controlled long-horizon experiment found a clear horizon effect but no preregistered evidence of superlinear verifier error—and exposed why token measurement and false-negative costs matter before scaling RL evaluations."
+description: "A preregistered 224-artifact study confirms a 66% hybrid-verifier improvement, does not support the universal superlinear headline, and finds that task structure can reverse the apparent horizon effect."
 ---
 
 Long-horizon reinforcement learning depends on a deceptively strong assumption:
@@ -30,18 +31,24 @@ I built a controlled benchmark around one question:
 > Does verifier error grow superlinearly as the task horizon increases from 20
 > to 50, 100, and 200 steps?
 
-The result is useful precisely because it is not a clean positive result:
+After six stages, including a two-seed confirmatory run, the result is more
+specific than the original hypothesis:
 
-- verifier error shows a strong horizon effect;
 - no semantic verifier passes the preregistered superlinearity test;
-- an integrity-gated hybrid eliminates observed false positives in the pilots;
-- the same hybrid also rejects substantially more correct outputs;
-- and the second experimental design failed because its token manipulation
-  check measured more than the experiment intended.
+- a frozen structural-gate plus semantic-majority hybrid reduces controlled
+  false-positive reward by **66.3%**, with a paired 95% interval of
+  **55.6–76.1%**;
+- the apparent horizon effect reverses across task families, so horizon alone
+  is not a portable scaling variable;
+- same-model errors are modestly correlated, but a different-model judge is
+  not automatically safer;
+- and the semantic confidence outputs fail their own measurement contract, so
+  the calibration metric is not interpretable.
 
-The narrow conclusion is not that long-horizon verifier error is superlinear.
-It is that **measuring the scaling law is harder than making the curve look
-convincing**.
+The narrow conclusion is not that long-horizon verifier error universally
+grows superlinearly. It is that **verifier failure depends on the interaction
+between horizon and evidence structure—and that a prospectively frozen
+ensemble can still remove most false rewards**.
 
 ## Experimental setup
 
@@ -268,67 +275,216 @@ observe.
 V3 used 74 remote calls—16 actor calls and 58 semantic judgments—within its
 preregistered cap of 80. It did not automatically enter Stage B.
 
-## What I would change before Stage B
+## V4: repair the denominator, expose the hybrid confound
 
-Simply running more episodes from the same generator is not the best next
-step. The next design should repair the wrong-artifact denominator first.
+V4 implemented the controlled-error design that V3 had motivated. Every task
+produced two paired lanes:
 
-### 1. Generate controlled actor errors
+- the natural actor artifact;
+- a controlled artifact that was schema-valid, checksum-consistent, polished,
+  and definitively wrong under replay.
 
-Each family × horizon cell should contain a preregistered minimum number of
-wrong artifacts. One option is to pair natural actor outputs with controlled
-semantic mutations whose wrongness is verified by the machine oracle.
+This made the primary denominator independent of whether the actor happened
+to fail in a particular cell. It also revealed a problem in the original
+hybrid. The different-model judge falsely accepted `7/16` controlled errors,
+while the hybrid falsely accepted `8/16`. On the seven naturally correct
+artifacts, the hybrid rejected three.
 
-This would estimate verifier behavior conditional on the same error classes at
-every horizon, instead of allowing actor competence to determine whether a
-cell has a denominator.
+The reason matters. The hybrid was not merely applying a deterministic gate to
+the same semantic decision. It called the semantic model again, so its apparent
+effect mixed the gate with fresh sampling variance. V4 was a valid negative
+result: the denominator repair worked, but the intervention did not.
 
-### 2. Report two primary views
+## V5: freeze a zero-additional-call majority hybrid
 
-The next experiment should retain both:
+Before a new seed was run, V5 froze a different hybrid:
 
-- unconditional verifier error over all episodes;
-- conditional false acceptance over wrong artifacts.
+```text
+accept = structural_integrity_passes
+         AND at_least_two_of(self, same_model, different_model)_accept
+```
 
-The first captures the operational system; the second isolates verifier
-susceptibility once the actor fails.
+This reuses the three semantic judgments already collected for comparison and
+does not introduce a fourth stochastic judge call. On seed 97, the
+different-model false-positive rate was `6/16`; the frozen hybrid reduced it to
+`2/16`, a `66.7%` relative decrease. The paired pilot interval was wide
+(`26.6–100%`), but the natural-artifact false-negative guardrail was `0/8`.
 
-### 3. Add provider-level independence
+V5 was encouraging, not confirmatory. Each horizon still contained only four
+controlled errors. Its purpose was to freeze the rule before the larger run.
 
-Using different model IDs inside the same provider is useful but does not
-eliminate shared training data, system prompts, serving infrastructure, or task
-interpretations. A confirmatory run should cross model family and provider.
+## V6: the confirmatory controlled-error experiment
 
-### 4. Treat the hybrid as a thresholded system
+V6 used seeds 101 and 103 with no actor generation. It crossed:
 
-Instead of asking whether one fixed hybrid wins, vary the structural and
-semantic rejection thresholds and estimate the FPR/FNR frontier. Human audit
-should target disagreements near that frontier.
+```text
+2 task families
+× 4 horizons
+× 2 difficulty tiers
+× 7 artifacts per cell
+× 2 seeds
+= 224 controlled semantic errors
+```
 
-### 5. Keep stopping rules prospective
+Every artifact was internally well-formed but wrong under authoritative
+replay. All `672/672` semantic model calls succeeded. Each seed passed the
+frozen local task-visible token gate at a `1.000×` max/min ratio, and each
+family × horizon cell contained 28 wrong artifacts—above the preregistered
+minimum of 15.
 
-Token gates, minimum wrong counts, confidence-interval tests, and expansion
-decisions should remain frozen before the calls they govern. Otherwise a
-long-horizon experiment can become a long sequence of researcher degrees of
-freedom.
+Because all V6 artifacts are wrong, verifier error, false-positive reward, and
+reward-hacking rate are the same endpoint:
+
+| Verifier                  |  h=20 |  h=50 | h=100 | h=200 | Overall |
+| ------------------------- | ----: | ----: | ----: | ----: | ------: |
+| Actor self-judge          | 12.5% | 10.7% | 17.9% | 25.0% |   16.5% |
+| Fresh same-model judge    |  1.8% | 12.5% | 21.4% | 21.4% |   14.3% |
+| Different-model judge     | 42.9% | 39.3% | 42.9% | 50.0% |   43.8% |
+| Deterministic full replay |  0.0% |  0.0% |  0.0% |  0.0% |    0.0% |
+| Frozen majority hybrid    | 14.3% |  8.9% | 16.1% | 19.6% |   14.7% |
+
+![Verifier error by horizon in the V6 controlled-error experiment](/images/verifier-horizon/error-scaling-v6.svg "V6 verifier error by trajectory horizon")
+
+### The hybrid result survives confirmation
+
+The different-model judge falsely accepted `98/224` artifacts (`43.75%`). The
+frozen hybrid accepted `33/224` (`14.73%`). The relative reduction is
+`66.33%`, with a paired episode-bootstrap 95% interval of
+`55.56–76.14%`.
+
+The entire interval exceeds the preregistered 30% target. This is the strongest
+positive result in the project.
+
+There are two important cost qualifiers. First, V6 is controlled-error only,
+so it cannot estimate false negatives; the last natural-lane guardrail remains
+V5's small `0/8` result. Second, the majority hybrid requires three semantic
+judgments in deployment. It adds no calls to this comparison panel, but it is
+not a single-judge-cost verifier.
+
+### The universal superlinear hypothesis does not survive
+
+The preregistered test still requires both a power-law exponent whose 95%
+interval is above one and quadratic curvature whose interval is above zero:
+
+| Verifier               | Power exponent (95% CI) |      Curvature (95% CI) | Passes both? |
+| ---------------------- | ----------------------: | ----------------------: | :----------: |
+| Actor self-judge       |    0.310 [0.018, 0.675] |   0.046 [-0.501, 0.555] |      No      |
+| Fresh same-model judge |    0.933 [0.488, 1.514] | -0.549 [-1.058, -0.063] |      No      |
+| Different-model judge  |   0.066 [-0.085, 0.230] |   0.184 [-0.516, 0.898] |      No      |
+| Majority hybrid        |   0.173 [-0.128, 0.537] |   0.086 [-0.465, 0.580] |      No      |
+
+The same-model curve rises from `1.8%` at 20 steps to `21.4%` at 100 steps and
+then saturates. A quadratic model fits better than a linear one, but its
+curvature is significantly negative. That is a concave saturation pattern,
+not the preregistered convex acceleration.
+
+## The key result is a task-family interaction
+
+The pooled curve hides two opposing regimes:
+
+| Task family             | Verifier   |  h=20 |  h=50 | h=100 | h=200 |
+| ----------------------- | ---------- | ----: | ----: | ----: | ----: |
+| Register reconstruction | Self       |  0.0% |  3.6% | 28.6% | 50.0% |
+| Register reconstruction | Same model |  0.0% | 10.7% | 35.7% | 42.9% |
+| Register reconstruction | Hybrid     |  0.0% |  3.6% | 25.0% | 39.3% |
+| File-manifest migration | Self       | 25.0% | 17.9% |  7.1% |  0.0% |
+| File-manifest migration | Same model |  3.6% | 14.3% |  7.1% |  0.0% |
+| File-manifest migration | Hybrid     | 28.6% | 14.3% |  7.1% |  0.0% |
+
+For register reconstruction, the fitted power exponents for self, same-model,
+and hybrid verification are all above `1.44`, with intervals entirely above
+one. But their curvature intervals do not clear zero. The pattern is rapid
+growth followed by saturation, not confirmed convex growth across all four
+horizons.
+
+For file-manifest migration, those same error rates decline. This sign reversal
+means that “number of steps” is not a sufficient causal description. Evidence
+topology, state-transition structure, where the lure appears, and how ambiguity
+interacts with the output representation can dominate the nominal horizon.
+
+This is a more useful research direction than adding more samples to the
+pooled curve. The next experiment should factorially manipulate these structural
+variables.
+
+## Common-mode error is present, but not uniform
+
+On the controlled lane, binary error correlations were:
+
+| Judge pair                    | Error correlation | Joint error rate |
+| ----------------------------- | ----------------: | ---------------: |
+| Self vs fresh same model      |             0.334 |            6.70% |
+| Self vs different model       |             0.117 |            9.38% |
+| Same model vs different model |            -0.026 |            5.80% |
+
+The self/same-model pair shows modest shared failure. The different-model judge
+is nearly uncorrelated with the same-model judge in the pooled data, yet it has
+the highest standalone false-positive rate. Independence is useful for an
+ensemble; it is not the same thing as accuracy.
+
+Correlations involving the hybrid are not independent evidence because the
+hybrid is constructed from the three component decisions.
+
+## The calibration metric failed its measurement contract
+
+The semantic prompt defined confidence as the probability that the artifact is
+fully correct. In V6, however, every semantic judgment returned a value between
+`0.99` and `1.00`—including every rejection:
+
+| Verifier               | Rejections | Rejections with confidence > 0.5 |
+| ---------------------- | ---------: | -------------------------------: |
+| Actor self-judge       |        187 |                              187 |
+| Fresh same-model judge |        192 |                              192 |
+| Different-model judge  |        126 |                              126 |
+
+A model cannot coherently say “this artifact is wrong” while assigning it a
+99% probability of being fully correct. The resulting ECE and Brier values
+diagnose a broken output contract, not calibrated uncertainty. I therefore do
+not treat calibration as a valid V6 result. The binary false-positive and
+correlation results do not depend on that field and remain usable.
+
+A future schema should separate `p_correct` from `decision_confidence`, reject
+logically inconsistent responses, and calibrate only `p_correct`.
+
+## What the six stages establish
+
+The project now supports three claims with different strengths:
+
+1. **Confirmed engineering result.** A prospectively frozen structural plus
+   semantic-majority hybrid reduced controlled false-positive reward by 66.3%,
+   with the paired interval wholly above the 30% target.
+2. **Unsupported headline.** No verifier passed the preregistered universal
+   superlinearity test. The data do not justify claiming that verifier error
+   universally grows superlinearly with trajectory length.
+3. **New mechanism hypothesis.** Horizon interacts with task and evidence
+   structure strongly enough to reverse the observed slope across two task
+   families.
+
+The scope remains deliberately narrow. These are synthetic, exactly replayable
+tasks; the controlled artifacts are benchmark-generated rather than natural
+actor errors; Terra and Luna are different model IDs inside the same provider
+stack; V6 has no correct-artifact lane; and the deterministic replay verifier
+is an oracle-backed upper-bound control unavailable for most open-ended work.
+
+The next confirmatory study should therefore add:
+
+- a genuinely independent model provider;
+- a balanced correct-artifact lane for false-negative estimation;
+- separate factorial interventions for stale state, conflicting evidence,
+  wrong-path artifacts, semantic examples, and rubric ambiguity;
+- a corrected probability schema;
+- and a human audit of disagreements near the hybrid threshold.
 
 ## Final takeaway
 
-The most tempting headline would be that verifier error grows superlinearly
-with horizon. The data do not support that headline yet.
+The answer to the title question is now sharper: **not as a universal law**.
+Verifier error can rise rapidly with horizon, but the direction and shape depend
+on what the extra steps do to the evidence available to the judge.
 
-What the experiment does support is more operationally useful:
+At the same time, the intervention result is real within this benchmark. A
+frozen majority hybrid removed roughly two-thirds of false rewards without
+using the formal replay oracle as its final semantic decision.
 
-1. long horizons can sharply increase actor and semantic-verifier error;
-2. shared-model and shared-provider judges do not automatically remove
-   common-mode failure;
-3. integrity constraints can eliminate observed false rewards in a controlled
-   benchmark;
-4. that gain may come with a large false-negative cost;
-5. task-visible tokens and full runtime tokens are different measurements;
-6. a conditional verifier curve is not estimable when the actor produces no
-   errors in a cell.
-
-In long-horizon RL, the verifier is part of the learning environment. If its
-measurement, denominator, and operating point are not controlled, scaling the
-number of trajectories may only make the wrong conclusion more precise.
+In long-horizon RL, the verifier is part of the learning environment. Treating
+its denominator, token budget, confidence semantics, and task structure as
+first-class experimental variables is what separates a convincing curve from a
+reliable result.

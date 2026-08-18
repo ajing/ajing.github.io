@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="560" viewBox="0 0 940 560">
+<rect width="100%" height="100%" fill="#fbfaf7"/>
+<text x="90" y="30" font-family="system-ui,sans-serif" font-size="20" font-weight="700" fill="#202124">Verifier error vs. trajectory horizon</text>
+<line x1="90" y1="480.0" x2="905" y2="480.0" stroke="#ddd"/>
+<text x="78" y="484.0" text-anchor="end" font-family="system-ui,sans-serif" font-size="12" fill="#555">0%</text>
+<line x1="90" y1="395.0" x2="905" y2="395.0" stroke="#ddd"/>
+<text x="78" y="399.0" text-anchor="end" font-family="system-ui,sans-serif" font-size="12" fill="#555">12%</text>
+<line x1="90" y1="310.0" x2="905" y2="310.0" stroke="#ddd"/>
+<text x="78" y="314.0" text-anchor="end" font-family="system-ui,sans-serif" font-size="12" fill="#555">23%</text>
+<line x1="90" y1="225.0" x2="905" y2="225.0" stroke="#ddd"/>
+<text x="78" y="229.0" text-anchor="end" font-family="system-ui,sans-serif" font-size="12" fill="#555">34%</text>
+<line x1="90" y1="140.0" x2="905" y2="140.0" stroke="#ddd"/>
+<text x="78" y="144.0" text-anchor="end" font-family="system-ui,sans-serif" font-size="12" fill="#555">46%</text>
+<line x1="90" y1="55.0" x2="905" y2="55.0" stroke="#ddd"/>
+<text x="78" y="59.0" text-anchor="end" font-family="system-ui,sans-serif" font-size="12" fill="#555">57%</text>
+<text x="90.0" y="508" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" fill="#333">20</text>
+<text x="361.7" y="508" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" fill="#333">50</text>
+<text x="633.3" y="508" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" fill="#333">100</text>
+<text x="905.0" y="508" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" fill="#333">200</text>
+<text x="497.5" y="542" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14">horizon (steps)</text>
+<text x="22" y="267.5" transform="rotate(-90 22 267.5)" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14">verifier error rate</text>
+<polyline points="90.0,387.6 361.7,400.8 633.3,348.0 905.0,295.2" fill="none" stroke="#d1495b" stroke-width="3"/>
+<circle cx="90.0" cy="387.6" r="4" fill="#d1495b"/>
+<circle cx="361.7" cy="400.8" r="4" fill="#d1495b"/>
+<circle cx="633.3" cy="348.0" r="4" fill="#d1495b"/>
+<circle cx="905.0" cy="295.2" r="4" fill="#d1495b"/>
+<polyline points="90.0,480.0 361.7,480.0 633.3,480.0 905.0,480.0" fill="none" stroke="#6a4c93" stroke-width="3"/>
+<circle cx="90.0" cy="480.0" r="4" fill="#6a4c93"/>
+<circle cx="361.7" cy="480.0" r="4" fill="#6a4c93"/>
+<circle cx="633.3" cy="480.0" r="4" fill="#6a4c93"/>
+<circle cx="905.0" cy="480.0" r="4" fill="#6a4c93"/>
+<polyline points="90.0,163.2 361.7,189.6 633.3,163.2 905.0,110.4" fill="none" stroke="#00798c" stroke-width="3"/>
+<circle cx="90.0" cy="163.2" r="4" fill="#00798c"/>
+<circle cx="361.7" cy="189.6" r="4" fill="#00798c"/>
+<circle cx="633.3" cy="163.2" r="4" fill="#00798c"/>
+<circle cx="905.0" cy="110.4" r="4" fill="#00798c"/>
+<polyline points="90.0,374.4 361.7,414.0 633.3,361.2 905.0,334.8" fill="none" stroke="#2a9d8f" stroke-width="3"/>
+<circle cx="90.0" cy="374.4" r="4" fill="#2a9d8f"/>
+<circle cx="361.7" cy="414.0" r="4" fill="#2a9d8f"/>
+<circle cx="633.3" cy="361.2" r="4" fill="#2a9d8f"/>
+<circle cx="905.0" cy="334.8" r="4" fill="#2a9d8f"/>
+<polyline points="90.0,466.8 361.7,387.6 633.3,321.6 905.0,321.6" fill="none" stroke="#edae49" stroke-width="3"/>
+<circle cx="90.0" cy="466.8" r="4" fill="#edae49"/>
+<circle cx="361.7" cy="387.6" r="4" fill="#edae49"/>
+<circle cx="633.3" cy="321.6" r="4" fill="#edae49"/>
+<circle cx="905.0" cy="321.6" r="4" fill="#edae49"/>
+<rect x="633" y="43" width="285" height="148" rx="7" fill="#ffffffdd" stroke="#ddd"/>
+<line x1="645" y1="63" x2="670" y2="63" stroke="#d1495b" stroke-width="3"/>
+<text x="679" y="67" font-family="system-ui,sans-serif" font-size="12" fill="#222">actor_self_judge</text>
+<line x1="645" y1="89" x2="670" y2="89" stroke="#6a4c93" stroke-width="3"/>
+<text x="679" y="93" font-family="system-ui,sans-serif" font-size="12" fill="#222">deterministic_verifier</text>
+<line x1="645" y1="115" x2="670" y2="115" stroke="#00798c" stroke-width="3"/>
+<text x="679" y="119" font-family="system-ui,sans-serif" font-size="12" fill="#222">different_model_judge</text>
+<line x1="645" y1="141" x2="670" y2="141" stroke="#2a9d8f" stroke-width="3"/>
+<text x="679" y="145" font-family="system-ui,sans-serif" font-size="12" fill="#222">hybrid_verifier</text>
+<line x1="645" y1="167" x2="670" y2="167" stroke="#edae49" stroke-width="3"/>
+<text x="679" y="171" font-family="system-ui,sans-serif" font-size="12" fill="#222">same_model_judge</text>
+</svg>
