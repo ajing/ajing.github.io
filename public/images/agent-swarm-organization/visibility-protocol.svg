@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="547.2pt" height="691.2pt" viewBox="0 0 547.2 691.2" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.11.1, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 691.2
+L 547.2 691.2
+L 547.2 0
+L 0 0
+z
+" style="fill: #fafaf7"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 36.684288 162.01728
+L 510.515712 162.01728
+Q 516.819456 162.01728 516.819456 155.38176
+L 516.819456 85.15584
+Q 516.819456 78.52032 510.515712 78.52032
+L 36.684288 78.52032
+Q 30.380544 78.52032 30.380544 85.15584
+L 30.380544 155.38176
+Q 30.380544 162.01728 36.684288 162.01728
+z
+" clip-path="url(#p420bd1d604)" style="fill: #e6eeee; stroke: #cbd5d5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 36.684288 256.02048
+L 510.515712 256.02048
+Q 516.819456 256.02048 516.819456 249.38496
+L 516.819456 190.21824
+Q 516.819456 183.58272 510.515712 183.58272
+L 36.684288 183.58272
+Q 30.380544 183.58272 30.380544 190.21824
+L 30.380544 249.38496
+Q 30.380544 256.02048 36.684288 256.02048
+z
+" clip-path="url(#p420bd1d604)" style="fill: #eef2f1; stroke: #cbd5d5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 36.684288 336.19968
+L 510.515712 336.19968
+Q 516.819456 336.19968 516.819456 329.56416
+L 516.819456 270.39744
+Q 516.819456 263.76192 510.515712 263.76192
+L 36.684288 263.76192
+Q 30.380544 263.76192 30.380544 270.39744
+L 30.380544 329.56416
+Q 30.380544 336.19968 36.684288 336.19968
+z
+" clip-path="url(#p420bd1d604)" style="fill: #e1eeec; stroke: #cbd5d5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 36.684288 416.37888
+L 510.515712 416.37888
+Q 516.819456 416.37888 516.819456 409.74336
+L 516.819456 350.57664
+Q 516.819456 343.94112 510.515712 343.94112
+L 36.684288 343.94112
+Q 30.380544 343.94112 30.380544 350.57664
+L 30.380544 409.74336
+Q 30.380544 416.37888 36.684288 416.37888
+z
+" clip-path="url(#p420bd1d604)" style="fill: #f0eade; stroke: #cbd5d5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 36.684288 543.55968
+L 510.515712 543.55968
+Q 516.819456 543.55968 516.819456 536.92416
+L 516.819456 466.69824
+Q 516.819456 460.06272 510.515712 460.06272
+L 36.684288 460.06272
+Q 30.380544 460.06272 30.380544 466.69824
+L 30.380544 536.92416
+Q 30.380544 543.55968 36.684288 543.55968
+z
+" clip-path="url(#p420bd1d604)" style="fill: #e6eeee; stroke: #cbd5d5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 36.684288 643.09248
+L 510.515712 643.09248
+Q 516.819456 643.09248 516.819456 636.45696
+L 516.819456 566.23104
+Q 516.819456 559.59552 510.515712 559.59552
+L 36.684288 559.59552
+Q 30.380544 559.59552 30.380544 566.23104
+L 30.380544 636.45696
+Q 30.380544 643.09248 36.684288 643.09248
+z
+" clip-path="url(#p420bd1d604)" style="fill: #e1eeec; stroke: #cbd5d5; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_1">
+    <text style="font-weight: 700; font-size: 18px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #16343b" x="31.95648" y="27.648" transform="rotate(-0 31.95648 27.648)">What changed in the visibility study</text>
+   </g>
+   <g id="text_2">
+    <text style="font-size: 13px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #52656b" x="31.95648" y="55.296" transform="rotate(-0 31.95648 55.296)">Same starting evidence. New actions in every branch.</text>
+   </g>
+   <g id="text_3">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #16343b" x="47.71584" y="102.2976" transform="rotate(-0 47.71584 102.2976)">Freeze one common prefix per question</text>
+   </g>
+   <g id="text_4">
+    <text style="font-size: 12.5px; font-family: 'DejaVu Sans'; fill: #52656b" transform="translate(47.71584 135.821799)">Neutral plan + four initial searches</text>
+    <text style="font-size: 12.5px; font-family: 'DejaVu Sans'; fill: #52656b" transform="translate(47.71584 153.946799)">+ four workers' private reports</text>
+   </g>
+   <g id="patch_8">
+    <path d="M 273.6 165.121875
+Q 273.6 172.797277 273.6 178.460218
+" style="fill: none; stroke: #607d83; stroke-width: 1.8; stroke-linecap: round"/>
+    <path d="M 275.6 174.460218
+L 273.6 178.460218
+L 271.6 174.460218
+z
+" style="fill: #607d83; stroke: #607d83; stroke-width: 1.8; stroke-linecap: round"/>
+   </g>
+   <g id="text_5">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #16343b" x="47.71584" y="207.36" transform="rotate(-0 47.71584 207.36)">P  |  Private exploration</text>
+   </g>
+   <g id="text_6">
+    <text style="font-size: 12.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #52656b" x="47.71584" y="240.884199" transform="rotate(-0 47.71584 240.884199)">Own passages + own report + common plan</text>
+   </g>
+   <g id="text_7">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #16343b" x="47.71584" y="287.5392" transform="rotate(-0 47.71584 287.5392)">E  |  Shared evidence</text>
+   </g>
+   <g id="text_8">
+    <text style="font-size: 12.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #52656b" x="47.71584" y="321.063399" transform="rotate(-0 47.71584 321.063399)">P's view + all initial raw passages and queries</text>
+   </g>
+   <g id="text_9">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #16343b" x="47.71584" y="367.7184" transform="rotate(-0 47.71584 367.7184)">H  |  Shared reports</text>
+   </g>
+   <g id="text_10">
+    <text style="font-size: 12.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #52656b" x="47.71584" y="401.242599" transform="rotate(-0 47.71584 401.242599)">E's raw evidence + peers' candidate reports</text>
+   </g>
+   <g id="text_11">
+    <text style="font-size: 12px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #52656b" x="273.6" y="432.96768" transform="rotate(-0 273.6 432.96768)">Alternative branches; same worker rule</text>
+   </g>
+   <g id="patch_9">
+    <path d="M 273.6 447.131475
+Q 273.6 454.806877 273.6 460.469818
+" style="fill: none; stroke: #607d83; stroke-width: 1.8; stroke-linecap: round"/>
+    <path d="M 275.6 456.469818
+L 273.6 460.469818
+L 271.6 456.469818
+z
+" style="fill: #607d83; stroke: #607d83; stroke-width: 1.8; stroke-linecap: round"/>
+   </g>
+   <g id="text_12">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #16343b" x="47.71584" y="483.84" transform="rotate(-0 47.71584 483.84)">Choose and execute four new actions</text>
+   </g>
+   <g id="text_13">
+    <text style="font-size: 12.5px; font-family: 'DejaVu Sans'; fill: #52656b" transform="translate(47.71584 517.364199)">The visibility intervention changes actual search.</text>
+    <text style="font-size: 12.5px; font-family: 'DejaVu Sans'; fill: #52656b" transform="translate(47.71584 535.489199)">No replay of another branch's next queries.</text>
+   </g>
+   <g id="patch_10">
+    <path d="M 273.6 546.664275
+Q 273.6 554.339677 273.6 560.002618
+" style="fill: none; stroke: #607d83; stroke-width: 1.8; stroke-linecap: round"/>
+    <path d="M 275.6 556.002618
+L 273.6 560.002618
+L 271.6 556.002618
+z
+" style="fill: #607d83; stroke: #607d83; stroke-width: 1.8; stroke-linecap: round"/>
+   </g>
+   <g id="text_14">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #16343b" x="47.71584" y="583.3728" transform="rotate(-0 47.71584 583.3728)">Synthesize from each branch's raw evidence</text>
+   </g>
+   <g id="text_15">
+    <text style="font-size: 12.5px; font-family: 'DejaVu Sans'; fill: #52656b" transform="translate(47.71584 616.896999)">Same final prompt; no peer reports or arm label.</text>
+    <text style="font-size: 12.5px; font-family: 'DejaVu Sans'; fill: #52656b" transform="translate(47.71584 635.021999)">P also pools all team evidence at this stage.</text>
+   </g>
+   <g id="text_16">
+    <text style="font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #52656b" x="31.95648" y="667.97568" transform="rotate(-0 31.95648 667.97568)">S is a separate adaptive sequential-agent comparison.</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p420bd1d604">
+   <rect x="10.944" y="13.824" width="525.312" height="663.552"/>
+  </clipPath>
+ </defs>
+</svg>

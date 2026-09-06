@@ -1,0 +1,887 @@
+{
+  "schema_version": 1,
+  "study_date": "2026-09-05",
+  "article": "https://ajing.github.io/posts/2026-09-05-agent-swarm-organization-simple-rules/",
+  "scope": "Exploratory development studies; later controls are post hoc. Repeated calls are not independent tasks. No universal organizational superiority established.",
+  "model_request": {
+    "alias": "gpt-5.4-mini",
+    "reasoning_effort": "low",
+    "immutable_snapshot": false,
+    "controllable_provider_seed": false
+  },
+  "retrieval": {
+    "dataset": "BrowseComp-Plus",
+    "documents": 100195,
+    "retriever": "SQLite FTS5 BM25",
+    "maximum_results": 4,
+    "maximum_passage_characters": 2200,
+    "official_retrieval_replication": false
+  },
+  "per_policy_caps": {
+    "input_plus_output_tokens": 192000,
+    "tool_requests": 8
+  },
+  "source_result_sha256": {
+    "visibility_grading_rows": "424f2d53d78b1ed726121064478dee489464807d816084eb024955d1f8b38bd3",
+    "last_action_grading_rows": "d86b890157812e656f5b38343ec74e1c16ab61c34e90385f0d9e3d7f5355dd49",
+    "utility_results": "eb51326b73b7fe1ad9af88ba1609f23bd7cd148b21edfe9ae63f8434f651927a"
+  },
+  "visibility": {
+    "unique_question_ids": 8,
+    "design": "One trajectory per condition; common prefix for P/E/H; sequential S",
+    "aggregates": {
+      "P": {
+        "trajectories": 8,
+        "correct": 1,
+        "wrong": 1,
+        "unknown": 6,
+        "sum_complete_policy_tokens": 539665,
+        "mean_complete_policy_tokens": 67458.125,
+        "mean_tool_requests": 8.0,
+        "intermediate_failures": 0
+      },
+      "E": {
+        "trajectories": 8,
+        "correct": 2,
+        "wrong": 0,
+        "unknown": 6,
+        "sum_complete_policy_tokens": 768940,
+        "mean_complete_policy_tokens": 96117.5,
+        "mean_tool_requests": 8.0,
+        "intermediate_failures": 0
+      },
+      "H": {
+        "trajectories": 8,
+        "correct": 2,
+        "wrong": 1,
+        "unknown": 5,
+        "sum_complete_policy_tokens": 780443,
+        "mean_complete_policy_tokens": 97555.375,
+        "mean_tool_requests": 8.0,
+        "intermediate_failures": 0
+      },
+      "S": {
+        "trajectories": 8,
+        "correct": 1,
+        "wrong": 2,
+        "unknown": 5,
+        "sum_complete_policy_tokens": 743469,
+        "mean_complete_policy_tokens": 92933.625,
+        "mean_tool_requests": 6.5,
+        "intermediate_failures": 2
+      }
+    },
+    "trajectories": [
+      {
+        "task_id": "1062",
+        "arm": "E",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 101530,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1062",
+        "arm": "H",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 102726,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1062",
+        "arm": "P",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 71152,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1062",
+        "arm": "S",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 99882,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1169",
+        "arm": "E",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 97139,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1169",
+        "arm": "H",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 100154,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1169",
+        "arm": "P",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 67229,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1169",
+        "arm": "S",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 66190,
+        "tool_requests": 4,
+        "intermediate_failures": 1
+      },
+      {
+        "task_id": "1257",
+        "arm": "E",
+        "replicate": 1,
+        "outcome": "correct",
+        "complete_policy_tokens": 93808,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1257",
+        "arm": "H",
+        "replicate": 1,
+        "outcome": "correct",
+        "complete_policy_tokens": 98236,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1257",
+        "arm": "P",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 68235,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1257",
+        "arm": "S",
+        "replicate": 1,
+        "outcome": "wrong",
+        "complete_policy_tokens": 118709,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "350",
+        "arm": "E",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 93997,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "350",
+        "arm": "H",
+        "replicate": 1,
+        "outcome": "wrong",
+        "complete_policy_tokens": 95494,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "350",
+        "arm": "P",
+        "replicate": 1,
+        "outcome": "wrong",
+        "complete_policy_tokens": 65363,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "350",
+        "arm": "S",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 110938,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "421",
+        "arm": "E",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 90689,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "421",
+        "arm": "H",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 92294,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "421",
+        "arm": "P",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 68449,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "421",
+        "arm": "S",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 110263,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "470",
+        "arm": "E",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 95900,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "470",
+        "arm": "H",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 97494,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "470",
+        "arm": "P",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 66953,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "470",
+        "arm": "S",
+        "replicate": 1,
+        "outcome": "wrong",
+        "complete_policy_tokens": 102727,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "682",
+        "arm": "E",
+        "replicate": 1,
+        "outcome": "correct",
+        "complete_policy_tokens": 95383,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "682",
+        "arm": "H",
+        "replicate": 1,
+        "outcome": "correct",
+        "complete_policy_tokens": 96281,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "682",
+        "arm": "P",
+        "replicate": 1,
+        "outcome": "correct",
+        "complete_policy_tokens": 62923,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "682",
+        "arm": "S",
+        "replicate": 1,
+        "outcome": "correct",
+        "complete_policy_tokens": 23602,
+        "tool_requests": 2,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "895",
+        "arm": "E",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 100494,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "895",
+        "arm": "H",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 97764,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "895",
+        "arm": "P",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 69361,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "895",
+        "arm": "S",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 111158,
+        "tool_requests": 6,
+        "intermediate_failures": 1
+      }
+    ]
+  },
+  "last_action": {
+    "unique_question_ids": 8,
+    "design": "Post hoc seven-tool H prefixes; B/V two repetitions and N one per question; provider randomness uncoupled",
+    "aggregates": {
+      "B": {
+        "trajectories": 16,
+        "correct": 3,
+        "wrong": 0,
+        "unknown": 13,
+        "sum_complete_policy_tokens": 2010316,
+        "mean_complete_policy_tokens": 125644.75,
+        "mean_tool_requests": 7.9375,
+        "intermediate_failures": 1
+      },
+      "V": {
+        "trajectories": 16,
+        "correct": 4,
+        "wrong": 1,
+        "unknown": 11,
+        "sum_complete_policy_tokens": 2009251,
+        "mean_complete_policy_tokens": 125578.1875,
+        "mean_tool_requests": 7.9375,
+        "intermediate_failures": 1
+      },
+      "N": {
+        "trajectories": 8,
+        "correct": 1,
+        "wrong": 0,
+        "unknown": 7,
+        "sum_complete_policy_tokens": 662590,
+        "mean_complete_policy_tokens": 82823.75,
+        "mean_tool_requests": 7.0,
+        "intermediate_failures": 0
+      }
+    },
+    "trajectories": [
+      {
+        "task_id": "1062",
+        "arm": "B",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 129989,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1062",
+        "arm": "B",
+        "replicate": 2,
+        "outcome": "unknown",
+        "complete_policy_tokens": 129366,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1062",
+        "arm": "N",
+        "replicate": 0,
+        "outcome": "unknown",
+        "complete_policy_tokens": 86456,
+        "tool_requests": 7,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1062",
+        "arm": "V",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 129894,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1062",
+        "arm": "V",
+        "replicate": 2,
+        "outcome": "unknown",
+        "complete_policy_tokens": 129914,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1169",
+        "arm": "B",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 126488,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1169",
+        "arm": "B",
+        "replicate": 2,
+        "outcome": "unknown",
+        "complete_policy_tokens": 127528,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1169",
+        "arm": "N",
+        "replicate": 0,
+        "outcome": "unknown",
+        "complete_policy_tokens": 83824,
+        "tool_requests": 7,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1169",
+        "arm": "V",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 128435,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1169",
+        "arm": "V",
+        "replicate": 2,
+        "outcome": "unknown",
+        "complete_policy_tokens": 144710,
+        "tool_requests": 7,
+        "intermediate_failures": 1
+      },
+      {
+        "task_id": "1257",
+        "arm": "B",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 125108,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1257",
+        "arm": "B",
+        "replicate": 2,
+        "outcome": "correct",
+        "complete_policy_tokens": 124578,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1257",
+        "arm": "N",
+        "replicate": 0,
+        "outcome": "unknown",
+        "complete_policy_tokens": 82868,
+        "tool_requests": 7,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1257",
+        "arm": "V",
+        "replicate": 1,
+        "outcome": "correct",
+        "complete_policy_tokens": 124397,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "1257",
+        "arm": "V",
+        "replicate": 2,
+        "outcome": "correct",
+        "complete_policy_tokens": 124422,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "350",
+        "arm": "B",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 122784,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "350",
+        "arm": "B",
+        "replicate": 2,
+        "outcome": "unknown",
+        "complete_policy_tokens": 122704,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "350",
+        "arm": "N",
+        "replicate": 0,
+        "outcome": "unknown",
+        "complete_policy_tokens": 81609,
+        "tool_requests": 7,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "350",
+        "arm": "V",
+        "replicate": 1,
+        "outcome": "wrong",
+        "complete_policy_tokens": 123357,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "350",
+        "arm": "V",
+        "replicate": 2,
+        "outcome": "unknown",
+        "complete_policy_tokens": 122481,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "421",
+        "arm": "B",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 120365,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "421",
+        "arm": "B",
+        "replicate": 2,
+        "outcome": "unknown",
+        "complete_policy_tokens": 119714,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "421",
+        "arm": "N",
+        "replicate": 0,
+        "outcome": "unknown",
+        "complete_policy_tokens": 79482,
+        "tool_requests": 7,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "421",
+        "arm": "V",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 119800,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "421",
+        "arm": "V",
+        "replicate": 2,
+        "outcome": "unknown",
+        "complete_policy_tokens": 118713,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "470",
+        "arm": "B",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 122755,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "470",
+        "arm": "B",
+        "replicate": 2,
+        "outcome": "unknown",
+        "complete_policy_tokens": 121722,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "470",
+        "arm": "N",
+        "replicate": 0,
+        "outcome": "unknown",
+        "complete_policy_tokens": 81720,
+        "tool_requests": 7,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "470",
+        "arm": "V",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 122045,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "470",
+        "arm": "V",
+        "replicate": 2,
+        "outcome": "unknown",
+        "complete_policy_tokens": 122745,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "682",
+        "arm": "B",
+        "replicate": 1,
+        "outcome": "correct",
+        "complete_policy_tokens": 123489,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "682",
+        "arm": "B",
+        "replicate": 2,
+        "outcome": "correct",
+        "complete_policy_tokens": 123404,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "682",
+        "arm": "N",
+        "replicate": 0,
+        "outcome": "correct",
+        "complete_policy_tokens": 81720,
+        "tool_requests": 7,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "682",
+        "arm": "V",
+        "replicate": 1,
+        "outcome": "correct",
+        "complete_policy_tokens": 122922,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "682",
+        "arm": "V",
+        "replicate": 2,
+        "outcome": "correct",
+        "complete_policy_tokens": 123555,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "895",
+        "arm": "B",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 145591,
+        "tool_requests": 7,
+        "intermediate_failures": 1
+      },
+      {
+        "task_id": "895",
+        "arm": "B",
+        "replicate": 2,
+        "outcome": "unknown",
+        "complete_policy_tokens": 124731,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "895",
+        "arm": "N",
+        "replicate": 0,
+        "outcome": "unknown",
+        "complete_policy_tokens": 84911,
+        "tool_requests": 7,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "895",
+        "arm": "V",
+        "replicate": 1,
+        "outcome": "unknown",
+        "complete_policy_tokens": 125355,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      },
+      {
+        "task_id": "895",
+        "arm": "V",
+        "replicate": 2,
+        "outcome": "unknown",
+        "complete_policy_tokens": 126506,
+        "tool_requests": 8,
+        "intermediate_failures": 0
+      }
+    ]
+  },
+  "utility_certificates": [
+    {
+      "agents": 2,
+      "rule": "marginal",
+      "reward_table": ["1", "0"],
+      "mu": "2",
+      "bound": "1/2"
+    },
+    {
+      "agents": 2,
+      "rule": "equal_share",
+      "reward_table": ["1", "1/2"],
+      "mu": "3/2",
+      "bound": "2/3"
+    },
+    {
+      "agents": 2,
+      "rule": "optimized",
+      "reward_table": ["1", "1/2"],
+      "mu": "3/2",
+      "bound": "2/3"
+    },
+    {
+      "agents": 3,
+      "rule": "marginal",
+      "reward_table": ["1", "0", "0"],
+      "mu": "2",
+      "bound": "1/2"
+    },
+    {
+      "agents": 3,
+      "rule": "equal_share",
+      "reward_table": ["1", "1/2", "1/3"],
+      "mu": "5/3",
+      "bound": "3/5"
+    },
+    {
+      "agents": 3,
+      "rule": "optimized",
+      "reward_table": ["1", "3/7", "2/7"],
+      "mu": "11/7",
+      "bound": "7/11"
+    },
+    {
+      "agents": 4,
+      "rule": "marginal",
+      "reward_table": ["1", "0", "0", "0"],
+      "mu": "2",
+      "bound": "1/2"
+    },
+    {
+      "agents": 4,
+      "rule": "equal_share",
+      "reward_table": ["1", "1/2", "1/3", "1/4"],
+      "mu": "7/4",
+      "bound": "4/7"
+    },
+    {
+      "agents": 4,
+      "rule": "optimized",
+      "reward_table": ["1", "13/31", "8/31", "6/31"],
+      "mu": "49/31",
+      "bound": "31/49"
+    },
+    {
+      "agents": 5,
+      "rule": "marginal",
+      "reward_table": ["1", "0", "0", "0", "0"],
+      "mu": "2",
+      "bound": "1/2"
+    },
+    {
+      "agents": 5,
+      "rule": "equal_share",
+      "reward_table": ["1", "1/2", "1/3", "1/4", "1/5"],
+      "mu": "9/5",
+      "bound": "5/9"
+    },
+    {
+      "agents": 5,
+      "rule": "optimized",
+      "reward_table": ["1", "23/55", "14/55", "2/11", "8/55"],
+      "mu": "87/55",
+      "bound": "55/87"
+    },
+    {
+      "agents": 6,
+      "rule": "marginal",
+      "reward_table": ["1", "0", "0", "0", "0", "0"],
+      "mu": "2",
+      "bound": "1/2"
+    },
+    {
+      "agents": 6,
+      "rule": "equal_share",
+      "reward_table": ["1", "1/2", "1/3", "1/4", "1/5", "1/6"],
+      "mu": "11/6",
+      "bound": "6/11"
+    },
+    {
+      "agents": 6,
+      "rule": "optimized",
+      "reward_table": [
+        "1",
+        "431/1031",
+        "262/1031",
+        "186/1031",
+        "144/1031",
+        "120/1031"
+      ],
+      "mu": "1631/1031",
+      "bound": "1031/1631"
+    }
+  ],
+  "physical_token_accounting": {
+    "visibility_collection": 2443539,
+    "visibility_grading": 22284,
+    "post_hoc_fixed_input_synthesis": 260499,
+    "post_hoc_relation_controls": 65632,
+    "last_action_collection": 1614365,
+    "last_action_grading": 7448,
+    "total_visibility_and_followups": 4413767,
+    "notes": "Includes reported cached input; excludes older pilot and provenance microbenchmark. Shared prefixes count once physically and once per policy in complete-policy totals. Not dollar cost."
+  }
+}
