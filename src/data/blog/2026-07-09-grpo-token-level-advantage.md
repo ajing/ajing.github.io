@@ -1,6 +1,7 @@
 ---
 author: Jing Lu
 pubDatetime: 2026-07-09T06:00:00Z
+modDatetime: 2026-09-06T00:00:00-07:00
 title: "From GRPO Outcome Rewards to Token-Level Advantage"
 featured: true
 draft: false
@@ -48,43 +49,45 @@ The short answer is:
 4. Better credit assignment needs extra structure: traces, entropy, prefix values, tree structure, suffix resampling, reward redistribution, token reward models, or counterfactuals.
 5. When multiple rewards are involved, they should be projected to tokens separately and only then combined into a final token-level advantage.
 
+> **September 2026 correction.** The original Markdown damaged equation delimiters, subscripts, and several signs. The equations below now match the backward GAE recursion and conserve the sequence score in the reward-projection example. A [reproducible numerical check](/experiments/blog-maintenance-2026-09-06/numerical_checks.py) verifies these identities; it does not measure LLM training gains.
+
 ## What GRPO Gives Each Token
 
-Let a policy generate a response \(y\_{1:T}\) for prompt \(x\). In an outcome reward setting, the reward is usually observed only after the full response:
+Let a policy generate a response $y_{1:T}$ for prompt $x$. In an outcome reward setting, the reward is usually observed only after the full response:
 
-\[
-R = R(x, y\_{1:T})
-\]
+$$
+R = R(x, y_{1:T})
+$$
 
-For math, \(R\) may be correctness. For code, it may be test pass rate. For RLHF, it may be a reward model score. For safety or formatting, it may be a judge score.
+For math, $R$ may be correctness. For code, it may be test pass rate. For RLHF, it may be a reward model score. For safety or formatting, it may be a judge score.
 
-GRPO samples a group of \(G\) responses for the same prompt:
+GRPO samples a group of $G$ responses for the same prompt:
 
-\[
-\{y^{(i)}\}\_{i=1}^{G}
-\]
+$$
+\{y^{(i)}\}_{i=1}^{G}
+$$
 
-Each response receives a scalar reward \(R_i\). GRPO then normalizes those rewards within the group:
+Each response receives a scalar reward $R_i$. GRPO then normalizes those rewards within the group:
 
-\[
+$$
 Z_i = \frac{R_i - \mu_G}{\sigma_G + \epsilon}
-\]
+$$
 
 where:
 
-\[
-\mu*G = \frac{1}{G}\sum*{j=1}^{G} R_j
-\]
+$$
+\mu_G = \frac{1}{G}\sum_{j=1}^{G} R_j
+$$
 
 The outcome-GRPO approximation is:
 
-\[
-A^{\text{GRPO}}\_{i,t} = Z_i,\qquad t=1,\dots,T_i
-\]
+$$
+A^{\text{GRPO}}_{i,t} = Z_i,\qquad t=1,\dots,T_i
+$$
 
 Every token in the response receives the same advantage.
 
-This is not wrong as a policy-gradient estimator. The full trajectory received the reward, and every token action participated in that trajectory. But it is weak as credit assignment. It treats the decisive algebra step, the final boxed answer, a comma, and a repeated filler phrase as if they carried the same learning signal.
+Broadcasting an outcome reward is a standard policy-gradient construction; group normalization and clipping introduce their own estimator choices. The full trajectory received the reward, and every token action participated in that trajectory. But it is weak as credit assignment. It treats the decisive algebra step, the final boxed answer, a comma, and a repeated filler phrase as if they carried the same learning signal.
 
 This is why recent GRPO variants and RLVR credit-assignment papers focus on length bias, token aggregation, entropy-aware weighting, eligibility traces, prefix values, and counterfactual continuations.
 
@@ -93,41 +96,41 @@ Useful starting points:
 - [DeepSeekMath / GRPO](https://arxiv.org/abs/2402.03300)
 - [DAPO](https://arxiv.org/abs/2503.14476)
 - [Understanding R1-Zero-Like Training / Dr. GRPO](https://arxiv.org/abs/2503.20783)
-- [GRPO-\(\lambda\)](https://arxiv.org/abs/2510.00194)
+- [GRPO-$\lambda$](https://arxiv.org/abs/2510.00194)
 
 ## Why a Sequence Reward Cannot Be Inverted
 
-Suppose a response has length \(T\), and the final reward is \(R=1\). We want token rewards:
+Suppose a response has length $T$, and the final reward is $R=1$. We want token rewards:
 
-\[
+$$
 r_1, r_2, \dots, r_T
-\]
+$$
 
 such that:
 
-\[
-\sum\_{t=1}^{T} r_t = R
-\]
+$$
+\sum_{t=1}^{T} r_t = R
+$$
 
 There are infinitely many decompositions.
 
 Uniform:
 
-\[
+$$
 r_t = \frac{1}{T}
-\]
+$$
 
 Terminal:
 
-\[
-r*T = 1,\qquad r*{t<T}=0
-\]
+$$
+r_T = 1,\qquad r_{t<T}=0
+$$
 
 Key-token:
 
-\[
+$$
 r_t = 0 \text{ except near the decisive reasoning step}
-\]
+$$
 
 The final scalar reward alone cannot tell us which decomposition is correct. A token-level advantage estimator must therefore introduce an additional assumption.
 
@@ -144,19 +147,19 @@ GAE does not remove the need for these assumptions. GAE answers a different ques
 
 The GAE residual is:
 
-\[
-\delta*t = r_t + \gamma V(s*{t+1}) - V(s_t)
-\]
+$$
+\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)
+$$
 
 and the advantage estimate is:
 
-\[
-\hat A*t^{(\gamma,\lambda)}
+$$
+\hat A_t^{(\gamma,\lambda)}
 =
-\sum*{l=0}^{T-t}(\gamma\lambda)^l \delta\_{t+l}
-\]
+\sum_{l=0}^{T-t}(\gamma\lambda)^l \delta_{t+l}
+$$
 
-If \(r_t\) is only terminal, GAE can still produce token-level advantages. But token differences mostly come from the value function, not from localized reward evidence.
+If $r_t$ is only terminal, GAE can still produce token-level advantages. But token differences mostly come from the value function, not from localized reward evidence.
 
 Related foundations:
 
@@ -166,42 +169,32 @@ Related foundations:
 
 ## The Minimal Path: Terminal GRPO Reward Plus GAE
 
-The smallest useful change to GRPO is:
+One implementation route, if the cost of a critic is acceptable, is:
 
-1. Keep the group-normalized score \(Z_i\).
-2. Treat \(Z_i\) as a terminal reward.
+1. Keep the group-normalized score $Z_i$.
+2. Treat $Z_i$ as a terminal reward.
 3. Add a lightweight value head to the policy model.
 4. Compute GAE over response tokens.
 
-For response \(i\):
+For response $i$:
 
-\[
-r\_{i,t} =
+$$
+r_{i,t} =
 \begin{cases}
 0, & t < T_i \\
 Z_i, & t = T_i
 \end{cases}
-\]
+$$
 
 Then:
 
-\[
-\delta*{i,t}
-=
-r*{i,t}
+$$
+\delta_{i,t} = r_{i,t} + \gamma V_\psi(s_{i,t+1}) - V_\psi(s_{i,t})
+$$
 
-- \gamma V*\psi(s*{i,t+1})
-
-* V*\psi(s*{i,t})
-  \]
-
-\[
-\hat A*{i,t}
-=
-\delta*{i,t}
-
-- \gamma\lambda \hat A\_{i,t+1}
-  \]
+$$
+\hat A_{i,t} = \delta_{i,t} + \gamma\lambda \hat A_{i,t+1}
+$$
 
 A minimal implementation looks like this:
 
@@ -232,7 +225,7 @@ for prompt in batch:
         value_loss += mse(values, returns_from(rewards_t, gamma))
 ```
 
-This gives a real token-level advantage estimate. It preserves the GRPO sampling pipeline and only adds a value head.
+This gives a token-level advantage estimate. It preserves group sampling but adds critic training and bootstrapping, so it is a GRPO-inspired actor–critic variant rather than critic-free GRPO. Use zero bootstrap at a true terminal state; a length-truncated rollout needs an explicit bootstrap rule.
 
 The weakness is equally important: this is token-level bootstrapping, not necessarily faithful token-level credit assignment. Long-CoT PPO failures are often value-estimation failures: value bias, reward signal decay, and heterogeneous sequence lengths. VC-PPO and VAPO are examples of work that tries to make value-based methods reliable again for long reasoning.
 
@@ -247,25 +240,25 @@ Once the minimal GAE version exists, the real design choice is how to define tok
 
 We can write the problem as a credit operator:
 
-\[
-\mathcal C: Z*i \mapsto \{r*{i,t}\}\_{t=1}^{T_i}
-\]
+$$
+\mathcal C: Z_i \mapsto \{r_{i,t}\}_{t=1}^{T_i}
+$$
 
 After that, GAE is standard:
 
-\[
-\hat A*{i,t} = \text{GAE}(r*{i,t}, V(s\_{i,t}))
-\]
+$$
+\hat A_{i,t} = \text{GAE}(r_{i,t}, V(s_{i,t}))
+$$
 
 ### 1. Token Weighting: Position, Entropy, and Eligibility Traces
 
 The cheapest route is weighted redistribution:
 
-\[
-r*{i,t}
+$$
+r_{i,t}
 =
-Z_i \cdot \frac{w*{i,t}}{\sum*k w*{i,k}}
-\]
+Z_i \cdot \frac{w_{i,t}}{\sum_k w_{i,k}}
+$$
 
 The weights can come from:
 
@@ -277,13 +270,13 @@ The weights can come from:
 - eligibility traces
 - high-entropy masks
 
-This family includes much of the lightweight GRPO-credit work. GRPO-\(\lambda\) applies trace-style token weighting. S-trace uses selective eligibility traces and keeps high-entropy tokens. HAPO frames hindsight credit through reward polarity and token entropy.
+This family includes much of the lightweight GRPO-credit work. GRPO-$\lambda$ applies trace-style token weighting. S-trace uses selective eligibility traces and keeps high-entropy tokens. HAPO frames hindsight credit through reward polarity and token entropy.
 
 The advantage is cost. The disadvantage is that the weighting rule is still a hypothesis, not direct evidence.
 
 Related work:
 
-- [GRPO-\(\lambda\)](https://arxiv.org/abs/2510.00194)
+- [GRPO-$\lambda$](https://arxiv.org/abs/2510.00194)
 - [S-trace](https://arxiv.org/html/2605.05965v1)
 - [Where Hindsight Credit Can Reside / HAPO](https://arxiv.org/abs/2604.11056)
 - [GTPO and GRPO-S](https://openreview.net/forum?id=CFF6zXErgS)
@@ -292,15 +285,15 @@ Related work:
 
 A more structured route estimates the value of prefixes:
 
-\[
+$$
 U(s_t) \approx \mathbb E[Z \mid s_t]
-\]
+$$
 
-Then redistributed reward can be:
+Writing $s_t$ here for the prefix after token $t$ (rather than the pre-action state used in GAE), a candidate redistributed reward is:
 
-\[
-r*t = U(s_t) - U(s*{t-1})
-\]
+$$
+r_t = U(s_t) - U(s_{t-1})
+$$
 
 This asks: after seeing this token, did the expected final outcome change?
 
@@ -317,20 +310,20 @@ Related work:
 
 Another route is to resample from an intermediate prefix.
 
-For a position \(t\), keep the prefix \(y\_{<t}\), sample suffixes:
+For a position $t$, keep the prefix $y_{<t}$, sample suffixes:
 
-\[
-\tilde y*{t:T}^{(m)} \sim \pi(\cdot \mid x, y*{<t})
-\]
+$$
+\tilde y_{t:T}^{(m)} \sim \pi(\cdot \mid x, y_{<t})
+$$
 
 and estimate:
 
-\[
-V(s*t)
+$$
+V(s_t)
 \approx
-\frac{1}{M}\sum*{m=1}^{M}
-R(x, y*{<t}, \tilde y*{t:T}^{(m)})
-\]
+\frac{1}{M}\sum_{m=1}^{M}
+R(x, y_{<t}, \tilde y_{t:T}^{(m)})
+$$
 
 This gives a Monte Carlo prefix value. VinePPO uses this kind of language-environment flexibility to produce better credit estimates than learned value networks in reasoning tasks. Reset methods go further: identify or sample an intermediate reasoning state, reset there, generate counterfactual suffixes, and learn from outcome differences.
 
@@ -345,25 +338,21 @@ Related work:
 
 Instead of inferring credit online, train a token reward model:
 
-\[
-f*\phi(x, y*{\le t}) \to \phi_t
-\]
+$$
+f_\phi(x, y_{\le t}) \to \phi_t
+$$
 
 Then project its token scores back to the known sequence score:
 
-\[
-r_t
-=
-\phi_t
+$$
+r_t = \phi_t + \frac{Z - \sum_k \phi_k}{T}
+$$
 
-- \frac{Z - \sum_k \phi_k}{T}
-  \]
+This additive correction enforces:
 
-This enforces:
-
-\[
+$$
 \sum_t r_t = Z
-\]
+$$
 
 TLCR trains a discriminator to produce continuous token-level reward. Q-RM decouples reward modeling from generation and learns token-level Q-function rewards from preference data. R3HF treats reward redistribution as a way to decompose a sequence reward model's output into token-level contributions.
 
@@ -406,20 +395,13 @@ A reasoning model may receive:
 - safety reward
 - tool-use or execution reward
 
-The tempting implementation is:
+Use signed quality rewards throughout: style and format violations have negative reward; $K$ and $k_t$ denote KL cost estimates, which are subtracted with nonnegative coefficients. A sampled log-ratio can itself be negative even though its policy expectation is KL. The tempting implementation is:
 
-\[
-R*{\text{total}}
-=
-R*{\text{task}}
+$$
+R_{\text{total}} = R_{\text{task}} + \beta_1 R_{\text{format}} + \beta_2 R_{\text{style}} - \beta_3 K
+$$
 
-- \beta*1 R*{\text{format}}
-- \beta*2 R*{\text{style}}
-
-* \beta*3 R*{\text{KL}}
-  \]
-
-and then broadcast or redistribute \(R\_{\text{total}}\).
+and then broadcast or redistribute $R_{\text{total}}$.
 
 That is usually the wrong abstraction.
 
@@ -436,19 +418,17 @@ If correctness and style are collapsed into one sequence reward, the model can l
 
 The fix is to split reward channels before token credit assignment:
 
-\[
-A*{t}^{\text{final}}
-=
-A*{t}^{\text{task}}
+$$
+\begin{aligned}
+A_t^{\text{final}} ={}& A_t^{\text{task}}
++ \beta_{\text{format}} A_t^{\text{format}} \\
+&+ \beta_{\text{style}} A_t^{\text{style}}
++ \beta_{\text{process}} A_t^{\text{process}}
+- \beta_{\text{KL}} k_t
+\end{aligned}
+$$
 
-- \beta*{\text{format}} A*{t}^{\text{format}}
-- \beta*{\text{style}} A*{t}^{\text{style}}
-- \beta*{\text{process}} A*{t}^{\text{process}}
-
-* \beta\_{\text{KL}} k_t
-  \]
-
-Each reward channel should have its own projection to token level.
+Each reward channel can have its own projection to token level. The displayed KL subtraction is a local surrogate; a return-based implementation should instead include the negative KL reward in its own GAE channel. Do not apply both penalties.
 
 ### Reward Channels Have Different Natural Granularities
 
@@ -456,7 +436,7 @@ Not every reward should be distributed the same way.
 
 | Reward type         |  Natural granularity | Recommended projection                                                 |
 | ------------------- | -------------------: | ---------------------------------------------------------------------- |
-| Final correctness   |  sequence / terminal | GRPO-\(\lambda\), prefix tree, suffix resampling, terminal GAE         |
+| Final correctness   |  sequence / terminal | GRPO-$\lambda$, prefix tree, suffix resampling, terminal GAE           |
 | Unit-test pass rate | sequence / test case | code span, function, line, or suffix resampling                        |
 | Process correctness |                 step | step reward distributed across step tokens                             |
 | Format              |         token / span | local penalty on malformed spans                                       |
@@ -483,21 +463,21 @@ If all channels are mixed first and whitened later, a high-variance channel can 
 
 A safer pattern is:
 
-\[
-\tilde A\_{i,t}^{(c)}
+$$
+\tilde A_{i,t}^{(c)}
 =
 \text{normalize within channel } c
-\]
+$$
 
 then:
 
-\[
-A*{i,t}^{\text{final}}
+$$
+A_{i,t}^{\text{final}}
 =
-\sum_c \beta_c \tilde A*{i,t}^{(c)}
-\]
+\sum_c \beta_c \tilde A_{i,t}^{(c)}
+$$
 
-If the coefficients \(\beta_c\) change over training, use multiple value heads:
+If the coefficients $\beta_c$ change over training, use multiple value heads:
 
 ```text
 shared transformer
@@ -518,19 +498,19 @@ Too much style penalty can suppress reasoning. Too little does nothing. Too much
 
 For some channels, a constrained objective is cleaner:
 
-\[
-\max*\pi \mathbb E[R*{\text{task}}]
-\]
+$$
+\max_\pi \mathbb E[R_{\text{task}}]
+$$
 
 subject to:
 
-\[
-\mathbb E[\text{style violation}] \le \tau\_{\text{style}}
-\]
+$$
+\mathbb E[\text{style violation}] \le \tau_{\text{style}}
+$$
 
-\[
-\mathbb E[\text{format error}] \le \tau\_{\text{format}}
-\]
+$$
+\mathbb E[\text{format error}] \le \tau_{\text{format}}
+$$
 
 In practice:
 
@@ -561,19 +541,19 @@ This does not solve credit assignment, but it makes the baseline healthier.
 
 ### V1: Add Terminal-GRPO GAE
 
-Use group-normalized \(Z_i\) as terminal reward:
+Use group-normalized $Z_i$ as terminal reward:
 
-\[
-r^{\text{task}}\_{i,T_i} = Z_i
-\]
+$$
+r^{\text{task}}_{i,T_i} = Z_i
+$$
 
 Add a shared value head and compute:
 
-\[
-A^{\text{task}}\_{i,t}
+$$
+A^{\text{task}}_{i,t}
 =
 \text{GAE}(r^{\text{task}}, V^{\text{task}})
-\]
+$$
 
 This is the minimal token-level advantage.
 
@@ -600,15 +580,9 @@ r_kl[t] = -(logp_policy[t] - logp_ref[t])
 
 Then combine:
 
-\[
-A_t
-=
-A_t^{\text{task}}
-
-- \beta\_{\text{style}} A_t^{\text{style}}
-
-* \beta\_{\text{KL}} k_t
-  \]
+$$
+A_t = A_t^{\text{task}} + \beta_{\text{style}} A_t^{\text{style}} - \beta_{\text{KL}} k_t
+$$
 
 The important part is locality: a bad phrase should not penalize the whole proof.
 
@@ -616,7 +590,7 @@ The important part is locality: a bad phrase should not penalize the whole proof
 
 Once the simple version is stable, improve the task channel:
 
-- Add GRPO-\(\lambda\) or S-trace weighting.
+- Add GRPO-$\lambda$ or S-trace weighting.
 - Use entropy masks to focus on decision tokens.
 - Build prefix trees from the sampled group and add branch-level TD corrections.
 - Try prefix value heads or RUDDER-style redistribution.
@@ -641,29 +615,27 @@ Counterfactual credit is too expensive to apply everywhere, but it can be an exc
 
 The estimator I would actually aim for is:
 
-\[
-A^{\text{final}}_{i,t}
-=
-\alpha_{\text{task}} \tilde A^{\text{task}}\_{i,t}
-
-- \alpha*{\text{process}} \tilde A^{\text{process}}*{i,t}
-- \alpha*{\text{style}} \tilde A^{\text{style}}*{i,t}
-- \alpha*{\text{format}} \tilde A^{\text{format}}*{i,t}
-
-* \alpha*{\text{KL}} \tilde k*{i,t}
-* \alpha*{\text{length}} \tilde \ell*{i,t}
-  \]
+$$
+\begin{aligned}
+A^{\text{final}}_{i,t} ={}& \alpha_{\text{task}} \tilde A^{\text{task}}_{i,t}
++ \alpha_{\text{process}} \tilde A^{\text{process}}_{i,t} \\
+&+ \alpha_{\text{style}} \tilde A^{\text{style}}_{i,t}
++ \alpha_{\text{format}} \tilde A^{\text{format}}_{i,t} \\
+&- \alpha_{\text{KL}} \tilde k_{i,t}
+- \alpha_{\text{length}} \tilde \ell_{i,t}
+\end{aligned}
+$$
 
 Where:
 
-- \(\tilde A^{\text{task}}\) comes from GRPO group reward plus terminal GAE, GRPO-\(\lambda\), TEMPO, or suffix resampling.
-- \(\tilde A^{\text{process}}\) comes from step verification or process reward.
-- \(\tilde A^{\text{style}}\) comes from local style rules or a token reward model.
-- \(\tilde A^{\text{format}}\) comes from validators and only affects malformed spans.
-- \(\tilde k_t\) is per-token KL.
-- \(\tilde \ell_t\) captures length and repetition pressure.
+- $\tilde A^{\text{task}}$ comes from GRPO group reward plus terminal GAE, GRPO-$\lambda$, TEMPO, or suffix resampling.
+- $\tilde A^{\text{process}}$ comes from step verification or process reward.
+- $\tilde A^{\text{style}}$ comes from local style rules or a token reward model.
+- $\tilde A^{\text{format}}$ comes from validators and only affects malformed spans.
+- $\tilde k_t$ is per-token KL.
+- $\tilde \ell_t$ captures length and repetition pressure.
 
-Every component is normalized in its own channel before the final weighted sum.
+Normalize reward-derived channels only with a stated convention. Centering a sparse cost can turn zero-cost tokens into positive updates, so KL and length costs should retain their penalty meaning. Redistribution that depends on future tokens is a credit heuristic, not automatically an unbiased estimator of the original terminal-reward objective.
 
 This keeps reward semantics clear:
 
@@ -751,7 +723,7 @@ counterfactual attribution
 The right route depends on the constraint:
 
 - If you need the smallest engineering change, use terminal GRPO reward plus GAE.
-- If you need cheap improvement, use GRPO-\(\lambda\), S-trace, or entropy-aware weighting.
+- If you need cheap improvement, use GRPO-$\lambda$, S-trace, or entropy-aware weighting.
 - If you want to exploit group rollout structure, use prefix trees.
 - If you can train auxiliary models, use reward redistribution or token reward models.
 - If you need high-quality credit labels, use counterfactuals or Shapley-style methods as a teacher.
@@ -779,7 +751,7 @@ That is the natural next step after GRPO: keep the group-relative efficiency, bu
 - [Understanding R1-Zero-Like Training: A Critical Perspective](https://arxiv.org/abs/2503.20783)
 - [What's Behind PPO's Collapse in Long-CoT? Value Optimization Holds the Secret](https://arxiv.org/abs/2503.01491)
 - [VAPO: Efficient and Reliable Reinforcement Learning for Advanced Reasoning Tasks](https://arxiv.org/abs/2504.05118)
-- [GRPO-\(\lambda\): Credit Assignment improves LLM Reasoning](https://arxiv.org/abs/2510.00194)
+- [GRPO-$\lambda$: Credit Assignment improves LLM Reasoning](https://arxiv.org/abs/2510.00194)
 - [KTAE: A Model-Free Algorithm to Key-Tokens Advantage Estimation in Mathematical Reasoning](https://arxiv.org/abs/2505.16826)
 - [Exploiting Tree Structure for Credit Assignment in RL Training of LLMs](https://arxiv.org/abs/2509.18314)
 - [VinePPO: Refining Credit Assignment in RL Training of LLMs](https://proceedings.mlr.press/v267/kazemnejad25a.html)

@@ -1,6 +1,7 @@
 ---
 author: Jing Lu
 pubDatetime: 2026-03-11T00:00:00Z
+modDatetime: 2026-09-06T00:00:00-07:00
 title: "Improving LLM Internationalization: Bridging the Gap in Tool Use and Agency"
 featured: true
 draft: false
@@ -10,18 +11,31 @@ tags:
   - ML Engineering
   - Agents
   - i18n
-description: "LLMs achieve 57% tool-calling accuracy in English but only 34% across 52 languages — and 6.8% for the worst. This post covers the full playbook for closing the multilingual gap: training-time techniques, agentic architecture patterns, failure mode analysis, and RL-based approaches for i18n."
+description: "A practical multilingual agent playbook, updated with task-specific evidence from MASSIVE-Agents, GAIA-v2-LILT, and SEATauBench, with explicit limits on what transfers to current frontier models."
 ---
 
-**The multilingual tool-calling gap is staggering.** The MASSIVE-Agents benchmark (EMNLP 2025) tested 21 models across 52 languages on function calling — the best achieved 57% accuracy in English but only 34% on average, dropping to **6.8% for Amharic**. Some smaller models scored zero on difficult languages. This isn't a niche concern: over 80% of the world's population doesn't speak English natively, and the majority of real-world agentic deployments will need to work across languages and cultures.
+**Multilingual agent performance is uneven, but the gap depends on the model, task, and what has been localized.** In the 2025 [MASSIVE-Agents study](https://aclanthology.org/2025.findings-emnlp.1099/), Nova Premier scored 57.37% English AST accuracy, 34.05% across 52 languages, and 6.81% in Amharic. These are historical static function-call results, not a current frontier-agent success rate.
 
-This post covers the full landscape of improving LLM internationalization — from training-time techniques to inference-time architecture patterns — with a specific focus on **tool use** and **agentic systems**, where the gaps are most severe and most consequential.
+This post gives engineering options for tool use and agentic systems. Treat the architecture and training suggestions as hypotheses to test on your deployment, rather than universal improvements.
+
+## September 2026 update: what later agent research changes
+
+Two papers published after this post sharpen its original argument:
+
+| New evidence                                                 | What it changes                                                                                                                                                                           | What to test                                                                     |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [GAIA-v2-LILT, April 2026](https://arxiv.org/abs/2604.24929) | Re-auditing translated tasks improves agent scores. Some apparent language gaps come from answer alignment, cultural context, and difficulty changes. Residual gaps remain.               | Audit the task and answer key before attributing a failure to the language.      |
+| [SEATauBench, June 2026](https://arxiv.org/abs/2606.28715)   | Localizing the dialogue is a weaker stress test than localizing policies, tools, and the full business context. Agent and simulated-user behavior both contribute to the measured result. | Compare dialogue-only, tool-localized, and fully localized workflows separately. |
+
+The practical change is to evaluate **completed actions and final state**, alongside tool syntax and language fluency. Keep model versions, budgets, tasks, and simulator settings visible. Neither study provides a complete ranking of today's frontier models across every language.
+
+For the detailed language-by-task results and their limitations, see the [30-language visual evidence review](/posts/2026-09-05-multilingual-agent-language-gaps/).
 
 ---
 
-## 1. Why Tool Use Is the Hardest i18n Problem
+## 1. Why Tool Use Adds i18n Failure Points
 
-Standard multilingual benchmarks (translation, QA, summarization) show a 10-20% gap between English and other languages. For **tool use and function calling**, the gap is 2-3× larger. Why?
+Translation, QA, static function calling, and interactive task completion use different metrics. Their gaps cannot be compared with one universal multiplier. Tool use adds several places where a language mismatch can affect the final action.
 
 Agentic tool use requires the model to execute a chain of four capabilities **simultaneously**, each compounding the multilingual difficulty:
 
@@ -32,9 +46,9 @@ Agentic tool use requires the model to execute a chain of four capabilities **si
 | 3. **Parameter Extraction** | Generate structured JSON arguments               | Non-Latin names, locale-specific formats (dates, currencies), token inflation      |
 | 4. **Output Synthesis**     | Interpret results and respond in user's language | Translating tool outputs while preserving technical precision and cultural context |
 
-Each step might work at 85% accuracy individually, but the joint success rate drops multiplicatively: $0.85^4 \approx 52\%$ — and that's the _optimistic_ case for well-resourced languages. For low-resource languages where each step is closer to 70%, you get $0.70^4 \approx 24\%$.
+As an illustrative calculation, four required stages with 85% success each would yield $0.85^4 \approx 52\%$ if the stage successes were independent. At 70%, the product is about 24%. These are hypothetical rates, not language measurements; correlated errors and recovery steps change the result.
 
-**Token inflation** amplifies the challenge. Non-English text often consumes 3-5× more tokens than equivalent English text due to suboptimal tokenization. A complex tool-use prompt with 20 tool definitions that fits comfortably in 8K tokens in English might require 20-30K tokens in Chinese, Japanese, or Korean — hitting context limits and degrading attention over the instruction.
+**Tokenization** can amplify the challenge. Measure tokens for semantically matched requests using the deployed tokenizer. The ratio varies by language, script, content, and tokenizer; there is no universal 3–5× factor. Count localized content separately from tool schemas that remain in English.
 
 ---
 
@@ -44,12 +58,12 @@ Each step might work at 85% accuracy individually, but the joint success rate dr
 
 | Strategy                        | Mechanism                                                                                          | Impact                                                                                        |
 | ------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| **Dynamic Data Sampling**       | Over-sample low-resource languages during pre-training to compensate for web data imbalance        | Reduces performance gap by 15-25%                                                             |
-| **Language-Aware Tokenization** | Design tokenizers sensitive to morphological differences (agglutinative languages, CJK characters) | Prevents token inflation where non-English text uses 3-5× more tokens                         |
+| **Dynamic Data Sampling**       | Over-sample low-resource languages during pre-training to compensate for web data imbalance        | A candidate for reducing underrepresentation; validate per language                           |
+| **Language-Aware Tokenization** | Design tokenizers sensitive to morphological differences (agglutinative languages, CJK characters) | Can improve token efficiency; measure the deployed tokenizer                                  |
 | **Mixture of Experts (MoE)**    | Route different languages to specialized expert sub-networks                                       | Mitigates the "curse of multilinguality" — performance interference between distant languages |
 | **Cross-Lingual Embeddings**    | Learn unified representations across languages in a shared semantic space                          | Enables zero-shot transfer to unseen languages                                                |
 
-The **curse of multilinguality** deserves special attention. When a single dense model is trained on 100+ languages, adding more languages eventually _degrades_ performance on existing ones — the model's capacity gets spread too thin. MoE architectures sidestep this by allocating dedicated parameters per language family while still sharing structural knowledge.
+The **curse of multilinguality** deserves special attention. When a single dense model is trained on 100+ languages, adding more languages eventually _degrades_ performance on existing ones — the model's capacity gets spread too thin. MoE adds conditional capacity, but learned experts need not correspond to language families and do not guarantee the interference disappears.
 
 ### 2.2 Post-Training: Targeted i18n Fine-Tuning
 
@@ -67,33 +81,33 @@ Post-training is where the most actionable improvements happen, because you get 
 
 ### 2.3 Multilingual Tool-Use Data: The State of the Art
 
-Three landmark benchmarks define the cutting edge:
+Three earlier resources are useful starting points; their tasks and model cohorts differ:
 
 #### NAACL 2025: Enhancing Function-Calling Capabilities
 
-Chen et al. showed that a **tailored translation pipeline** for function-calling data significantly improves non-English tool use, with particularly strong results for Traditional Chinese. The key insight: instruction-following data enhances both function-calling accuracy **and** relevance detection — the ability to know when _not_ to call a tool.
+[Chen et al.](https://aclanthology.org/2025.naacl-industry.9/) showed that a **tailored translation pipeline** for function-calling data significantly improves non-English tool use, with particularly strong results for Traditional Chinese. The key insight: instruction-following data enhances both function-calling accuracy **and** relevance detection — the ability to know when _not_ to call a tool.
 
 Simply translating English tool-calling datasets doesn't work well. The translation must preserve the structural relationship between the user query, the function signature, and the expected arguments, which generic machine translation handles poorly.
 
 #### EMNLP 2025: MASSIVE-Agents Benchmark
 
-| Metric       | English  | Average (52 langs) | Worst (Amharic) |
-| ------------ | -------- | ------------------ | --------------- |
-| AST Accuracy | 57.37%   | 34.05%             | 6.81%           |
-| Samples      | 904/lang | 47,020 total       | 904             |
-| Functions    | 55       | 286 arguments      | —               |
+The [paper's Table 2](https://aclanthology.org/2025.findings-emnlp.1099.pdf) reports Nova Premier's zero-shot AST results on the 10k dataset split (9,741 items total, including 190 English and 191 Amharic items):
 
-The benchmark adapted the MASSIVE NLU dataset into function-calling format compatible with the Berkeley Function-Calling Leaderboard (BFCL). The finding that performance varies from 57% to 6.8% across languages demonstrates that multilingual function calling is a **largely unsolved problem** — not just a "needs improvement" area.
+| Model and setting            | English | Average, 52 languages | Amharic |
+| ---------------------------- | ------: | --------------------: | ------: |
+| Nova Premier, zero-shot, 10k |  57.37% |                34.05% |   6.81% |
 
-#### arXiv Jan 2026: International Tool Calling (ITC) Dataset
+The full converted benchmark has 47,020 samples, averaging about 904 per language; it does not contain exactly 904 samples in every language. It covers 55 functions and 286 arguments. AST matching tests function and argument structure rather than multi-turn execution or final business outcomes. These observations justify targeted testing, not a timeless ranking of language difficulty.
 
-The ITC dataset introduces **region-specific APIs** — not just translated English APIs, but tools that actually exist in specific countries (e.g., local payment processors, regional weather services, domestic e-commerce platforms):
+#### International Tool Calling (ITC) Dataset
+
+The [ITC dataset](https://arxiv.org/abs/2603.05515) introduces **region-specific APIs** — not just translated English APIs, but tools that actually exist in specific countries (e.g., local payment processors, regional weather services, domestic e-commerce platforms):
 
 - **Scale:** 3,571 real APIs, 17,540 tasks, 20 categories, 40 countries
 - **Split:** 15,790 training tasks, 1,750 test tasks (partitioned at API level to test generalization)
 - **Key finding:** Fine-tuning on ITC dramatically improves non-English tool calling via better reasoning consistency and cross-lingual generalization
 
-This is the most practically relevant dataset because real-world agentic systems need to call _local_ tools — not just English tools with translated interfaces.
+This adds a useful regional-tools dimension because real-world agentic systems need to call _local_ tools — not just English tools with translated interfaces.
 
 ---
 
@@ -103,7 +117,7 @@ When you can't (or don't want to) retrain the model, these architecture patterns
 
 ### 3.1 The Translation Sandwich
 
-The most widely deployed pattern today:
+A common architecture to evaluate:
 
 ```
 User (Chinese) → Translate to English → LLM Reasoning + Tool Calls
@@ -112,13 +126,13 @@ User (Chinese) → Translate to English → LLM Reasoning + Tool Calls
 
 **Pros:** Leverages the model's strongest (English) capabilities without retraining. Quick to implement. Works with any model.
 
-**Cons:** Added latency (~200-500ms per translation step), translation errors compound through the pipeline, loses cultural nuance, and doubles API costs. Most critically, the model never _thinks_ in the user's language — it processes a potentially lossy English approximation of the user's intent.
+**Cons:** Extra calls add deployment-dependent latency and cost. Translation may change entities, amounts, or domain meaning. Preserve exact identifiers and evaluate direct-language execution against the translated route; do not assume English pivoting always helps.
 
 **When to use:** As a pragmatic first step for languages where you have no training data. Not a long-term solution for high-quality user experiences.
 
 ### 3.2 Multilingual Tool Descriptions
 
-Bloomberg (ACL 2025) found that jointly optimizing agent instructions and tool descriptions reduces unnecessary tool calls by **70%** while maintaining pass rates. For i18n, this translates to specific patterns:
+Optimizing instructions and descriptions is a useful engineering lever, but an English tool-efficiency result does not establish the multilingual benefit. Test localized examples against the same retrieval and execution baseline:
 
 **Localized triggers** — Include `when_to_use` examples in target languages:
 
@@ -146,7 +160,7 @@ Bloomberg (ACL 2025) found that jointly optimizing agent instructions and tool d
 }
 ```
 
-This is high-leverage because it directly improves the retrieval matching step for non-English queries without any model retraining.
+This targets cross-language retrieval without retraining. Measure whether it actually improves selection and final task success; longer descriptions can also introduce noise.
 
 ### 3.3 MCP for i18n
 
@@ -188,13 +202,13 @@ Uses the World Value Survey as seed data, then applies semantic data augmentatio
 
 ## 4. Failure Modes in Multilingual Tool Use
 
-Understanding exactly _how_ tool use breaks in non-English contexts is essential for building robust systems. Here are the seven most common failure modes, documented from production systems and research:
+Understanding exactly _how_ tool use breaks in non-English contexts is essential for building robust systems. The following seven categories are a diagnostic checklist, not a measured ranking of production failure frequency:
 
 ### 4.1 Non-Latin Data Misinterpretation (Critical)
 
-LLMs misinterpret CJK, Korean, or Arabic data returned by tool calls, even when tool descriptions are in English. The same data works correctly when included directly in the prompt or when displayed in English.
+Test whether a model preserves CJK or Arabic names, numerals, and identifiers in tool results. Compare matched content in user messages and tool messages before attributing errors to the message role.
 
-**Root cause:** The model's attention mechanism treats tool output differently from prompt content, and its robustness to non-Latin scripts is lower in the "tool result processing" mode.
+**Possible causes to distinguish:** unfamiliar entities, encoding or normalization changes, prompt-role effects, and task ambiguity. The evidence here does not isolate an attention-mechanism cause.
 
 **Mitigation:** Post-process tool outputs to include both original and transliterated versions for critical data fields.
 
@@ -224,7 +238,7 @@ The difficulty of generating valid structured output (JSON, XML) compounds in no
 
 ### 4.6 Token Inflation (Medium)
 
-Non-English text consumes 3-5× more tokens for the same semantic content. In a tool-use context with 20+ tool definitions, this means non-English conversations hit context limits much faster, losing critical instruction context.
+Some localized text consumes more tokens than equivalent English; the ratio is tokenizer- and content-dependent. Log actual token counts and truncation events before treating context loss as the cause of a failure.
 
 **Mitigation:** Language-aware context windowing, aggressive tool definition pruning for non-English sessions, or on-demand tool discovery (Anthropic's Tool Search Tool pattern).
 
@@ -275,7 +289,7 @@ def multilingual_tool_use_reward(
             0.2 * rewards["cultural_score"])
 ```
 
-The beauty of this reward function is that 80% of it (JSON validity, API success, language detection) requires **no human annotation** — it's fully automated and can scale to any language.
+This is illustrative pseudocode with arbitrary weights, not a validated reward design. Run tools in a controlled evaluation environment. A successful API response can still represent the wrong action; verify the final state against an oracle. Language detection and cultural judging are fallible proxies that need per-language validation.
 
 ### 5.2 Credit Assignment in Multilingual Pipelines
 
@@ -295,7 +309,7 @@ The reward model itself needs to be multilingual — or at least not monolingual
 | **Cross-lingual reward transfer** | Efficient, uses semantic similarity to transfer reward signals                 | Lower accuracy for distant languages |
 | **Multi-objective rewards**       | Balances language quality, cultural fit, and tool-use correctness (RLMR-style) | Complex hyperparameter tuning        |
 
-**GRPO** (Group Relative Policy Optimization) is particularly useful here because you can form groups _per language_ — comparing French outputs against other French outputs rather than against English outputs. This prevents the optimizer from converging on "generate English-like responses in French" as a reward-maximizing strategy.
+**GRPO** (Group Relative Policy Optimization) is particularly useful here because you can form groups _per language_ — comparing French outputs against other French outputs rather than against English outputs. This reduces cross-language comparisons inside a group, but cannot remove bias in the reward function or guarantee culturally appropriate outputs.
 
 ---
 
@@ -305,7 +319,7 @@ If you're building a multilingual agentic system, here's the priority order:
 
 ### Phase 1: Quick Wins (Days)
 
-1. **Add multilingual examples to tool descriptions** — Include `example_queries` in your top 5 target languages. This improves retrieval matching immediately with zero retraining.
+1. **Add multilingual examples to tool descriptions** — Include `example_queries` in your top 5 target languages. Evaluate retrieval and execution gains before rollout.
 2. **Implement language detection on outputs** — Catch language-switching/mixing before responses reach users.
 3. **Region-specific API routing** — Use the user's locale to select culturally appropriate endpoints (local weather services, payment providers, search engines).
 
@@ -317,9 +331,9 @@ If you're building a multilingual agentic system, here's the priority order:
 
 ### Phase 3: Training (Months)
 
-7. **Fine-tune on ITC or MASSIVE-Agents data** — These benchmarks provide the most realistic multilingual tool-use data available today.
-8. **Multilingual RLHF** — Collect preference data from native speakers in target languages. Even 1,000 preference pairs per language significantly improves cultural alignment.
-9. **Language-specific LoRA adapters** — Train lightweight adapters for each target language family, sharing the base model. This avoids the curse of multilinguality while keeping inference costs manageable.
+7. **Fine-tune on ITC or MASSIVE-Agents data** — Keep training and evaluation splits separate, and supplement static calls with interactive tasks.
+8. **Multilingual RLHF** — Collect preference data from native speakers in target languages. Choose the sample size from observed error coverage and learning curves; there is no universal 1,000-pair guarantee.
+9. **Language-specific LoRA adapters** — Train lightweight adapters for each target language family, sharing the base model. Check cross-language regressions and adapter-routing cost; this does not automatically remove interference.
 
 ---
 
@@ -338,20 +352,20 @@ If you're building a multilingual agentic system, here's the priority order:
 
 ## 8. Key References
 
-| Paper / Resource                                              | Venue            | Year | Focus                                                    |
-| ------------------------------------------------------------- | ---------------- | ---- | -------------------------------------------------------- |
-| Enhancing Function-Calling Capabilities in LLMs (Chen et al.) | NAACL            | 2025 | Multilingual function calling + translation pipeline     |
-| MASSIVE-Agents (Kulkarni et al.)                              | EMNLP            | 2025 | 52-language function calling benchmark                   |
-| International Tool Calling Dataset (Zhang & Zhu)              | arXiv / ICLR sub | 2026 | 3,571 real APIs across 40 countries                      |
-| Bloomberg Context Optimization                                | ACL              | 2025 | Joint optimization of agent + tool descriptions          |
-| CultureLLM                                                    | NeurIPS          | 2025 | Culture-specific LLM fine-tuning from World Value Survey |
-| Multi-Agent Debate for Cultural Alignment                     | ACL              | 2025 | Collaborative cultural decision-making via debate        |
-| CLCA (Cultural Learning-Based Adaptation)                     | arXiv            | 2025 | Role-play-based cultural norm capture                    |
-| Cross-Lingual Optimization (CLO)                              | various          | 2025 | Efficient English→Target language transfer               |
-| TransLLM Framework                                            | various          | 2025 | Translation CoT + LoRA + knowledge distillation          |
-| iStar                                                         | arXiv            | 2025 | Implicit step rewards for agentic credit assignment      |
-| MA-RLHF (Macro Actions)                                       | arXiv            | 2024 | Macro actions for long-horizon RL reward shaping         |
+| Paper / Resource                                                                                                 | Venue            | Year | Focus                                                    |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------- | ---- | -------------------------------------------------------- |
+| [Enhancing Function-Calling Capabilities in LLMs (Chen et al.)](https://aclanthology.org/2025.naacl-industry.9/) | NAACL            | 2025 | Multilingual function calling + translation pipeline     |
+| [MASSIVE-Agents (Kulkarni et al.)](https://aclanthology.org/2025.findings-emnlp.1099/)                           | EMNLP            | 2025 | 52-language function calling benchmark                   |
+| [International Tool Calling Dataset (Zhang & Zhu)](https://arxiv.org/abs/2603.05515)                             | arXiv / ICLR sub | 2026 | 3,571 real APIs across 40 countries                      |
+| Bloomberg Context Optimization                                                                                   | ACL              | 2025 | Joint optimization of agent + tool descriptions          |
+| CultureLLM                                                                                                       | NeurIPS          | 2025 | Culture-specific LLM fine-tuning from World Value Survey |
+| Multi-Agent Debate for Cultural Alignment                                                                        | ACL              | 2025 | Collaborative cultural decision-making via debate        |
+| CLCA (Cultural Learning-Based Adaptation)                                                                        | arXiv            | 2025 | Role-play-based cultural norm capture                    |
+| Cross-Lingual Optimization (CLO)                                                                                 | various          | 2025 | Efficient English→Target language transfer               |
+| TransLLM Framework                                                                                               | various          | 2025 | Translation CoT + LoRA + knowledge distillation          |
+| iStar                                                                                                            | arXiv            | 2025 | Implicit step rewards for agentic credit assignment      |
+| MA-RLHF (Macro Actions)                                                                                          | arXiv            | 2024 | Macro actions for long-horizon RL reward shaping         |
 
 ---
 
-_The multilingual tool-use gap is not just a technical problem — it's an access problem. Every percentage point of improvement in non-English function calling accuracy translates directly into making AI agents usable for billions of additional people. The techniques exist; the challenge is systematic application._
+_Treat language as a deployment condition: measure the full workflow, inspect failures, and retain interventions only when they improve the outcome that matters._

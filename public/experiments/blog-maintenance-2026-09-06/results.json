@@ -1,0 +1,62 @@
+{
+  "scope": "Synthetic linear algebra and estimator identity checks; no trained LLM or task benchmark",
+  "seeds": [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+    21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+    40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
+    59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77,
+    78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96,
+    97, 98, 99
+  ],
+  "matrix_shape": [16, 16],
+  "lora_rank": 4,
+  "precision": "Python float (64-bit)",
+  "lora": [
+    {
+      "scale": 1,
+      "seeds": 100,
+      "factor_relative_error_median": 0.0,
+      "delta_relative_error_max": 0.0,
+      "analytic_relative_error": 0.0
+    },
+    {
+      "scale": 2,
+      "seeds": 100,
+      "factor_relative_error_median": 0.125,
+      "delta_relative_error_max": 0.0,
+      "analytic_relative_error": 0.125
+    },
+    {
+      "scale": 4,
+      "seeds": 100,
+      "factor_relative_error_median": 0.5625,
+      "delta_relative_error_max": 0.0,
+      "analytic_relative_error": 0.5625
+    },
+    {
+      "scale": 8,
+      "seeds": 100,
+      "factor_relative_error_median": 1.53125,
+      "delta_relative_error_max": 0.0,
+      "analytic_relative_error": 1.53125
+    },
+    {
+      "scale": 16,
+      "seeds": 100,
+      "factor_relative_error_median": 3.515625,
+      "delta_relative_error_max": 0.0,
+      "analytic_relative_error": 3.515625
+    },
+    {
+      "scale": -1,
+      "seeds": 100,
+      "factor_relative_error_median": 1.0,
+      "delta_relative_error_max": 0.0,
+      "analytic_relative_error": 1.0
+    }
+  ],
+  "gae_cases": 400,
+  "gae_max_absolute_error": 8.881784197001252e-16,
+  "projection_cases": 400,
+  "projection_max_absolute_error": 5.329070518200751e-15
+}

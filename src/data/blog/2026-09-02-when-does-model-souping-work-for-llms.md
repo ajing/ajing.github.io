@@ -1,6 +1,7 @@
 ---
 author: Jing Lu
 pubDatetime: 2026-09-02T09:00:00-07:00
+modDatetime: 2026-09-06T00:00:00-07:00
 title: "When Does Model Souping Work for LLMs?"
 featured: true
 draft: false
@@ -365,6 +366,30 @@ its language and vision evaluations.
 LoRA composition becomes much harder when adapters change prompt format,
 style, refusal behavior, and domain capability simultaneously. At that point,
 a router may be better than another static coefficient search.
+
+### A reproducible check: identical LoRA updates, broken factor averages
+
+**Added September 6, 2026.** The factorization warning above has an exact counterexample. Start with an update $\Delta W = BA$ and construct a second adapter using $B_2=cB$ and $A_2=A/c$. For every nonzero $c$, both adapters implement exactly the same update. There is no task conflict to explain away.
+
+Averaging the materialized updates preserves $BA$. Averaging the factors separately gives:
+
+$$
+\bar B\bar A
+= \frac{B+cB}{2}\frac{A+A/c}{2}
+= \frac{2+c+c^{-1}}{4}BA.
+$$
+
+The extra multiplier can amplify or erase the update. With $c=-1$, both averaged factors become zero: two functionally identical adapters cancel completely.
+
+![Factor averaging distorts identical LoRA updates: 12.5 percent relative error at scale 2, 56.25 at 4, 153.12 at 8, 351.56 at 16, and 100 percent for a sign flip. Materialized-delta averaging preserves the update.](/experiments/blog-maintenance-2026-09-06/lora-factor-error.svg)
+
+[Open the figure at full size](/experiments/blog-maintenance-2026-09-06/lora-factor-error.svg).
+
+The experiment runs 100 fixed random seeds for each of six reparameterizations, using $16\times16$ updates of rank 4 in double precision. The metric is relative Frobenius error against the shared source update, $\|\Delta W_{\text{merged}}-BA\|_F/\|BA\|_F$. Measured errors agree with the analytic multiplier within $10^{-12}$; materialized-delta averaging has zero measured error in these cases.
+
+**Scope:** this is a synthetic implementation check, not a trained-LLM evaluation or evidence of downstream accuracy gains. The 100 seeds verify the algebra across matrices; they are not 100 independent model-training runs. The check isolates factor-coordinate ambiguity. It does not show that dense delta averaging resolves task conflict, or that every library's LoRA merge mode uses this naive rule. Include each adapter's LoRA scaling in its effective update before merging.
+
+[Download the runnable Python script](/experiments/blog-maintenance-2026-09-06/numerical_checks.py) · [Inspect all numeric results](/experiments/blog-maintenance-2026-09-06/results.json). Run `python3 numerical_checks.py`; it uses only the standard library and regenerates the figure and results.
 
 ### SLERP, layer-wise merging, and evolutionary search
 
