@@ -14,6 +14,13 @@ export default [
     },
   },
   { rules: { "no-console": "error" } },
-  { files: ["scripts/**/*.js"], rules: { "no-console": "off" } },
-  { ignores: ["dist/**", ".astro", "public/pagefind/**"] },
+  { files: ["scripts/**/*.{js,mjs}"], rules: { "no-console": "off" } },
+  {
+    ignores: [
+      "dist/**",
+      ".astro",
+      "public/pagefind/**",
+      "public/reports/multilingual-agent-language-gaps/native-reader.js",
+    ],
+  },
 ];

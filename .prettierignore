@@ -3,3 +3,4 @@ pnpm-lock.yaml
 
 # Preserve the validated portable report and its embedded canonical payload.
 public/reports/multilingual-agent-language-gaps/
+src/generated/agent-report/

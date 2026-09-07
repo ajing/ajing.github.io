@@ -1,0 +1,151 @@
+---
+import fallback from "@/generated/agent-report/fallback.html?raw";
+---
+
+<link
+  rel="stylesheet"
+  href="/reports/multilingual-agent-language-gaps/native-reader.css"
+/>
+<div id="integrated-agent-report">
+  <div data-native-report-fallback set:html={fallback} />
+  <div data-native-report-root hidden></div>
+</div>
+
+<script>
+  let dispose: (() => void) | undefined;
+  let generation = 0;
+
+  async function initializeReport() {
+    dispose?.();
+    dispose = undefined;
+    const current = ++generation;
+    const host = document.getElementById("integrated-agent-report");
+    if (!host) return;
+    const root = host.querySelector<HTMLElement>("[data-native-report-root]")!;
+    const fallback = host.querySelector<HTMLElement>(
+      "[data-native-report-fallback]",
+    )!;
+    const syncTheme = () => {
+      const theme = document.documentElement.getAttribute("data-theme");
+      if (theme) host.setAttribute("data-theme", theme);
+      else host.removeAttribute("data-theme");
+    };
+    syncTheme();
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    let unmount: (() => void) | undefined;
+    dispose = () => {
+      observer.disconnect();
+      unmount?.();
+    };
+    try {
+      const base = "/reports/multilingual-agent-language-gaps/";
+      const [module, response] = await Promise.all([
+        import(/* @vite-ignore */ `${base}native-reader.js`),
+        fetch(`${base}artifact.json`),
+      ]);
+      if (!response.ok) throw new Error("Report snapshot unavailable");
+      const artifact = await response.json();
+      if (current !== generation || !host.isConnected) return;
+      // The blog owns the title; all remaining narrative and evidence blocks stay in order.
+      artifact.manifest.blocks = artifact.manifest.blocks.filter(
+        (block: { id: string }) => block.id !== "text-0",
+      );
+      root.hidden = false;
+      root.style.visibility = "hidden";
+      root.style.position = "absolute";
+      unmount = module.mountArtifact(root, artifact, () => {
+        fallback.hidden = true;
+        root.style.visibility = "";
+        root.style.position = "";
+        host.dataset.ready = "true";
+      });
+    } catch {
+      root.hidden = true;
+      host.dataset.ready = "fallback";
+    }
+  }
+  document.addEventListener("astro:page-load", initializeReport);
+  document.addEventListener("astro:before-swap", () => {
+    ++generation;
+    dispose?.();
+    dispose = undefined;
+  });
+</script>
+
+<style is:global>
+  #integrated-agent-report#integrated-agent-report {
+    --ds-report-content-max-width: 100%;
+    --ds-report-content-half-width: 384px;
+    --ds-gutter: 0px;
+    width: 100%;
+    min-height: 0;
+    background: transparent;
+  }
+  #integrated-agent-report#integrated-agent-report [hidden] {
+    display: none !important;
+  }
+  #integrated-agent-report#integrated-agent-report .analytics-top-bar {
+    display: none;
+  }
+  #integrated-agent-report#integrated-agent-report
+    .report-stack-item-markdown
+    .viz-card-actions {
+    display: none;
+  }
+  #integrated-agent-report#integrated-agent-report
+    .dashboard-shell.report-shell {
+    width: 100%;
+    max-width: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    --report-table-content-inset: 0px;
+  }
+  #integrated-agent-report#integrated-agent-report .report-block-stack {
+    margin-top: 0;
+    padding: 0;
+  }
+  #integrated-agent-report#integrated-agent-report
+    .report-markdown-editor.markdown-render {
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+  #integrated-agent-report#integrated-agent-report
+    .report-markdown-editor.markdown-render
+    p,
+  #integrated-agent-report#integrated-agent-report
+    .report-markdown-editor.markdown-render
+    li {
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+  #integrated-agent-report#integrated-agent-report .portable-block-stack {
+    margin-top: 0;
+  }
+  #integrated-agent-report#integrated-agent-report .chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 100%;
+    gap: 8px 16px;
+  }
+  #integrated-agent-report#integrated-agent-report .chart-legend-button {
+    white-space: normal;
+    text-align: left;
+  }
+  #integrated-agent-report#integrated-agent-report
+    .report-stack-item-table
+    .table-wrap {
+    width: 100%;
+    margin-inline: 0;
+  }
+  #integrated-agent-report#integrated-agent-report
+    .report-stack-item-table
+    .table-scroll-content {
+    padding-inline: 0;
+  }
+</style>

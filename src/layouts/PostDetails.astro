@@ -11,6 +11,7 @@ import BackButton from "@/components/BackButton.astro";
 import BackToTopButton from "@/components/BackToTopButton.astro";
 import Comments from "@/components/Comments.astro";
 import RelatedPosts from "@/components/RelatedPosts.astro";
+import IntegratedAgentReport from "@/components/IntegratedAgentReport.astro";
 import { getPath } from "@/utils/getPath";
 import { slugifyStr } from "@/utils/slugify";
 import { getReadingTime } from "@/utils/getReadingTime";
@@ -148,9 +149,15 @@ const nextPost =
     </div>
     <article
       id="article"
-      class="app-prose max-w-app prose-pre:bg-(--shiki-light-bg) dark:prose-pre:bg-(--shiki-dark-bg) mx-auto mt-8"
+      class:list={[
+        "max-w-app mx-auto mt-8",
+        {
+          "app-prose prose-pre:bg-(--shiki-light-bg) dark:prose-pre:bg-(--shiki-dark-bg)":
+            !post.data.visualReport,
+        },
+      ]}
     >
-      <Content />
+      {post.data.visualReport ? <IntegratedAgentReport /> : <Content />}
     </article>
 
     <hr class="my-8 border-dashed" />

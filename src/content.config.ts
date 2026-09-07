@@ -19,6 +19,7 @@ const blog = defineCollection({
       description: z.string(),
       canonicalURL: z.string().optional(),
       hideEditPost: z.boolean().optional(),
+      visualReport: z.literal("multilingual-agent-language-gaps").optional(),
       timezone: z.string().optional(),
     }),
 });
