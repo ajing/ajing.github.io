@@ -14,7 +14,7 @@ tags:
 description: "A $10B AI data vendor was breached, exposing 84 Airtable workspaces of training data for OpenAI, Anthropic, Apple, Amazon, and Meta. This post analyzes what the public reporting reveals about each lab's evaluation methodology — rubric design, RLHF pipelines, and quality control — and what it means for the industry."
 ---
 
-> In March 2026, Mercor — a $10 billion AI recruiting and data-labeling startup — was breached via a supply-chain attack. The hacking group Lapsus$ claimed 4TB of stolen data, including 84 Airtable workspaces containing the actual training data, evaluation rubrics, and preference annotations produced for OpenAI, Anthropic, Apple, Amazon, Meta, and Google DeepMind.
+> In March 2026, Mercor — a \$10 billion AI recruiting and data-labeling startup — was breached via a supply-chain attack. The hacking group Lapsus\$ claimed 4TB of stolen data, including 84 Airtable workspaces containing the actual training data, evaluation rubrics, and preference annotations produced for OpenAI, Anthropic, Apple, Amazon, Meta, and Google DeepMind.
 >
 > This post is not about the breach itself. It's about what the publicly reported analysis of the stolen data reveals about **how frontier AI labs actually build their post-training pipelines** — the rubric design patterns, evaluation methodologies, and quality control architectures that are normally invisible.
 >
@@ -28,7 +28,7 @@ description: "A $10B AI data vendor was breached, exposing 84 Airtable workspace
 
 Most AI security discussions focus on model weights — can someone steal your checkpoint? But the Mercor breach exposed something arguably more valuable: the **methodology**.
 
-Mercor sits at the center of the AI data supply chain. It recruits domain experts (doctors, lawyers, engineers, Math Olympiad winners) at ~$95/hour to produce:
+Mercor sits at the center of the AI data supply chain. It recruits domain experts (doctors, lawyers, engineers, Math Olympiad winners) at ~\$95/hour to produce:
 
 - **SFT data**: expert-written prompt-response pairs
 - **RLHF preference data**: human judgments comparing model outputs
@@ -303,9 +303,9 @@ Both labs' data strategies converge on several themes:
 | **Agentic capabilities**      | "Agentic Code Final QC Audit"; o3 multi-tool reasoning    | Agent Teams; computer use; Terminal-Bench gains            |
 | **Self-improving evaluation** | GPT-5 as autograder; closed-loop data flywheel            | Scalable oversight research; automated behavioral audits   |
 | **Adversarial robustness**    | SWE-bench contamination detection → SWE-bench Pro         | Sabotage detection; evaluation awareness testing           |
-| **Domain expert data**        | Math Olympiad winners; coding experts at $95/hr           | Constitutional AI annotators; red-team specialists         |
+| **Domain expert data**        | Math Olympiad winners; coding experts at \$95/hr          | Constitutional AI annotators; red-team specialists         |
 
-The common thread: **the easy data is exhausted**. Both labs are moving beyond generic internet text and crowdsourced preferences toward expert-produced data in domains where quality matters enormously and is hard to fake — mathematical reasoning, agentic code execution, safety-critical evaluation, and multi-step planning. Major AI labs each spend approximately **$1 billion annually** on human-generated training data [[24]](https://www.pin.com/blog/ai-labs-hiring-train-models), with specialist compensation ranging from $15/hr for entry-level annotators to $500+/hr for domain experts. The Mercor relationship was valuable precisely because Mercor could supply specialists (doctors, lawyers, competitive programmers) who could produce data at the frontier of model capabilities.
+The common thread: **the easy data is exhausted**. Both labs are moving beyond generic internet text and crowdsourced preferences toward expert-produced data in domains where quality matters enormously and is hard to fake — mathematical reasoning, agentic code execution, safety-critical evaluation, and multi-step planning. Major AI labs each spend approximately **\$1 billion annually** on human-generated training data [[24]](https://www.pin.com/blog/ai-labs-hiring-train-models), with specialist compensation ranging from \$15/hr for entry-level annotators to \$500+/hr for domain experts. The Mercor relationship was valuable precisely because Mercor could supply specialists (doctors, lawyers, competitive programmers) who could produce data at the frontier of model capabilities.
 
 ---
 
@@ -415,7 +415,7 @@ The Mercor breach is a reminder that in AI, the training pipeline is at least as
 ### Breach Analysis and Reporting
 
 1. [Anatomy of Mercor's Data Breach](https://share.jotbird.com/restless-steady-riverbend) — Technical analysis of leaked database schema and Airtable workspaces (primary source for lab-specific methodology details)
-2. [The CyberSec Guru: Inside the 4TB Lapsus$ Leak](https://thecybersecguru.com/news/mercor-ai-data-breach-lapsus-leak-analysis/) — Attack chain analysis (Trivy → LiteLLM → Mercor)
+2. [The CyberSec Guru: Inside the 4TB Lapsus\$ Leak](https://thecybersecguru.com/news/mercor-ai-data-breach-lapsus-leak-analysis/) — Attack chain analysis (Trivy → LiteLLM → Mercor)
 3. [Fortune: Mercor confirms major cybersecurity breach](http://www.fortune.com/2026/04/02/mercor-ai-startup-security-incident-10-billion/)
 4. [TNW: Meta freezes AI data work after breach](https://thenextweb.com/news/meta-mercor-breach-ai-training-secrets-risk) — Training methodology exposure analysis, Meta pause, industry impact
 5. [gentic.news: Expert Human Annotation Pipeline Exposed](https://gentic.news/article/mercor-data-breach-exposes-expert) — Impact on Constitutional AI and RLHF
@@ -449,5 +449,5 @@ The Mercor breach is a reminder that in AI, the training pipeline is at least as
 
 ### Industry Context
 
-24. [How AI Labs Are Hiring People to Train Models](https://www.pin.com/blog/ai-labs-hiring-train-models) — $1B+ annual spend per lab on human data; $15/hr–$500+/hr annotator range
+24. [How AI Labs Are Hiring People to Train Models](https://www.pin.com/blog/ai-labs-hiring-train-models) — \$1B+ annual spend per lab on human data; \$15/hr–\$500+/hr annotator range
 25. [The Changing Landscape of AI Data Labeling Hiring (2026)](https://www.herohunt.ai/blog/the-changing-landscape-of-ai-data-labeling-hiring-2026) — Shift from crowdsourced to domain-expert annotation
